@@ -15,8 +15,11 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
+// Use a configured (or defaulted) server version so startup doesn't require
+// a live DB connection just to resolve the provider version.
+var mySqlVersion = builder.Configuration["MySqlVersion"] ?? "8.0.33-mysql";
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+    options.UseMySql(connectionString, ServerVersion.Parse(mySqlVersion)));
 
 // Register ApplicationDbContext as the module interfaces
 builder.Services.AddScoped<IApplicationDbContextForCM>(sp => sp.GetRequiredService<ApplicationDbContext>());

@@ -83,7 +83,7 @@
             <div class="d-flex gap-2">
                 <form asp-controller="Approvals" asp-action="Approve" method="post" class="d-inline">
                     <input type="hidden" name="stepId" value="@myPendingStep.Id" />
-                    <input type="hidden" name="returnCrId" value="@Model.Id" />
+                    <input type="hidden" name="changeRequestId" value="@Model.Id" />
                     <input name="comment" class="form-control form-control-sm d-inline-block" style="width:200px;"
                            placeholder="Optional comment…" />
                     <button type="submit" class="btn btn-sm btn-success ms-1">
@@ -92,7 +92,7 @@
                 </form>
                 <form asp-controller="Approvals" asp-action="Reject" method="post" class="d-inline">
                     <input type="hidden" name="stepId" value="@myPendingStep.Id" />
-                    <input type="hidden" name="returnCrId" value="@Model.Id" />
+                    <input type="hidden" name="changeRequestId" value="@Model.Id" />
                     <input name="comment" class="form-control form-control-sm d-inline-block" style="width:200px;"
                            placeholder="Reason for rejection…" required />
                     <button type="submit" class="btn btn-sm btn-danger ms-1">
