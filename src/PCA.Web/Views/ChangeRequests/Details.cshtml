@@ -61,11 +61,9 @@
         }
         @if (User.IsInRole("Admin") && Model.Status == ChangeStatus.Implemented)
         {
-            <form asp-action="Close" asp-route-id="@Model.Id" method="post" class="d-inline">
-                <button type="submit" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-archive me-1"></i> Close
-                </button>
-            </form>
+            <a asp-action="Pir" asp-route-id="@Model.Id" class="btn btn-primary btn-sm">
+                <i class="bi bi-clipboard2-check me-1"></i> Post-Implementation Review
+            </a>
         }
         <a asp-action="Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i> Back</a>
     </div>
@@ -150,6 +148,62 @@
                 </table>
             </div>
         </div>
+
+        <!-- Section D: Post-Implementation Review -->
+        @if (Model.Status == ChangeStatus.Closed && Model.PirOutcome.HasValue)
+        {
+            var outcomeStyle = Model.PirOutcome switch {
+                ImplementationOutcome.Successful          => "background:#f0fdf4;color:#15803d;border-color:#86efac;",
+                ImplementationOutcome.PartiallySuccessful => "background:#fef9c3;color:#854d0e;border-color:#fde047;",
+                ImplementationOutcome.Failed              => "background:#fef2f2;color:#b91c1c;border-color:#fca5a5;",
+                ImplementationOutcome.RolledBack          => "background:#fff7ed;color:#c2410c;border-color:#fdba74;",
+                _ => ""
+            };
+            var outcomeIcon = Model.PirOutcome switch {
+                ImplementationOutcome.Successful          => "bi-check-circle-fill",
+                ImplementationOutcome.PartiallySuccessful => "bi-exclamation-circle-fill",
+                ImplementationOutcome.Failed              => "bi-x-circle-fill",
+                ImplementationOutcome.RolledBack          => "bi-arrow-counterclockwise",
+                _ => "bi-circle"
+            };
+            <div class="form-section">
+                <div class="form-section-header">
+                    <i class="bi bi-clipboard2-check"></i> D. Post-Implementation Review (PIR)
+                    <span class="ms-auto status-badge" style="@outcomeStyle border:1px solid;font-size:12px;">
+                        <i class="bi @outcomeIcon me-1"></i>@Model.PirOutcome?.ToString().Replace("Partially", "Partially ")
+                    </span>
+                </div>
+                <div class="form-section-body">
+                    <table class="detail-table">
+                        <tr><td>Outcome</td><td><span class="status-badge" style="@outcomeStyle border:1px solid;"><i class="bi @outcomeIcon me-1"></i>@Model.PirOutcome?.ToString().Replace("Partially", "Partially ")</span></td></tr>
+                        <tr><td>Actual Implementation Date</td><td>@(Model.PirActualDate?.ToString("dd MMM yyyy") ?? "—")</td></tr>
+                        <tr><td>Rollback Executed</td><td>@(Model.PirRollbackExecuted == true ? "Yes" : "No")</td></tr>
+                        <tr><td>Issues Encountered</td><td style="white-space:pre-wrap;">@(string.IsNullOrEmpty(Model.PirIssuesEncountered) ? "None reported" : Model.PirIssuesEncountered)</td></tr>
+                        <tr><td>Lessons Learned</td><td style="white-space:pre-wrap;">@(string.IsNullOrEmpty(Model.PirLessonsLearned) ? "—" : Model.PirLessonsLearned)</td></tr>
+                        <tr><td>Closure Notes</td><td style="white-space:pre-wrap;">@(string.IsNullOrEmpty(Model.PirClosureNotes) ? "—" : Model.PirClosureNotes)</td></tr>
+                        <tr><td>Completed By</td><td>@(Model.PirCompletedBy?.FullName ?? Model.PirCompletedBy?.UserName ?? "—")</td></tr>
+                    </table>
+                </div>
+            </div>
+        }
+        else if (Model.Status == ChangeStatus.Implemented)
+        {
+            <div class="form-section" style="border-color:color-mix(in srgb,var(--color-primary) 30%,transparent);">
+                <div class="form-section-body d-flex align-items-center gap-3 py-3">
+                    <i class="bi bi-clipboard2-check fs-4" style="color:var(--color-primary);"></i>
+                    <div>
+                        <div class="fw-semibold" style="font-size:13.5px;">Post-Implementation Review Required</div>
+                        <div class="text-muted small">Complete the PIR to formally close this change request.</div>
+                    </div>
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <a asp-action="Pir" asp-route-id="@Model.Id" class="btn btn-primary btn-sm ms-auto">
+                            <i class="bi bi-pencil-square me-1"></i> Complete PIR
+                        </a>
+                    }
+                </div>
+            </div>
+        }
 
         <!-- Comments -->
         <div class="form-section">

@@ -91,3 +91,28 @@ public class ChangeRequestEditViewModel
     [MaxLength(4000), Display(Name = "Implementation Notes")]
     public string? ImplementationNotes { get; set; }
 }
+
+public class PirViewModel
+{
+    public int ChangeRequestId { get; set; }
+    public string SerialNumber { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+
+    [Required, Display(Name = "Implementation Outcome")]
+    public ImplementationOutcome Outcome { get; set; }
+
+    [Display(Name = "Actual Implementation Date")]
+    public DateTime? ActualDate { get; set; }
+
+    [Display(Name = "Was Rollback Executed?")]
+    public bool RollbackExecuted { get; set; }
+
+    [Display(Name = "Issues Encountered")]
+    public string? IssuesEncountered { get; set; }
+
+    [Display(Name = "Lessons Learned")]
+    public string? LessonsLearned { get; set; }
+
+    [Display(Name = "Closure Notes")]
+    public string? ClosureNotes { get; set; }
+}

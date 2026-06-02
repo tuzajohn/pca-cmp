@@ -187,13 +187,44 @@ public class ChangeRequestsController : Controller
         return RedirectToAction(nameof(Details), new { id });
     }
 
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Pir(int id)
+    {
+        var cr = await _crService.GetByIdAsync(id);
+        if (cr == null) return NotFound();
+        if (cr.Status != ChangeStatus.Implemented)
+        {
+            TempData["Error"] = "Post-implementation review is only available for implemented changes.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+        var vm = new PirViewModel
+        {
+            ChangeRequestId = cr.Id,
+            SerialNumber = cr.SerialNumber,
+            Title = cr.Title,
+            ActualDate = DateTime.Today
+        };
+        return View(vm);
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> Close(int id)
+    public async Task<IActionResult> Pir(PirViewModel vm)
     {
+        if (!ModelState.IsValid) return View(vm);
+
         var user = await _userManager.GetUserAsync(User);
-        await _crService.UpdateStatusAsync(id, ChangeStatus.Closed, user!.Id);
-        TempData["Success"] = "Change request closed.";
-        return RedirectToAction(nameof(Details), new { id });
+        var success = await _crService.SubmitPirAsync(
+            vm.ChangeRequestId, user!.Id,
+            vm.Outcome, vm.ActualDate,
+            vm.IssuesEncountered, vm.LessonsLearned,
+            vm.RollbackExecuted, vm.ClosureNotes);
+
+        if (success)
+            TempData["Success"] = "Post-implementation review submitted. Change request closed.";
+        else
+            TempData["Error"] = "Unable to submit PIR. Ensure the CR is in Implemented status.";
+
+        return RedirectToAction(nameof(Details), new { id = vm.ChangeRequestId });
     }
 }

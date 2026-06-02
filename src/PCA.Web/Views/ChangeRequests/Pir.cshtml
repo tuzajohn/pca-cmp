@@ -1,0 +1,156 @@
+@model PirViewModel
+@using PCA.Shared.Enums
+@{
+    ViewData["Title"] = "Post-Implementation Review";
+    ViewData["Subtitle"] = $"{Model.SerialNumber} — {Model.Title}";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Post-Implementation Review</h1>
+        <p class="page-header-sub mb-0">
+            <span class="status-badge status-implemented me-2">
+                <i class="bi bi-gear me-1"></i>Implemented
+            </span>
+            @Model.SerialNumber — @Model.Title
+        </p>
+    </div>
+    <a asp-action="Details" asp-route-id="@Model.ChangeRequestId" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back to CR
+    </a>
+</div>
+
+<!-- Info banner -->
+<div class="card mb-4" style="background:color-mix(in srgb,var(--color-primary) 6%,transparent);border:1px solid color-mix(in srgb,var(--color-primary) 20%,transparent);">
+    <div class="card-body py-3 d-flex align-items-start gap-3">
+        <i class="bi bi-info-circle-fill mt-1" style="color:var(--color-primary);font-size:18px;flex-shrink:0;"></i>
+        <div style="font-size:13px;">
+            <strong>Post-Implementation Review (PIR)</strong> — Document the actual outcome of this change.
+            Submitting this form will formally <strong>close</strong> the change request.
+            This record cannot be edited after submission.
+        </div>
+    </div>
+</div>
+
+<form asp-action="Pir" method="post">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-4 small"></div>
+    <input type="hidden" asp-for="ChangeRequestId" />
+    <input type="hidden" asp-for="SerialNumber" />
+    <input type="hidden" asp-for="Title" />
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+
+            <!-- Outcome -->
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-bar-chart-steps"></i> Implementation Outcome</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Outcome <span class="text-danger">*</span></label>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var outcome in Enum.GetValues<ImplementationOutcome>())
+                                {
+                                    var (icon, style, label) = outcome switch {
+                                        ImplementationOutcome.Successful          => ("bi-check-circle", "background:#f0fdf4;color:#15803d;border-color:#86efac;", "Successful"),
+                                        ImplementationOutcome.PartiallySuccessful => ("bi-exclamation-circle", "background:#fef9c3;color:#854d0e;border-color:#fde047;", "Partially Successful"),
+                                        ImplementationOutcome.Failed              => ("bi-x-circle", "background:#fef2f2;color:#b91c1c;border-color:#fca5a5;", "Failed"),
+                                        ImplementationOutcome.RolledBack          => ("bi-arrow-counterclockwise", "background:#fff7ed;color:#c2410c;border-color:#fdba74;", "Rolled Back"),
+                                        _ => ("bi-circle", "", outcome.ToString())
+                                    };
+                                    <label class="outcome-option" style="cursor:pointer;">
+                                        <input type="radio" asp-for="Outcome" value="@outcome" class="d-none outcome-radio" />
+                                        <span class="status-badge" style="@style border:1.5px solid;padding:8px 16px;font-size:13px;cursor:pointer;">
+                                            <i class="bi @icon me-1"></i>@label
+                                        </span>
+                                    </label>
+                                }
+                            </div>
+                            <span asp-validation-for="Outcome" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="ActualDate" class="form-label">Actual Implementation Date</label>
+                            <input asp-for="ActualDate" type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label d-block">Rollback Executed?</label>
+                            <div class="d-flex gap-3 pt-1">
+                                <label class="d-flex align-items-center gap-2" style="cursor:pointer;font-size:13.5px;">
+                                    <input type="radio" asp-for="RollbackExecuted" value="true" class="form-check-input" /> Yes
+                                </label>
+                                <label class="d-flex align-items-center gap-2" style="cursor:pointer;font-size:13.5px;">
+                                    <input type="radio" asp-for="RollbackExecuted" value="false" class="form-check-input" checked /> No
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Review details -->
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-journal-text"></i> Review Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="IssuesEncountered" class="form-label">Issues Encountered</label>
+                            <textarea asp-for="IssuesEncountered" class="form-control" rows="3"
+                                placeholder="Describe any problems, incidents, or unexpected behaviour during implementation. Enter 'None' if not applicable."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="LessonsLearned" class="form-label">Lessons Learned</label>
+                            <textarea asp-for="LessonsLearned" class="form-control" rows="3"
+                                placeholder="What would you do differently? What worked well?"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="ClosureNotes" class="form-label">Closure Notes</label>
+                            <textarea asp-for="ClosureNotes" class="form-control" rows="3"
+                                placeholder="Any final notes for the record."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card position-sticky" style="top:80px;">
+                <div class="card-header"><i class="bi bi-lock me-2"></i>Submit &amp; Close</div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Submitting this PIR will permanently close the change request
+                        <strong>@Model.SerialNumber</strong>. This action cannot be undone.
+                    </p>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary"
+                                onclick="return confirm('Submit the PIR and close this change request?')">
+                            <i class="bi bi-clipboard2-check me-1"></i> Submit PIR &amp; Close
+                        </button>
+                        <a asp-action="Details" asp-route-id="@Model.ChangeRequestId"
+                           class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<script>
+// Highlight selected outcome radio
+document.querySelectorAll('.outcome-radio').forEach(radio => {
+    radio.addEventListener('change', function() {
+        document.querySelectorAll('.outcome-option .status-badge').forEach(b => {
+            b.style.opacity = '0.5';
+            b.style.transform = 'scale(0.97)';
+        });
+        this.closest('.outcome-option').querySelector('.status-badge').style.opacity = '1';
+        this.closest('.outcome-option').querySelector('.status-badge').style.transform = 'scale(1.04)';
+    });
+    if (radio.checked) {
+        radio.closest('.outcome-option').querySelector('.status-badge').style.transform = 'scale(1.04)';
+    }
+});
+</script>
+}

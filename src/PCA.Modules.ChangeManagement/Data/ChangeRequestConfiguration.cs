@@ -27,11 +27,22 @@ public class ChangeRequestConfiguration : IEntityTypeConfiguration<ChangeRequest
         builder.Property(x => x.ProposedImplementationWindow).HasMaxLength(500);
         builder.Property(x => x.RollbackTrigger).HasMaxLength(1000);
 
-        // Enum string conversions (stored as varchar by default — short values, fine inline)
+        // Enum string conversions (stored as varchar — short values, fine inline)
         builder.Property(x => x.StagingTested).HasConversion<string>().HasMaxLength(10);
         builder.Property(x => x.Type).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.Priority).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+
+        // PIR fields
+        builder.Property(x => x.PirOutcome).HasConversion<string>().HasMaxLength(30);
+        builder.Property(x => x.PirIssuesEncountered).HasColumnType("text");
+        builder.Property(x => x.PirLessonsLearned).HasColumnType("text");
+        builder.Property(x => x.PirClosureNotes).HasColumnType("text");
+        builder.HasOne(x => x.PirCompletedBy)
+            .WithMany()
+            .HasForeignKey(x => x.PirCompletedById)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
 
         builder.HasOne(x => x.RequestedBy)
             .WithMany()

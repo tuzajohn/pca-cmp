@@ -120,6 +120,27 @@ public class ChangeRequestService : IChangeRequestService
         await _db.SaveChangesAsync();
     }
 
+    public async Task<bool> SubmitPirAsync(int id, string userId, ImplementationOutcome outcome,
+        DateTime? actualDate, string? issues, string? lessons, bool rollbackExecuted, string? notes)
+    {
+        var cr = await _db.ChangeRequests.FindAsync(id);
+        if (cr == null) return false;
+        if (cr.Status != ChangeStatus.Implemented) return false;
+
+        cr.PirOutcome = outcome;
+        cr.PirActualDate = actualDate;
+        cr.PirIssuesEncountered = issues;
+        cr.PirLessonsLearned = lessons;
+        cr.PirRollbackExecuted = rollbackExecuted;
+        cr.PirClosureNotes = notes;
+        cr.PirCompletedById = userId;
+        cr.Status = ChangeStatus.Closed;
+        cr.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
     private async Task<string> GenerateSerialNumberAsync()
     {
         var now = DateTime.UtcNow;

@@ -27,5 +27,15 @@ public class ChangeRequest : BaseEntity
     public string? TestingSteps { get; set; }
     public StagingTestedStatus? StagingTested { get; set; }
 
+    // Post-Implementation Review (PIR)
+    public ImplementationOutcome? PirOutcome { get; set; }
+    public DateTime? PirActualDate { get; set; }
+    public string? PirIssuesEncountered { get; set; }
+    public string? PirLessonsLearned { get; set; }
+    public bool? PirRollbackExecuted { get; set; }
+    public string? PirClosureNotes { get; set; }
+    public string? PirCompletedById { get; set; }
+    public ApplicationUser? PirCompletedBy { get; set; }
+
     public ICollection<ChangeRequestComment> Comments { get; set; } = new List<ChangeRequestComment>();
 }

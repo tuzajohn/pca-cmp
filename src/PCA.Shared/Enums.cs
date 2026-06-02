@@ -39,3 +39,11 @@ public enum StagingTestedStatus
     No,
     NA
 }
+
+public enum ImplementationOutcome
+{
+    Successful,
+    PartiallySuccessful,
+    Failed,
+    RolledBack
+}

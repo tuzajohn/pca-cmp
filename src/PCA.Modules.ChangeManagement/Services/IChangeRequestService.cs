@@ -15,4 +15,6 @@ public interface IChangeRequestService
     Task<List<ChangeRequest>> GetRecentAsync(int count = 10);
     Task<Dictionary<ChangeStatus, int>> GetStatusCountsAsync();
     Task AddCommentAsync(int changeRequestId, string authorId, string content);
+    Task<bool> SubmitPirAsync(int id, string userId, ImplementationOutcome outcome,
+        DateTime? actualDate, string? issues, string? lessons, bool rollbackExecuted, string? notes);
 }
