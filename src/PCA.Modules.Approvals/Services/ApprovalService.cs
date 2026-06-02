@@ -51,6 +51,11 @@ public class ApprovalService : IApprovalService
 
     public async Task<ApprovalTemplate> UpdateTemplateAsync(ApprovalTemplate template)
     {
+        var oldSteps = await _db.ApprovalTemplateSteps
+            .Where(s => s.TemplateId == template.Id)
+            .ToListAsync();
+        foreach (var s in oldSteps) _db.ApprovalTemplateSteps.Remove(s);
+
         template.UpdatedAt = DateTime.UtcNow;
         _db.ApprovalTemplates.Update(template);
         await _db.SaveChangesAsync();

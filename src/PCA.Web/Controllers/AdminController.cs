@@ -46,6 +46,28 @@ public class AdminController : Controller
         return View(template);
     }
 
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditTemplate(int id, string name, ChangeType changeType,
+        List<string> approverIds, List<string> roleNames)
+    {
+        var template = (await _approvalService.GetTemplatesAsync()).FirstOrDefault(t => t.Id == id);
+        if (template == null) return NotFound();
+
+        template.Name = name;
+        template.ChangeType = changeType;
+        template.Steps = approverIds.Select((aid, i) => new ApprovalTemplateStep
+        {
+            TemplateId = id,
+            Order = i + 1,
+            ApproverId = aid,
+            RoleName = roleNames.Count > i ? roleNames[i] : string.Empty
+        }).ToList();
+
+        await _approvalService.UpdateTemplateAsync(template);
+        TempData["Success"] = "Approval template updated.";
+        return RedirectToAction(nameof(Index));
+    }
+
     public async Task<IActionResult> CreateTemplate()
     {
         ViewBag.Users = await _userManager.Users.ToListAsync();
