@@ -30,7 +30,14 @@
                         <select name="changeType" class="form-select">
                             @foreach (var ct in Enum.GetValues<PCA.Shared.Enums.ChangeType>())
                             {
-                                <option value="@ct" @(Model.ChangeType == ct ? "selected" : "")>@ct</option>
+                                if (Model.ChangeType == ct)
+                                {
+                                    <option value="@ct" selected>@ct</option>
+                                }
+                                else
+                                {
+                                    <option value="@ct">@ct</option>
+                                }
                             }
                         </select>
                     </div>
@@ -45,7 +52,14 @@
                                     <select name="approverIds" class="form-select">
                                         @foreach (var u in users)
                                         {
-                                            <option value="@u.Id" @(step.ApproverId == u.Id ? "selected" : "")>@u.FullName (@u.Email)</option>
+                                            if (step.ApproverId == u.Id)
+                                            {
+                                                <option value="@u.Id" selected>@u.FullName (@u.Email)</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@u.Id">@u.FullName (@u.Email)</option>
+                                            }
                                         }
                                     </select>
                                 </div>
