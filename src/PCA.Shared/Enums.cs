@@ -32,3 +32,10 @@ public enum ApprovalStatus
     Approved,
     Rejected
 }
+
+public enum StagingTestedStatus
+{
+    Yes,
+    No,
+    NA
+}

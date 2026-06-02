@@ -1,62 +1,142 @@
 @model List<ChangeRequest>
+@using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Change Requests";
+    string StatusCls(ChangeStatus st) => st switch {
+        ChangeStatus.Draft => "status-draft",
+        ChangeStatus.Submitted => "status-submitted",
+        ChangeStatus.UnderReview => "status-underreview",
+        ChangeStatus.Approved => "status-approved",
+        ChangeStatus.Rejected => "status-rejected",
+        ChangeStatus.Implemented => "status-implemented",
+        ChangeStatus.Closed => "status-closed",
+        _ => ""
+    };
+    string PriCls(Priority p) => p switch {
+        Priority.Low => "priority-low",
+        Priority.Medium => "priority-medium",
+        Priority.High => "priority-high",
+        Priority.Critical => "priority-critical",
+        _ => ""
+    };
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2><i class="bi bi-ticket-detailed"></i> Change Requests</h2>
-    <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> New Request</a>
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Change Requests</h1>
+        <p class="page-header-sub mb-0">@Model.Count total change request(s)</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> New Change Request
+    </a>
 </div>
 
-@if (!Model.Any())
-{
-    <div class="alert alert-info">No change requests found.</div>
-}
-else
-{
-    <div class="card">
-        <div class="card-body p-0">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Serial #</th>
-                        <th>Title</th>
-                        <th>Type</th>
-                        <th>Priority</th>
-                        <th>Status</th>
-                        <th>Requested By</th>
-                        <th>Created</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var cr in Model)
-                    {
-                        <tr>
-                            <td><code>@(string.IsNullOrEmpty(cr.SerialNumber) ? $"Draft-{cr.Id}" : cr.SerialNumber)</code></td>
-                            <td>@cr.Title</td>
-                            <td><span class="badge bg-info text-dark">@cr.Type</span></td>
-                            <td>
-                                @{
-                                    var pColor = cr.Priority switch {
-                                        Priority.Critical => "danger",
-                                        Priority.High => "warning",
-                                        Priority.Medium => "primary",
-                                        _ => "secondary"
-                                    };
-                                }
-                                <span class="badge bg-@pColor">@cr.Priority</span>
-                            </td>
-                            <td><span class="badge bg-secondary">@cr.Status</span></td>
-                            <td>@cr.RequestedBy?.FullName</td>
-                            <td>@cr.CreatedAt.ToString("yyyy-MM-dd")</td>
-                            <td>
-                                <a asp-action="Details" asp-route-id="@cr.Id" class="btn btn-sm btn-outline-primary">View</a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            <span class="text-muted small fw-semibold me-1">Filter:</span>
+            @foreach (var status in Enum.GetValues<ChangeStatus>())
+            {
+                var count = Model.Count(c => c.Status == status);
+                if (count > 0)
+                {
+                    <a href="#" class="status-badge @StatusCls(status) text-decoration-none"
+                       onclick="filterStatus('@status', this)" style="cursor:pointer;">
+                        @status <span class="ms-1 opacity-75">@count</span>
+                    </a>
+                }
+            }
+            <a href="#" class="status-badge status-draft text-decoration-none" onclick="clearFilter()" style="cursor:pointer;">
+                All <span class="ms-1 opacity-75">@Model.Count</span>
+            </a>
         </div>
     </div>
+</div>
+
+<div class="card">
+    @if (!Model.Any())
+    {
+        <div class="card-body text-center py-5 text-muted">
+            <i class="bi bi-inbox fs-1 d-block mb-2 opacity-25"></i>
+            No change requests yet.
+            <a asp-action="Create" class="d-block mt-2">Create your first CR →</a>
+        </div>
+    }
+    else
+    {
+        <table class="table mb-0" id="crTable">
+            <thead>
+                <tr>
+                    <th>Serial #</th>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Target Date</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var cr in Model.OrderByDescending(c => c.CreatedAt))
+                {
+                    <tr data-status="@cr.Status">
+                        <td>
+                            <a asp-action="Details" asp-route-id="@cr.Id"
+                               class="fw-semibold" style="color:var(--color-primary);">
+                                @(string.IsNullOrEmpty(cr.SerialNumber) ? $"#{cr.Id}" : cr.SerialNumber)
+                            </a>
+                        </td>
+                        <td>
+                            <div class="fw-medium" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                                 title="@cr.Title">@cr.Title</div>
+                            @if (cr.RequestedBy != null)
+                            {
+                                <div class="text-muted" style="font-size:11px;">@(cr.RequestedBy.FullName ?? cr.RequestedBy.UserName)</div>
+                            }
+                        </td>
+                        <td><span class="status-badge status-submitted">@cr.Type</span></td>
+                        <td><span class="status-badge @StatusCls(cr.Status)">@cr.Status</span></td>
+                        <td><span class="status-badge @PriCls(cr.Priority)">@cr.Priority</span></td>
+                        <td>
+                            @if (cr.TargetDate.HasValue)
+                            {
+                                var isOverdue = cr.TargetDate.Value < DateTime.Today && cr.Status is not ChangeStatus.Closed and not ChangeStatus.Implemented;
+                                <span class="@(isOverdue ? "text-danger fw-semibold" : "")">@cr.TargetDate.Value.ToString("dd MMM yyyy")</span>
+                            }
+                            else { <span class="text-muted">—</span> }
+                        </td>
+                        <td class="text-muted" style="font-size:12px;">@cr.CreatedAt.ToString("dd MMM yyyy")</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a asp-action="Details" asp-route-id="@cr.Id" class="btn btn-sm btn-outline-secondary" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                @if (cr.Status == ChangeStatus.Draft)
+                                {
+                                    <a asp-action="Edit" asp-route-id="@cr.Id" class="btn btn-sm btn-outline-primary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@section Scripts {
+<script>
+function filterStatus(status, el) {
+    document.querySelectorAll('#crTable tbody tr').forEach(row => {
+        row.style.display = row.dataset.status === status ? '' : 'none';
+    });
+}
+function clearFilter() {
+    document.querySelectorAll('#crTable tbody tr').forEach(row => row.style.display = '');
+}
+</script>
 }

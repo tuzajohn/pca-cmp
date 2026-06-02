@@ -1,50 +1,68 @@
 @model List<PCA.Modules.ChangeManagement.Models.ChangeRequest>
 @using PCA.Modules.Approvals.Models
+@using PCA.Shared.Enums
 @{
-    ViewData["Title"] = "Pending Approvals";
-    var pendingSteps = ViewBag.PendingSteps as List<ApprovalStep> ?? new List<ApprovalStep>();
+    ViewData["Title"] = "Approvals";
+    string StatusCls(ChangeStatus st) => st switch {
+        ChangeStatus.UnderReview => "status-underreview",
+        ChangeStatus.Approved => "status-approved",
+        ChangeStatus.Rejected => "status-rejected",
+        _ => "status-submitted"
+    };
 }
 
-<h2 class="mb-4"><i class="bi bi-check2-circle"></i> Pending Approvals</h2>
+<div class="page-header">
+    <h1 class="page-header-title">Approval Queue</h1>
+</div>
 
 @if (!Model.Any())
 {
-    <div class="alert alert-success"><i class="bi bi-check-all"></i> No pending approvals. All caught up!</div>
+    <div class="card">
+        <div class="card-body text-center py-5 text-muted">
+            <i class="bi bi-check-all fs-1 d-block mb-2 opacity-25"></i>
+            <strong>All caught up!</strong> No change requests currently need your approval.
+        </div>
+    </div>
 }
 else
 {
     <div class="card">
-        <div class="card-body p-0">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Serial #</th>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Requested By</th>
+                    <th>Target Date</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var cr in Model)
+                {
                     <tr>
-                        <th>Change Request</th>
-                        <th>Title</th>
-                        <th>Type</th>
-                        <th>Priority</th>
-                        <th>Pending Steps</th>
-                        <th></th>
+                        <td>
+                            <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@cr.Id"
+                               class="fw-semibold" style="color:var(--color-primary);">
+                                @(string.IsNullOrEmpty(cr.SerialNumber) ? $"#{cr.Id}" : cr.SerialNumber)
+                            </a>
+                        </td>
+                        <td>@cr.Title</td>
+                        <td><span class="status-badge status-submitted">@cr.Type</span></td>
+                        <td><span class="status-badge @StatusCls(cr.Status)">@cr.Status</span></td>
+                        <td class="text-muted">@(cr.RequestedBy?.FullName ?? cr.RequestedBy?.UserName ?? "—")</td>
+                        <td class="text-muted" style="font-size:12px;">@(cr.TargetDate?.ToString("dd MMM yyyy") ?? "—")</td>
+                        <td>
+                            <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@cr.Id"
+                               class="btn btn-sm btn-primary">
+                                <i class="bi bi-eye me-1"></i> Review
+                            </a>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var cr in Model)
-                    {
-                        var mySteps = pendingSteps.Where(s => s.ChangeRequestId == cr.Id).ToList();
-                        <tr>
-                            <td><code>@(string.IsNullOrEmpty(cr.SerialNumber) ? $"#{cr.Id}" : cr.SerialNumber)</code></td>
-                            <td>@cr.Title</td>
-                            <td><span class="badge bg-info text-dark">@cr.Type</span></td>
-                            <td><span class="badge bg-secondary">@cr.Priority</span></td>
-                            <td><span class="badge bg-warning text-dark">@mySteps.Count step(s)</span></td>
-                            <td>
-                                <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@cr.Id" class="btn btn-sm btn-outline-primary">
-                                    Review &amp; Act
-                                </a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                }
+            </tbody>
+        </table>
     </div>
 }

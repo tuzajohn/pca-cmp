@@ -7,6 +7,7 @@ using PCA.Modules.ChangeManagement.Models;
 using PCA.Modules.ChangeManagement.Services;
 using PCA.Modules.Approvals.Services;
 using PCA.Modules.Identity.Models;
+using PCA.Web.Models;
 
 namespace PCA.Web.Data;
 
@@ -26,6 +27,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     public DbSet<ApprovalTemplateStep> ApprovalTemplateSteps => Set<ApprovalTemplateStep>();
     public DbSet<ApprovalStep> ApprovalSteps => Set<ApprovalStep>();
 
+    // Theme
+    public DbSet<ThemeSettings> ThemeSettings => Set<ThemeSettings>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -36,5 +40,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
         builder.ApplyConfiguration(new ApprovalTemplateConfiguration());
         builder.ApplyConfiguration(new ApprovalTemplateStepConfiguration());
         builder.ApplyConfiguration(new ApprovalStepConfiguration());
+
+        builder.Entity<ThemeSettings>().ToTable("ThemeSettings").HasKey(x => x.Id);
     }
 }

@@ -1,186 +1,256 @@
 @model ChangeRequest
 @using PCA.Modules.Approvals.Models
+@using PCA.Shared.Enums
 @{
-    ViewData["Title"] = $"CR: {Model.SerialNumber}";
-    var steps = ViewBag.ApprovalSteps as List<ApprovalStep> ?? new List<ApprovalStep>();
+    ViewData["Title"] = Model.SerialNumber.Length > 0 ? Model.SerialNumber : $"CR #{Model.Id}";
+    var steps = ViewBag.ApprovalSteps as List<ApprovalStep> ?? new();
     var currentUserId = ViewBag.CurrentUserId as string;
-    var canEdit = Model.Status == ChangeStatus.Draft && (Model.RequestedById == currentUserId || User.IsInRole("Admin"));
+    var myPendingStep = steps.FirstOrDefault(s => s.ApproverId == currentUserId && s.Status == ApprovalStatus.Pending);
+
+    string StatusCls(ChangeStatus st) => st switch {
+        ChangeStatus.Draft => "status-draft",
+        ChangeStatus.Submitted => "status-submitted",
+        ChangeStatus.UnderReview => "status-underreview",
+        ChangeStatus.Approved => "status-approved",
+        ChangeStatus.Rejected => "status-rejected",
+        ChangeStatus.Implemented => "status-implemented",
+        ChangeStatus.Closed => "status-closed",
+        _ => ""
+    };
+    string PriCls(Priority p) => p switch {
+        Priority.Low => "priority-low",
+        Priority.Medium => "priority-medium",
+        Priority.High => "priority-high",
+        Priority.Critical => "priority-critical",
+        _ => ""
+    };
 }
 
-<div class="d-flex justify-content-between align-items-start mb-3">
+<div class="page-header">
     <div>
-        <h2><i class="bi bi-ticket-detailed"></i>
-            @(string.IsNullOrEmpty(Model.SerialNumber) ? $"Draft CR #{Model.Id}" : Model.SerialNumber)
-        </h2>
-        <p class="text-muted mb-0">@Model.Title</p>
+        <h1 class="page-header-title">
+            @(string.IsNullOrEmpty(Model.SerialNumber) ? $"Change Request #{Model.Id}" : Model.SerialNumber)
+        </h1>
+        <div class="d-flex align-items-center gap-2 mt-1">
+            <span class="status-badge @StatusCls(Model.Status)">@Model.Status</span>
+            <span class="status-badge @PriCls(Model.Priority)">@Model.Priority Risk</span>
+            <span class="status-badge status-submitted">@Model.Type</span>
+            <span class="text-muted small">Created @Model.CreatedAt.ToString("dd MMM yyyy")</span>
+        </div>
     </div>
     <div class="d-flex gap-2">
-        @if (canEdit)
+        @if (Model.Status == ChangeStatus.Draft)
         {
-            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">
-                <i class="bi bi-pencil"></i> Edit
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-pencil me-1"></i> Edit
             </a>
-        }
-        @if (Model.Status == ChangeStatus.Draft && Model.RequestedById == currentUserId)
-        {
-            <form asp-action="Submit" asp-route-id="@Model.Id" method="post">
-                <button type="submit" class="btn btn-success" onclick="return confirm('Submit this change request for approval?')">
-                    <i class="bi bi-send"></i> Submit
+            <form asp-action="Submit" asp-route-id="@Model.Id" method="post" class="d-inline">
+                <button type="submit" class="btn btn-primary btn-sm"
+                    onclick="return confirm('Submit this CR for approval?')">
+                    <i class="bi bi-send me-1"></i> Submit for Approval
                 </button>
             </form>
         }
-        @if (Model.Status == ChangeStatus.Approved && User.IsInRole("Admin"))
+        @if (User.IsInRole("Admin") && Model.Status == ChangeStatus.Approved)
         {
-            <form asp-action="MarkImplemented" asp-route-id="@Model.Id" method="post">
-                <button type="submit" class="btn btn-warning">
-                    <i class="bi bi-gear"></i> Mark Implemented
+            <form asp-action="MarkImplemented" asp-route-id="@Model.Id" method="post" class="d-inline">
+                <button type="submit" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-gear me-1"></i> Mark Implemented
                 </button>
             </form>
         }
-        @if (Model.Status == ChangeStatus.Implemented && User.IsInRole("Admin"))
+        @if (User.IsInRole("Admin") && Model.Status == ChangeStatus.Implemented)
         {
-            <form asp-action="Close" asp-route-id="@Model.Id" method="post">
-                <button type="submit" class="btn btn-dark">
-                    <i class="bi bi-archive"></i> Close
+            <form asp-action="Close" asp-route-id="@Model.Id" method="post" class="d-inline">
+                <button type="submit" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-archive me-1"></i> Close
                 </button>
             </form>
         }
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i> Back</a>
     </div>
 </div>
 
-<div class="row g-4">
+<!-- My approval action banner -->
+@if (myPendingStep != null)
+{
+    <div class="card border-0 mb-4" style="background:color-mix(in srgb,var(--color-primary) 8%,transparent);border-left:4px solid var(--color-primary) !important;border-radius:10px;">
+        <div class="card-body d-flex align-items-center justify-content-between gap-3">
+            <div>
+                <i class="bi bi-bell-fill me-2" style="color:var(--color-primary);"></i>
+                <strong>Your approval is required</strong> — Step @myPendingStep.Order
+            </div>
+            <div class="d-flex gap-2">
+                <form asp-controller="Approvals" asp-action="Approve" method="post" class="d-inline">
+                    <input type="hidden" name="stepId" value="@myPendingStep.Id" />
+                    <input type="hidden" name="returnCrId" value="@Model.Id" />
+                    <input name="comment" class="form-control form-control-sm d-inline-block" style="width:200px;"
+                           placeholder="Optional comment…" />
+                    <button type="submit" class="btn btn-sm btn-success ms-1">
+                        <i class="bi bi-check-lg me-1"></i> Approve
+                    </button>
+                </form>
+                <form asp-controller="Approvals" asp-action="Reject" method="post" class="d-inline">
+                    <input type="hidden" name="stepId" value="@myPendingStep.Id" />
+                    <input type="hidden" name="returnCrId" value="@Model.Id" />
+                    <input name="comment" class="form-control form-control-sm d-inline-block" style="width:200px;"
+                           placeholder="Reason for rejection…" required />
+                    <button type="submit" class="btn btn-sm btn-danger ms-1">
+                        <i class="bi bi-x-lg me-1"></i> Reject
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="row g-3">
     <div class="col-lg-8">
-        <div class="card mb-4">
-            <div class="card-header"><strong>Details</strong></div>
-            <div class="card-body">
-                <dl class="row mb-0">
-                    <dt class="col-sm-3">Status</dt>
-                    <dd class="col-sm-9"><span class="badge bg-secondary fs-6">@Model.Status</span></dd>
 
-                    <dt class="col-sm-3">Type</dt>
-                    <dd class="col-sm-9"><span class="badge bg-info text-dark">@Model.Type</span></dd>
-
-                    <dt class="col-sm-3">Priority</dt>
-                    <dd class="col-sm-9">
-                        @{
-                            var pColor = Model.Priority switch {
-                                Priority.Critical => "danger",
-                                Priority.High => "warning",
-                                Priority.Medium => "primary",
-                                _ => "secondary"
-                            };
-                        }
-                        <span class="badge bg-@pColor">@Model.Priority</span>
-                    </dd>
-
-                    <dt class="col-sm-3">Requested By</dt>
-                    <dd class="col-sm-9">@Model.RequestedBy?.FullName (@Model.RequestedBy?.Department)</dd>
-
-                    <dt class="col-sm-3">Created</dt>
-                    <dd class="col-sm-9">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</dd>
-
-                    @if (Model.TargetDate.HasValue)
-                    {
-                        <dt class="col-sm-3">Target Date</dt>
-                        <dd class="col-sm-9">@Model.TargetDate.Value.ToString("yyyy-MM-dd")</dd>
-                    }
-
-                    <dt class="col-sm-3">Description</dt>
-                    <dd class="col-sm-9" style="white-space: pre-wrap">@Model.Description</dd>
-
-                    @if (!string.IsNullOrEmpty(Model.ImplementationNotes))
-                    {
-                        <dt class="col-sm-3">Impl. Notes</dt>
-                        <dd class="col-sm-9" style="white-space: pre-wrap">@Model.ImplementationNotes</dd>
-                    }
-                </dl>
+        <!-- Section A: Change Information -->
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-info-circle"></i> A. Change Information</div>
+            <div class="form-section-body">
+                <table class="detail-table">
+                    <tr><td>CR Number</td><td><code style="color:var(--color-primary);">@(string.IsNullOrEmpty(Model.SerialNumber) ? "Not yet assigned (Draft)" : Model.SerialNumber)</code></td></tr>
+                    <tr><td>Date Submitted</td><td>@(Model.Status == ChangeStatus.Draft ? "—" : Model.UpdatedAt.ToString("dd MMM yyyy HH:mm"))</td></tr>
+                    <tr><td>Change Title</td><td class="fw-semibold">@Model.Title</td></tr>
+                    <tr><td>Initiator</td><td>@(Model.RequestedBy?.FullName ?? Model.RequestedBy?.UserName ?? "—")</td></tr>
+                    <tr><td>Department</td><td>@(Model.RequestedBy?.Department ?? "—")</td></tr>
+                    <tr><td>Category</td><td><span class="status-badge status-submitted">@Model.Type</span></td></tr>
+                    <tr><td>Description</td><td style="white-space:pre-wrap;">@Model.Description</td></tr>
+                    <tr><td>Systems Affected</td><td>@(Model.SystemsAffected ?? "—")</td></tr>
+                    <tr><td>Impact on Users</td><td>@(Model.ImpactOnUsers ?? "—")</td></tr>
+                    <tr><td>Risk Assessment</td><td><span class="status-badge @PriCls(Model.Priority)">@Model.Priority</span> @(Model.RiskDescription != null ? "— " + Model.RiskDescription : "")</td></tr>
+                </table>
             </div>
         </div>
 
-        @if (steps.Any())
-        {
-            <div class="card mb-4">
-                <div class="card-header"><strong><i class="bi bi-diagram-3"></i> Approval Flow</strong></div>
-                <div class="card-body p-0">
-                    <table class="table mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Step</th>
-                                <th>Approver</th>
-                                <th>Status</th>
-                                <th>Comment</th>
-                                <th>Acted At</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var step in steps)
-                            {
-                                var statusColor = step.Status switch {
-                                    ApprovalStatus.Approved => "success",
-                                    ApprovalStatus.Rejected => "danger",
-                                    _ => "warning"
-                                };
-                                <tr>
-                                    <td>@step.Order</td>
-                                    <td>@step.Approver?.FullName</td>
-                                    <td><span class="badge bg-@statusColor">@step.Status</span></td>
-                                    <td>@step.Comment</td>
-                                    <td>@(step.ActedAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
-                                    <td>
-                                        @if (step.Status == ApprovalStatus.Pending && step.ApproverId == currentUserId)
-                                        {
-                                            <div class="d-flex gap-1">
-                                                <form asp-controller="Approvals" asp-action="Approve" method="post" class="d-inline">
-                                                    <input type="hidden" name="stepId" value="@step.Id" />
-                                                    <input type="hidden" name="changeRequestId" value="@Model.Id" />
-                                                    <input type="text" name="comment" class="form-control form-control-sm d-inline" style="width:120px" placeholder="Comment (opt)" />
-                                                    <button type="submit" class="btn btn-sm btn-success">Approve</button>
-                                                </form>
-                                                <form asp-controller="Approvals" asp-action="Reject" method="post" class="d-inline">
-                                                    <input type="hidden" name="stepId" value="@step.Id" />
-                                                    <input type="hidden" name="changeRequestId" value="@Model.Id" />
-                                                    <input type="text" name="comment" class="form-control form-control-sm d-inline" style="width:120px" placeholder="Reason (req)" />
-                                                    <button type="submit" class="btn btn-sm btn-danger">Reject</button>
-                                                </form>
-                                            </div>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+        <!-- Section B: Implementation -->
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-calendar-check"></i> B. Implementation Plan</div>
+            <div class="form-section-body">
+                <table class="detail-table">
+                    <tr><td>Target Date</td><td>@(Model.TargetDate?.ToString("dd MMM yyyy") ?? "—")</td></tr>
+                    <tr><td>Implementation Window</td><td>@(Model.ProposedImplementationWindow ?? "—")</td></tr>
+                    <tr><td>Testing / Verification</td><td style="white-space:pre-wrap;">@(Model.TestingSteps ?? "—")</td></tr>
+                    <tr><td>Staging Tested?</td><td>@(Model.StagingTested?.ToString() ?? "—")</td></tr>
+                    <tr><td>Implementation Notes</td><td style="white-space:pre-wrap;">@(Model.ImplementationNotes ?? "—")</td></tr>
+                </table>
             </div>
-        }
+        </div>
 
-        <div class="card">
-            <div class="card-header"><strong><i class="bi bi-chat-dots"></i> Comments</strong></div>
-            <div class="card-body">
+        <!-- Section C: Rollback -->
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-arrow-counterclockwise"></i> C. Rollback Plan</div>
+            <div class="form-section-body">
+                <table class="detail-table">
+                    <tr><td>Rollback Plan</td><td style="white-space:pre-wrap;">@(Model.RollbackPlan ?? "—")</td></tr>
+                    <tr><td>Rollback Trigger / Window</td><td>@(Model.RollbackTrigger ?? "—")</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Comments -->
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-chat-dots"></i> Comments (@Model.Comments.Count)</div>
+            <div class="form-section-body">
                 @if (!Model.Comments.Any())
                 {
-                    <p class="text-muted">No comments yet.</p>
+                    <p class="text-muted small mb-3">No comments yet.</p>
                 }
                 else
                 {
-                    foreach (var comment in Model.Comments.OrderBy(c => c.CreatedAt))
-                    {
-                        <div class="border rounded p-2 mb-2 bg-light">
-                            <div class="d-flex justify-content-between">
-                                <strong>@comment.Author?.FullName</strong>
-                                <small class="text-muted">@comment.CreatedAt.ToString("yyyy-MM-dd HH:mm")</small>
+                    <div class="d-flex flex-column gap-3 mb-4">
+                        @foreach (var c in Model.Comments.OrderBy(x => x.CreatedAt))
+                        {
+                            <div class="d-flex gap-3 align-items-start">
+                                <div class="avatar" style="width:32px;height:32px;border-radius:50%;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">
+                                    @(c.Author?.UserName?.Length >= 2 ? c.Author.UserName[..2].ToUpper() : "?")
+                                </div>
+                                <div style="flex:1;">
+                                    <div class="fw-semibold" style="font-size:13px;">@(c.Author?.FullName ?? c.Author?.UserName)</div>
+                                    <div class="text-muted" style="font-size:11px;">@c.CreatedAt.ToString("dd MMM yyyy HH:mm")</div>
+                                    <div class="mt-1" style="font-size:13.5px;">@c.Content</div>
+                                </div>
                             </div>
-                            <p class="mb-0 mt-1">@comment.Content</p>
-                        </div>
-                    }
+                        }
+                    </div>
                 }
-
-                <form asp-action="AddComment" asp-route-id="@Model.Id" method="post" class="mt-3">
-                    <div class="input-group">
-                        <input type="text" name="content" class="form-control" placeholder="Add a comment..." required />
-                        <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-send"></i></button>
+                <form asp-action="AddComment" asp-route-id="@Model.Id" method="post">
+                    <div class="d-flex gap-2">
+                        <input name="content" class="form-control" placeholder="Add a comment…" required />
+                        <button type="submit" class="btn btn-primary btn-sm px-3">
+                            <i class="bi bi-send"></i>
+                        </button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Right: Approval timeline + meta -->
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-check2-circle me-2"></i>Approval Flow</div>
+            <div class="card-body">
+                @if (!steps.Any())
+                {
+                    <p class="text-muted small mb-0">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Approval steps will appear after submission.
+                    </p>
+                }
+                else
+                {
+                    <div class="approval-timeline">
+                        @foreach (var step in steps.OrderBy(s => s.Order))
+                        {
+                            var dotCls = step.Status switch {
+                                ApprovalStatus.Approved => "approved",
+                                ApprovalStatus.Rejected => "rejected",
+                                _ => "pending"
+                            };
+                            var icon = step.Status switch {
+                                ApprovalStatus.Approved => "bi-check-lg",
+                                ApprovalStatus.Rejected => "bi-x-lg",
+                                _ => "bi-hourglass-split"
+                            };
+                            <div class="approval-step">
+                                <div class="step-dot @dotCls"><i class="bi @icon"></i></div>
+                                <div class="step-content">
+                                    <div class="step-title">Step @step.Order</div>
+                                    <div class="step-meta">
+                                        @step.Status
+                                        @if (step.ActedAt.HasValue)
+                                        {
+                                            <span>· @step.ActedAt.Value.ToString("dd MMM yyyy")</span>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(step.Comment))
+                                    {
+                                        <div class="mt-1 p-2 rounded" style="background:#f9fafb;font-size:12px;color:#374151;">
+                                            "@step.Comment"
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><i class="bi bi-file-text me-2"></i>Approval Decision</div>
+            <div class="card-body">
+                <div class="status-badge @StatusCls(Model.Status) w-100 justify-content-center py-2 mb-2">
+                    @Model.Status
+                </div>
+                <table class="detail-table">
+                    <tr><td>Review Date</td><td>@(Model.UpdatedAt.ToString("dd MMM yyyy"))</td></tr>
+                </table>
             </div>
         </div>
     </div>

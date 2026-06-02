@@ -17,5 +17,15 @@ public class ChangeRequest : BaseEntity
     public DateTime? TargetDate { get; set; }
     public string? ImplementationNotes { get; set; }
 
+    // Extended CR form fields
+    public string? SystemsAffected { get; set; }
+    public string? RiskDescription { get; set; }
+    public string? ImpactOnUsers { get; set; }
+    public string? ProposedImplementationWindow { get; set; }
+    public string? RollbackPlan { get; set; }
+    public string? RollbackTrigger { get; set; }
+    public string? TestingSteps { get; set; }
+    public StagingTestedStatus? StagingTested { get; set; }
+
     public ICollection<ChangeRequestComment> Comments { get; set; } = new List<ChangeRequestComment>();
 }

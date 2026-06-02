@@ -1,0 +1,132 @@
+@model PCA.Web.Models.ThemeSettings
+@{
+    ViewData["Title"] = "Theme & Branding";
+    ViewData["Subtitle"] = "Customize colors, fonts, and branding";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Theme &amp; Branding</h1>
+        <p class="page-header-sub mb-0">Changes apply instantly site-wide for all users</p>
+    </div>
+</div>
+
+<form asp-action="Theme" method="post" id="themeForm">
+    <div class="row g-3">
+        <div class="col-lg-8">
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-palette"></i> Color Palette</div>
+                <div class="form-section-body">
+                    <div class="color-picker-grid">
+                        @{
+                            var fields = new[] {
+                                (nameof(Model.PrimaryColor),   "Primary / Accent Color",  Model.PrimaryColor,  "Buttons, links, active sidebar items"),
+                                (nameof(Model.AccentHover),    "Primary Hover",           Model.AccentHover,   "Color on hover/focus of primary elements"),
+                                (nameof(Model.AppBg),          "App Background",          Model.AppBg,         "Page background behind the sidebar and cards"),
+                                (nameof(Model.SidebarBg),      "Sidebar Background",      Model.SidebarBg,     "Left navigation sidebar"),
+                                (nameof(Model.SidebarText),    "Sidebar Text",            Model.SidebarText,   "Icons and labels in the sidebar"),
+                                (nameof(Model.TopbarBg),       "Top Bar Background",      Model.TopbarBg,      "Horizontal top bar"),
+                                (nameof(Model.CardBg),         "Card Background",         Model.CardBg,        "Content cards and form sections"),
+                            };
+                        }
+                        @foreach (var (field, label, value, desc) in fields)
+                        {
+                            <div class="color-field">
+                                <label for="@field">@label</label>
+                                <input type="color" id="@field" name="@field" value="@value"
+                                       oninput="previewColor('@field', this.value)" />
+                                <div class="color-preview-bar" id="bar_@field" style="background:@value;"></div>
+                                <div class="text-muted mt-1" style="font-size:11px;">@desc</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-type"></i> Typography &amp; Branding</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Logo / App Name</label>
+                            <input asp-for="LogoText" class="form-control" placeholder="PCA" />
+                            <div class="text-muted small mt-1">Short text shown in sidebar logo bubble and nav</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Font Family</label>
+                            <select asp-for="FontFamily" class="form-select" onchange="document.body.style.fontFamily=this.value">
+                                <option value="Inter, system-ui, sans-serif">Inter (default)</option>
+                                <option value="'DM Sans', sans-serif">DM Sans</option>
+                                <option value="'Roboto', sans-serif">Roboto</option>
+                                <option value="'Poppins', sans-serif">Poppins</option>
+                                <option value="system-ui, sans-serif">System UI</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card position-sticky" style="top:80px;">
+                <div class="card-header"><i class="bi bi-eye me-2"></i>Live Preview</div>
+                <div class="card-body" id="previewPane">
+                    <div class="d-flex align-items-center gap-3 p-3 rounded mb-3"
+                         id="prevSidebar" style="background:@Model.SidebarBg;border:1px solid #e5e7eb;">
+                        <div style="width:32px;height:32px;border-radius:8px;background:@Model.PrimaryColor;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;">@Model.LogoText[..1]</div>
+                        <span style="font-weight:600;font-size:13px;color:@Model.SidebarText;">Sidebar Item</span>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100 mb-2" id="prevBtn">Primary Button</button>
+                    <div class="p-3 rounded mb-2" id="prevCard" style="background:@Model.CardBg;border:1px solid #f3f4f6;font-size:12px;color:#374151;">
+                        Card background preview
+                    </div>
+                    <div class="p-2 rounded" id="prevBg" style="background:@Model.AppBg;font-size:11px;color:#9ca3af;text-align:center;">
+                        App background
+                    </div>
+                </div>
+                <div class="card-body border-top">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i> Apply Theme
+                        </button>
+                        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+function previewColor(field, value) {
+    // update CSS var live
+    const varMap = {
+        'PrimaryColor':  '--color-primary',
+        'AccentHover':   '--color-primary-hover',
+        'AppBg':         '--color-app-bg',
+        'SidebarBg':     '--color-sidebar-bg',
+        'SidebarText':   '--color-sidebar-text',
+        'TopbarBg':      '--color-topbar-bg',
+        'CardBg':        '--color-card-bg',
+    };
+    const v = varMap[field];
+    if (v) document.documentElement.style.setProperty(v, value);
+
+    // update color bar
+    const bar = document.getElementById('bar_' + field);
+    if (bar) bar.style.background = value;
+
+    // update preview pane
+    if (field === 'PrimaryColor') {
+        document.getElementById('prevSidebar').querySelector('div').style.background = value;
+    }
+    if (field === 'SidebarBg') document.getElementById('prevSidebar').style.background = value;
+    if (field === 'SidebarText') document.getElementById('prevSidebar').querySelector('span').style.color = value;
+    if (field === 'CardBg') document.getElementById('prevCard').style.background = value;
+    if (field === 'AppBg') document.getElementById('prevBg').style.background = value;
+}
+</script>
+}

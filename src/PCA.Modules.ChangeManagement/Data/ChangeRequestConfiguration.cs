@@ -15,6 +15,14 @@ public class ChangeRequestConfiguration : IEntityTypeConfiguration<ChangeRequest
         builder.Property(x => x.Title).HasMaxLength(300).IsRequired();
         builder.Property(x => x.Description).HasMaxLength(4000).IsRequired();
         builder.Property(x => x.ImplementationNotes).HasMaxLength(4000);
+        builder.Property(x => x.SystemsAffected).HasMaxLength(1000);
+        builder.Property(x => x.RiskDescription).HasMaxLength(2000);
+        builder.Property(x => x.ImpactOnUsers).HasMaxLength(1000);
+        builder.Property(x => x.ProposedImplementationWindow).HasMaxLength(500);
+        builder.Property(x => x.RollbackPlan).HasMaxLength(4000);
+        builder.Property(x => x.RollbackTrigger).HasMaxLength(1000);
+        builder.Property(x => x.TestingSteps).HasMaxLength(4000);
+        builder.Property(x => x.StagingTested).HasConversion<string>();
         builder.Property(x => x.Type).HasConversion<string>();
         builder.Property(x => x.Priority).HasConversion<string>();
         builder.Property(x => x.Status).HasConversion<string>();

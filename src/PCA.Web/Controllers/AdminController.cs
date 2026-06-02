@@ -6,6 +6,8 @@ using PCA.Modules.Approvals.Models;
 using PCA.Modules.Approvals.Services;
 using PCA.Modules.Identity.Models;
 using PCA.Shared.Enums;
+using PCA.Web.Models;
+using PCA.Web.Services;
 
 namespace PCA.Web.Controllers;
 
@@ -14,11 +16,13 @@ public class AdminController : Controller
 {
     private readonly IApprovalService _approvalService;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IThemeService _themeService;
 
-    public AdminController(IApprovalService approvalService, UserManager<ApplicationUser> userManager)
+    public AdminController(IApprovalService approvalService, UserManager<ApplicationUser> userManager, IThemeService themeService)
     {
         _approvalService = approvalService;
         _userManager = userManager;
+        _themeService = themeService;
     }
 
     public async Task<IActionResult> Index()
@@ -71,5 +75,21 @@ public class AdminController : Controller
         await _approvalService.CreateTemplateAsync(template);
         TempData["Success"] = "Template created successfully.";
         return RedirectToAction(nameof(Index));
+    }
+
+    // Theme
+    public async Task<IActionResult> Theme()
+    {
+        var theme = await _themeService.GetThemeAsync();
+        return View(theme);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Theme(ThemeSettings settings)
+    {
+        if (!ModelState.IsValid) return View(settings);
+        await _themeService.SaveThemeAsync(settings);
+        TempData["Success"] = "Theme updated successfully.";
+        return RedirectToAction(nameof(Theme));
     }
 }

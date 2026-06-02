@@ -7,6 +7,7 @@ using PCA.Modules.ChangeManagement.Services;
 using PCA.Modules.Identity;
 using PCA.Modules.Identity.Models;
 using PCA.Web.Data;
+using PCA.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +45,9 @@ var config = builder.Configuration;
 new PCA.Modules.Identity.ModuleRegistration().Register(builder.Services, config);
 new PCA.Modules.ChangeManagement.ModuleRegistration().Register(builder.Services, config);
 new PCA.Modules.Approvals.ModuleRegistration().Register(builder.Services, config);
+
+// Theme
+builder.Services.AddScoped<IThemeService, ThemeService>();
 
 // MVC
 builder.Services.AddControllersWithViews();

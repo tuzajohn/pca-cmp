@@ -53,6 +53,14 @@ public class ChangeRequestsController : Controller
             Type = vm.Type,
             Priority = vm.Priority,
             TargetDate = vm.TargetDate,
+            ProposedImplementationWindow = vm.ProposedImplementationWindow,
+            SystemsAffected = vm.SystemsAffected,
+            RiskDescription = vm.RiskDescription,
+            ImpactOnUsers = vm.ImpactOnUsers,
+            RollbackPlan = vm.RollbackPlan,
+            RollbackTrigger = vm.RollbackTrigger,
+            TestingSteps = vm.TestingSteps,
+            StagingTested = vm.StagingTested,
             RequestedById = user!.Id,
             SerialNumber = string.Empty
         };
@@ -92,6 +100,14 @@ public class ChangeRequestsController : Controller
             Type = cr.Type,
             Priority = cr.Priority,
             TargetDate = cr.TargetDate,
+            ProposedImplementationWindow = cr.ProposedImplementationWindow,
+            SystemsAffected = cr.SystemsAffected,
+            RiskDescription = cr.RiskDescription,
+            ImpactOnUsers = cr.ImpactOnUsers,
+            RollbackPlan = cr.RollbackPlan,
+            RollbackTrigger = cr.RollbackTrigger,
+            TestingSteps = cr.TestingSteps,
+            StagingTested = cr.StagingTested,
             ImplementationNotes = cr.ImplementationNotes
         };
         return View(vm);
@@ -112,6 +128,14 @@ public class ChangeRequestsController : Controller
         cr.Type = vm.Type;
         cr.Priority = vm.Priority;
         cr.TargetDate = vm.TargetDate;
+        cr.ProposedImplementationWindow = vm.ProposedImplementationWindow;
+        cr.SystemsAffected = vm.SystemsAffected;
+        cr.RiskDescription = vm.RiskDescription;
+        cr.ImpactOnUsers = vm.ImpactOnUsers;
+        cr.RollbackPlan = vm.RollbackPlan;
+        cr.RollbackTrigger = vm.RollbackTrigger;
+        cr.TestingSteps = vm.TestingSteps;
+        cr.StagingTested = vm.StagingTested;
         cr.ImplementationNotes = vm.ImplementationNotes;
 
         await _crService.UpdateAsync(cr);

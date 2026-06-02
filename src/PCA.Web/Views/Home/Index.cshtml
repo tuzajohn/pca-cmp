@@ -1,113 +1,277 @@
 @model DashboardViewModel
+@using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Dashboard";
+    int draft       = Model.StatusCounts.TryGetValue(ChangeStatus.Draft,       out var d) ? d : 0;
+    int submitted   = Model.StatusCounts.TryGetValue(ChangeStatus.Submitted,   out var s) ? s : 0;
+    int underReview = Model.StatusCounts.TryGetValue(ChangeStatus.UnderReview, out var u) ? u : 0;
+    int approved    = Model.StatusCounts.TryGetValue(ChangeStatus.Approved,    out var a) ? a : 0;
+    int rejected    = Model.StatusCounts.TryGetValue(ChangeStatus.Rejected,    out var r) ? r : 0;
+    int implemented = Model.StatusCounts.TryGetValue(ChangeStatus.Implemented, out var im) ? im : 0;
+    int closed      = Model.StatusCounts.TryGetValue(ChangeStatus.Closed,      out var cl) ? cl : 0;
 }
 
-<h2 class="mb-4"><i class="bi bi-speedometer2"></i> Dashboard</h2>
+<!-- Welcome row -->
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="page-header-title mb-1">Welcome back, @User.Identity!.Name?.Split('@')[0] 👋</h1>
+        <p class="page-header-sub mb-0">Here's what's happening with your change requests today.</p>
+    </div>
+    <a asp-controller="ChangeRequests" asp-action="Create" class="btn btn-primary px-4">
+        <i class="bi bi-plus-lg me-1"></i> New Change Request
+    </a>
+</div>
 
+<!-- Stats row -->
 <div class="row g-3 mb-4">
-    @{
-        var statuses = new[] {
-            (PCA.Shared.Enums.ChangeStatus.Draft, "secondary", "bi-file-earmark"),
-            (PCA.Shared.Enums.ChangeStatus.Submitted, "primary", "bi-send"),
-            (PCA.Shared.Enums.ChangeStatus.UnderReview, "info", "bi-search"),
-            (PCA.Shared.Enums.ChangeStatus.Approved, "success", "bi-check-circle"),
-            (PCA.Shared.Enums.ChangeStatus.Rejected, "danger", "bi-x-circle"),
-            (PCA.Shared.Enums.ChangeStatus.Implemented, "warning", "bi-gear"),
-            (PCA.Shared.Enums.ChangeStatus.Closed, "dark", "bi-archive"),
-        };
-    }
-    @foreach (var (status, color, icon) in statuses)
-    {
-        var count = Model.StatusCounts.TryGetValue(status, out var c) ? c : 0;
-        <div class="col-6 col-md-3">
-            <div class="card border-@color h-100">
-                <div class="card-body text-center">
-                    <i class="bi @icon fs-2 text-@color"></i>
-                    <h3 class="mt-1 mb-0">@count</h3>
-                    <small class="text-muted">@status</small>
-                </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon primary"><i class="bi bi-stack"></i></div>
+            <div class="stat-body">
+                <div class="stat-value">@Model.TotalChangeRequests</div>
+                <div class="stat-label">Total CRs</div>
             </div>
         </div>
-    }
+    </div>
     <div class="col-6 col-md-3">
-        <div class="card border-dark h-100 bg-dark text-white">
-            <div class="card-body text-center">
-                <i class="bi bi-stack fs-2"></i>
-                <h3 class="mt-1 mb-0">@Model.TotalChangeRequests</h3>
-                <small>Total</small>
+        <div class="stat-card">
+            <div class="stat-icon yellow"><i class="bi bi-clock-history"></i></div>
+            <div class="stat-body">
+                <div class="stat-value">@(submitted + underReview)</div>
+                <div class="stat-label">In Progress</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="bi bi-check-circle"></i></div>
+            <div class="stat-body">
+                <div class="stat-value">@approved</div>
+                <div class="stat-label">Approved</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon red"><i class="bi bi-x-circle"></i></div>
+            <div class="stat-body">
+                <div class="stat-value">@rejected</div>
+                <div class="stat-label">Rejected</div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row g-4">
+<!-- Charts + details row -->
+<div class="row g-3 mb-4">
+    <!-- Status distribution chart -->
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header">
+                <span><i class="bi bi-bar-chart me-2"></i>CRs by Status</span>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mini status breakdown -->
     <div class="col-lg-7">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <strong><i class="bi bi-clock-history"></i> Recent Change Requests</strong>
-                <a asp-controller="ChangeRequests" asp-action="Create" class="btn btn-sm btn-primary">
-                    <i class="bi bi-plus"></i> New CR
-                </a>
+        <div class="card h-100">
+            <div class="card-header">
+                <span><i class="bi bi-list-check me-2"></i>Status Breakdown</span>
             </div>
             <div class="card-body p-0">
-                @if (!Model.RecentChangeRequests.Any())
-                {
-                    <p class="text-muted p-3 mb-0">No change requests yet.</p>
-                }
-                else
-                {
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Count</th>
+                            <th>Progress</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            var rows = new[] {
+                                ("Draft",       draft,       "status-draft"),
+                                ("Submitted",   submitted,   "status-submitted"),
+                                ("Under Review",underReview, "status-underreview"),
+                                ("Approved",    approved,    "status-approved"),
+                                ("Rejected",    rejected,    "status-rejected"),
+                                ("Implemented", implemented, "status-implemented"),
+                                ("Closed",      closed,      "status-closed"),
+                            };
+                            int total = Model.TotalChangeRequests > 0 ? Model.TotalChangeRequests : 1;
+                        }
+                        @foreach (var (label, count, cls) in rows)
+                        {
+                            int pct = (int)Math.Round(count * 100.0 / total);
                             <tr>
-                                <th>Serial #</th>
-                                <th>Title</th>
-                                <th>Status</th>
-                                <th>Priority</th>
+                                <td><span class="status-badge @cls">@label</span></td>
+                                <td class="fw-semibold">@count</td>
+                                <td style="min-width:140px;">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="flex-grow-1 bg-light rounded" style="height:6px;overflow:hidden;">
+                                            <div style="width:@pct%;height:100%;background:var(--color-primary);border-radius:4px;"></div>
+                                        </div>
+                                        <span class="text-muted" style="font-size:11px;width:28px;">@pct%</span>
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var cr in Model.RecentChangeRequests)
-                            {
-                                <tr>
-                                    <td><a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@cr.Id">@(string.IsNullOrEmpty(cr.SerialNumber) ? $"#{cr.Id}" : cr.SerialNumber)</a></td>
-                                    <td>@cr.Title</td>
-                                    <td><span class="badge bg-secondary">@cr.Status</span></td>
-                                    <td><span class="badge bg-@(cr.Priority == Priority.Critical ? "danger" : cr.Priority == Priority.High ? "warning" : "light text-dark")">@cr.Priority</span></td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
+                        }
+                    </tbody>
+                </table>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent CRs + Pending approvals -->
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">
+                <span><i class="bi bi-clock me-2"></i>Recent Change Requests</span>
+                <a asp-controller="ChangeRequests" asp-action="Index" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            @if (!Model.RecentChangeRequests.Any())
+            {
+                <div class="card-body text-center py-5 text-muted">
+                    <i class="bi bi-inbox fs-1 d-block mb-2 opacity-25"></i>
+                    No change requests yet.
+                    <a asp-controller="ChangeRequests" asp-action="Create" class="d-block mt-2">Create your first CR →</a>
+                </div>
+            }
+            else
+            {
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Serial #</th>
+                            <th>Title</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Priority</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cr in Model.RecentChangeRequests)
+                        {
+                            var statusCls = cr.Status switch {
+                                ChangeStatus.Draft => "status-draft",
+                                ChangeStatus.Submitted => "status-submitted",
+                                ChangeStatus.UnderReview => "status-underreview",
+                                ChangeStatus.Approved => "status-approved",
+                                ChangeStatus.Rejected => "status-rejected",
+                                ChangeStatus.Implemented => "status-implemented",
+                                ChangeStatus.Closed => "status-closed",
+                                _ => ""
+                            };
+                            var priCls = cr.Priority switch {
+                                Priority.Low => "priority-low",
+                                Priority.Medium => "priority-medium",
+                                Priority.High => "priority-high",
+                                Priority.Critical => "priority-critical",
+                                _ => ""
+                            };
+                            <tr>
+                                <td>
+                                    <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@cr.Id"
+                                       class="fw-semibold" style="color:var(--color-primary);">
+                                        @(string.IsNullOrEmpty(cr.SerialNumber) ? $"#{cr.Id}" : cr.SerialNumber)
+                                    </a>
+                                </td>
+                                <td>@cr.Title</td>
+                                <td><span class="status-badge status-submitted">@cr.Type</span></td>
+                                <td><span class="status-badge @statusCls">@cr.Status</span></td>
+                                <td><span class="status-badge @priCls">@cr.Priority</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
         </div>
     </div>
 
     <div class="col-lg-5">
         <div class="card">
             <div class="card-header">
-                <strong><i class="bi bi-bell"></i> My Pending Approvals</strong>
-            </div>
-            <div class="card-body p-0">
-                @if (!Model.PendingApprovals.Any())
+                <span><i class="bi bi-bell me-2"></i>Pending Approvals</span>
+                @if (Model.PendingApprovals.Any())
                 {
-                    <p class="text-muted p-3 mb-0">No pending approvals.</p>
+                    <span class="sidebar-badge">@Model.PendingApprovals.Count</span>
                 }
-                else
-                {
-                    <ul class="list-group list-group-flush">
+            </div>
+            @if (!Model.PendingApprovals.Any())
+            {
+                <div class="card-body text-center py-5 text-muted">
+                    <i class="bi bi-check-all fs-1 d-block mb-2 opacity-25"></i>
+                    No pending approvals.
+                </div>
+            }
+            else
+            {
+                <div class="card-body">
+                    <div class="approval-timeline">
                         @foreach (var step in Model.PendingApprovals)
                         {
-                            <li class="list-group-item">
-                                <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@step.ChangeRequestId">
-                                    CR #@step.ChangeRequestId &ndash; Step @step.Order
-                                </a>
-                                <span class="badge bg-warning float-end">Pending</span>
-                            </li>
+                            <div class="approval-step">
+                                <div class="step-dot pending"><i class="bi bi-hourglass-split"></i></div>
+                                <div class="step-content">
+                                    <div class="step-title">
+                                        <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@step.ChangeRequestId">
+                                            CR #@step.ChangeRequestId
+                                        </a>
+                                        – Step @step.Order
+                                    </div>
+                                    <div class="step-meta">Awaiting your decision</div>
+                                </div>
+                                <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@step.ChangeRequestId"
+                                   class="btn btn-sm btn-primary">Review</a>
+                            </div>
                         }
-                    </ul>
-                }
-            </div>
+                    </div>
+                </div>
+            }
         </div>
     </div>
 </div>
+
+@section Scripts {
+<script>
+(function() {
+    const ctx = document.getElementById('statusChart').getContext('2d');
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Draft','Submitted','Review','Approved','Rejected','Implemented','Closed'],
+            datasets: [{
+                label: 'Change Requests',
+                data: [@draft, @submitted, @underReview, @approved, @rejected, @implemented, @closed],
+                backgroundColor: [
+                    '#f3f4f6','#eff6ff','#fef9c3','#f0fdf4','#fef2f2','#f5f3ff','#f3f4f6'
+                ],
+                borderColor: [
+                    '#d1d5db','#93c5fd','#fde047','#86efac','#fca5a5','#c4b5fd','#d1d5db'
+                ],
+                borderWidth: 2,
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f3f4f6' } },
+                x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+            }
+        }
+    });
+})();
+</script>
+}

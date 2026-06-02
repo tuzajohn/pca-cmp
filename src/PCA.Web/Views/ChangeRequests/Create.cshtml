@@ -1,57 +1,153 @@
 @model ChangeRequestCreateViewModel
+@using PCA.Shared.Enums
 @{
     ViewData["Title"] = "New Change Request";
+    ViewData["Subtitle"] = "Complete all sections of the CR form";
 }
 
-<h2 class="mb-4"><i class="bi bi-plus-circle"></i> New Change Request</h2>
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">New Change Request</h1>
+        <p class="page-header-sub mb-0">CR number will be auto-generated on submit — <code style="color:var(--color-primary);">PCA-CR-YYYYMM-####</code></p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i> Back</a>
+</div>
 
-<div class="row">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-body">
-                <form asp-action="Create" method="post">
-                    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+<form asp-action="Create" method="post">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-4"></div>
+    <div class="row g-3">
+        <div class="col-lg-8">
 
-                    <div class="mb-3">
-                        <label asp-for="Title" class="form-label fw-semibold"></label>
-                        <input asp-for="Title" class="form-control" placeholder="Brief description of the change" />
-                        <span asp-validation-for="Title" class="text-danger small"></span>
-                    </div>
-
-                    <div class="mb-3">
-                        <label asp-for="Description" class="form-label fw-semibold"></label>
-                        <textarea asp-for="Description" class="form-control" rows="5" placeholder="Detailed description, justification, and impact..."></textarea>
-                        <span asp-validation-for="Description" class="text-danger small"></span>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label asp-for="Type" class="form-label fw-semibold"></label>
-                            <select asp-for="Type" asp-items="Html.GetEnumSelectList<ChangeType>()" class="form-select"></select>
+            <!-- A: Change Info -->
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-info-circle"></i> A. Change Information</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="Title" class="form-label">Change Title <span class="text-danger">*</span></label>
+                            <input asp-for="Title" class="form-control" placeholder="Brief descriptive title" />
+                            <span asp-validation-for="Title" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Type" class="form-label">Category <span class="text-danger">*</span></label>
+                            <select asp-for="Type" asp-items="Html.GetEnumSelectList<ChangeType>()" class="form-select">
+                                <option value="">— Select Category —</option>
+                            </select>
                             <span asp-validation-for="Type" class="text-danger small"></span>
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <label asp-for="Priority" class="form-label fw-semibold"></label>
-                            <select asp-for="Priority" asp-items="Html.GetEnumSelectList<Priority>()" class="form-select"></select>
+                        <div class="col-md-6">
+                            <label asp-for="Priority" class="form-label">Risk Assessment <span class="text-danger">*</span></label>
+                            <select asp-for="Priority" asp-items="Html.GetEnumSelectList<Priority>()" class="form-select">
+                                <option value="">— Select Risk Level —</option>
+                            </select>
                             <span asp-validation-for="Priority" class="text-danger small"></span>
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <label asp-for="TargetDate" class="form-label fw-semibold"></label>
-                            <input asp-for="TargetDate" class="form-control" type="date" />
-                            <span asp-validation-for="TargetDate" class="text-danger small"></span>
+                        <div class="col-12">
+                            <label asp-for="Description" class="form-label">Description of Change <span class="text-danger">*</span></label>
+                            <textarea asp-for="Description" class="form-control" rows="4"
+                                placeholder="What is changing and why?"></textarea>
+                            <span asp-validation-for="Description" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="SystemsAffected" class="form-label">Systems / Processes Affected</label>
+                            <input asp-for="SystemsAffected" class="form-control"
+                                placeholder="e.g. PDMS, SAP, Network, Firewall" />
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="ImpactOnUsers" class="form-label">Impact on Users / PDMS</label>
+                            <textarea asp-for="ImpactOnUsers" class="form-control" rows="2"
+                                placeholder="Describe how this affects end users or PDMS"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="RiskDescription" class="form-label">Risk Details</label>
+                            <textarea asp-for="RiskDescription" class="form-control" rows="2"
+                                placeholder="Specific risks associated with this change"></textarea>
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save as Draft</button>
-                        <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+            <!-- B: Implementation Plan -->
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-calendar-check"></i> B. Implementation Plan</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="TargetDate" class="form-label">Target Date</label>
+                            <input asp-for="TargetDate" type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="ProposedImplementationWindow" class="form-label">Implementation Window</label>
+                            <input asp-for="ProposedImplementationWindow" class="form-control"
+                                placeholder="e.g. 2026-06-15 22:00–23:00 (off-peak)" />
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="TestingSteps" class="form-label">Testing / Verification Steps</label>
+                            <textarea asp-for="TestingSteps" class="form-control" rows="3"
+                                placeholder="Step-by-step verification after implementation"></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="StagingTested" class="form-label">Staging Environment Tested?</label>
+                            <select asp-for="StagingTested" asp-items="Html.GetEnumSelectList<StagingTestedStatus>()" class="form-select">
+                                <option value="">— Select —</option>
+                            </select>
+                        </div>
                     </div>
-                </form>
+                </div>
+            </div>
+
+            <!-- C: Rollback -->
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-arrow-counterclockwise"></i> C. Rollback Plan</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="RollbackPlan" class="form-label">Rollback Plan</label>
+                            <textarea asp-for="RollbackPlan" class="form-control" rows="3"
+                                placeholder="Step-by-step procedure to reverse this change"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="RollbackTrigger" class="form-label">Rollback Trigger / Window</label>
+                            <input asp-for="RollbackTrigger" class="form-control"
+                                placeholder="Condition that triggers rollback; max time before execution" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <div class="card position-sticky" style="top:80px;">
+                <div class="card-header"><i class="bi bi-info-circle me-2"></i>About This CR</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="small text-muted mb-1" style="text-transform:uppercase;letter-spacing:.05em;font-size:11px;font-weight:600;">Status After Save</div>
+                        <span class="status-badge status-draft"><i class="bi bi-file-earmark me-1"></i>Draft</span>
+                    </div>
+                    <div class="mb-3">
+                        <div class="small text-muted mb-2" style="text-transform:uppercase;letter-spacing:.05em;font-size:11px;font-weight:600;">Lifecycle</div>
+                        <div class="d-flex flex-column gap-1" style="font-size:12px;">
+                            <span>📝 Draft</span>
+                            <span class="text-muted">↓ Submit</span>
+                            <span>🔍 Under Review</span>
+                            <span class="text-muted">↓ Approval flow</span>
+                            <span>✅ Approved / ❌ Rejected</span>
+                            <span class="text-muted">↓</span>
+                            <span>🔧 Implemented → 🔒 Closed</span>
+                        </div>
+                    </div>
+                    <hr />
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-floppy me-1"></i> Save as Draft
+                        </button>
+                        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</div>
+</form>
 
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-}
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }
