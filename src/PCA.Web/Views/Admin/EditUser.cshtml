@@ -1,0 +1,97 @@
+@model EditUserViewModel
+@{
+    ViewData["Title"] = "Edit User";
+    ViewData["Subtitle"] = Model.Email;
+}
+
+<div class="page-header">
+    <h1 class="page-header-title">Edit User</h1>
+    <a asp-action="Users" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back to Users
+    </a>
+</div>
+
+<form asp-action="EditUser" method="post">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-4 small"></div>
+    <input type="hidden" asp-for="Id" />
+    <input type="hidden" asp-for="Email" />
+
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-person"></i> User Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Email Address</label>
+                            <input class="form-control" value="@Model.Email" disabled />
+                            <div class="text-muted small mt-1">Email cannot be changed.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="FullName" class="form-label">Full Name <span class="text-danger">*</span></label>
+                            <input asp-for="FullName" class="form-control" />
+                            <span asp-validation-for="FullName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Department" class="form-label">Department <span class="text-danger">*</span></label>
+                            <input asp-for="Department" class="form-control" />
+                            <span asp-validation-for="Department" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-lock"></i> Reset Password <span class="text-muted ms-2" style="font-weight:400;font-size:12px;">— leave blank to keep current</span></div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="NewPassword" class="form-label">New Password</label>
+                            <input asp-for="NewPassword" type="password" class="form-control" autocomplete="new-password" />
+                            <span asp-validation-for="NewPassword" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header"><i class="bi bi-person-badge me-2"></i>Roles</div>
+                <div class="card-body">
+                    @foreach (var role in Model.AllRoles)
+                    {
+                        var desc = role switch {
+                            "Admin"     => "Full system access, user management, templates",
+                            "Approver"  => "Can approve or reject change requests",
+                            "Requester" => "Can create and submit change requests",
+                            _           => ""
+                        };
+                        <label class="d-flex align-items-start gap-3 p-3 rounded mb-2"
+                               style="border:1.5px solid #e5e7eb;cursor:pointer;"
+                               onclick="this.querySelector('input').click()">
+                            <input type="checkbox" name="SelectedRoles" value="@role"
+                                   class="form-check-input mt-1 flex-shrink-0"
+                                   @(Model.SelectedRoles.Contains(role) ? "checked" : "") />
+                            <div>
+                                <div class="fw-semibold" style="font-size:13.5px;">@role</div>
+                                @if (!string.IsNullOrEmpty(desc))
+                                {
+                                    <div class="text-muted" style="font-size:12px;">@desc</div>
+                                }
+                            </div>
+                        </label>
+                    }
+                    <div class="d-grid mt-3 gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i> Save Changes
+                        </button>
+                        <a asp-action="Users" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

@@ -18,23 +18,22 @@ public class AccountController : Controller
 
     public IActionResult Login(string? returnUrl = null)
     {
-        ViewBag.ReturnUrl = returnUrl;
-        return View(new LoginViewModel());
+        return View(new LoginViewModel { ReturnUrl = returnUrl });
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(LoginViewModel vm, string? returnUrl = null)
+    public async Task<IActionResult> Login(LoginViewModel vm)
     {
         if (!ModelState.IsValid) return View(vm);
 
         var result = await _signInManager.PasswordSignInAsync(vm.Email, vm.Password, vm.RememberMe, lockoutOnFailure: false);
         if (result.Succeeded)
         {
-            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-                return Redirect(returnUrl);
+            if (!string.IsNullOrEmpty(vm.ReturnUrl) && Url.IsLocalUrl(vm.ReturnUrl))
+                return Redirect(vm.ReturnUrl);
             return RedirectToAction("Index", "Home");
         }
-        ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+        ModelState.AddModelError(string.Empty, "Invalid email or password.");
         return View(vm);
     }
 
@@ -42,37 +41,7 @@ public class AccountController : Controller
     public async Task<IActionResult> Logout()
     {
         await _signInManager.SignOutAsync();
-        return RedirectToAction("Index", "Home");
-    }
-
-    public IActionResult Register()
-    {
-        return View(new RegisterViewModel());
-    }
-
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Register(RegisterViewModel vm)
-    {
-        if (!ModelState.IsValid) return View(vm);
-
-        var user = new ApplicationUser
-        {
-            UserName = vm.Email,
-            Email = vm.Email,
-            FullName = vm.FullName,
-            Department = vm.Department,
-            EmailConfirmed = true
-        };
-        var result = await _userManager.CreateAsync(user, vm.Password);
-        if (result.Succeeded)
-        {
-            await _userManager.AddToRoleAsync(user, "Requester");
-            await _signInManager.SignInAsync(user, isPersistent: false);
-            return RedirectToAction("Index", "Home");
-        }
-        foreach (var error in result.Errors)
-            ModelState.AddModelError(string.Empty, error.Description);
-        return View(vm);
+        return RedirectToAction(nameof(Login));
     }
 
     public IActionResult AccessDenied() => View();

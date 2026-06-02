@@ -16,25 +16,26 @@ public class AdminController : Controller
 {
     private readonly IApprovalService _approvalService;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly RoleManager<IdentityRole> _roleManager;
     private readonly IThemeService _themeService;
 
-    public AdminController(IApprovalService approvalService, UserManager<ApplicationUser> userManager, IThemeService themeService)
+    public AdminController(IApprovalService approvalService,
+        UserManager<ApplicationUser> userManager,
+        RoleManager<IdentityRole> roleManager,
+        IThemeService themeService)
     {
         _approvalService = approvalService;
         _userManager = userManager;
+        _roleManager = roleManager;
         _themeService = themeService;
     }
+
+    // ── Approval Templates ──────────────────────────────────────────────────
 
     public async Task<IActionResult> Index()
     {
         var templates = await _approvalService.GetTemplatesAsync();
         return View(templates);
-    }
-
-    public async Task<IActionResult> Users()
-    {
-        var users = await _userManager.Users.ToListAsync();
-        return View(users);
     }
 
     public async Task<IActionResult> EditTemplate(int id)
@@ -55,29 +56,145 @@ public class AdminController : Controller
     public async Task<IActionResult> CreateTemplate(string name, ChangeType changeType,
         List<string> approverIds, List<string> roleNames)
     {
-        var steps = new List<ApprovalTemplateStep>();
-        for (int i = 0; i < approverIds.Count; i++)
+        var steps = approverIds.Select((id, i) => new ApprovalTemplateStep
         {
-            steps.Add(new ApprovalTemplateStep
-            {
-                Order = i + 1,
-                ApproverId = approverIds[i],
-                RoleName = roleNames.Count > i ? roleNames[i] : string.Empty
-            });
-        }
+            Order = i + 1,
+            ApproverId = id,
+            RoleName = roleNames.Count > i ? roleNames[i] : string.Empty
+        }).ToList();
 
-        var template = new ApprovalTemplate
+        await _approvalService.CreateTemplateAsync(new ApprovalTemplate
         {
             Name = name,
             ChangeType = changeType,
             Steps = steps
-        };
-        await _approvalService.CreateTemplateAsync(template);
-        TempData["Success"] = "Template created successfully.";
+        });
+        TempData["Success"] = "Approval template created.";
         return RedirectToAction(nameof(Index));
     }
 
-    // Theme
+    // ── Users ───────────────────────────────────────────────────────────────
+
+    public async Task<IActionResult> Users()
+    {
+        var users = await _userManager.Users.ToListAsync();
+        var list = new List<UserListItemViewModel>();
+        foreach (var u in users)
+        {
+            list.Add(new UserListItemViewModel
+            {
+                Id = u.Id,
+                FullName = u.FullName,
+                Email = u.Email ?? string.Empty,
+                Department = u.Department,
+                Roles = (await _userManager.GetRolesAsync(u)).ToList()
+            });
+        }
+        return View(list);
+    }
+
+    public async Task<IActionResult> CreateUser()
+    {
+        ViewBag.AllRoles = await _roleManager.Roles.Select(r => r.Name!).ToListAsync();
+        return View(new CreateUserViewModel());
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateUser(CreateUserViewModel vm)
+    {
+        if (!ModelState.IsValid)
+        {
+            ViewBag.AllRoles = await _roleManager.Roles.Select(r => r.Name!).ToListAsync();
+            return View(vm);
+        }
+
+        var user = new ApplicationUser
+        {
+            UserName = vm.Email,
+            Email = vm.Email,
+            FullName = vm.FullName,
+            Department = vm.Department,
+            EmailConfirmed = true
+        };
+
+        var result = await _userManager.CreateAsync(user, vm.Password);
+        if (!result.Succeeded)
+        {
+            foreach (var e in result.Errors) ModelState.AddModelError(string.Empty, e.Description);
+            ViewBag.AllRoles = await _roleManager.Roles.Select(r => r.Name!).ToListAsync();
+            return View(vm);
+        }
+
+        if (vm.SelectedRoles.Any())
+            await _userManager.AddToRolesAsync(user, vm.SelectedRoles);
+
+        TempData["Success"] = $"User {vm.Email} created successfully.";
+        return RedirectToAction(nameof(Users));
+    }
+
+    public async Task<IActionResult> EditUser(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user == null) return NotFound();
+
+        var vm = new EditUserViewModel
+        {
+            Id = user.Id,
+            Email = user.Email ?? string.Empty,
+            FullName = user.FullName,
+            Department = user.Department,
+            SelectedRoles = (await _userManager.GetRolesAsync(user)).ToList(),
+            AllRoles = await _roleManager.Roles.Select(r => r.Name!).ToListAsync()
+        };
+        return View(vm);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditUser(EditUserViewModel vm)
+    {
+        var user = await _userManager.FindByIdAsync(vm.Id);
+        if (user == null) return NotFound();
+
+        user.FullName = vm.FullName;
+        user.Department = vm.Department;
+        await _userManager.UpdateAsync(user);
+
+        // Sync roles
+        var currentRoles = await _userManager.GetRolesAsync(user);
+        await _userManager.RemoveFromRolesAsync(user, currentRoles);
+        if (vm.SelectedRoles.Any())
+            await _userManager.AddToRolesAsync(user, vm.SelectedRoles);
+
+        // Optional password reset
+        if (!string.IsNullOrWhiteSpace(vm.NewPassword))
+        {
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var pwResult = await _userManager.ResetPasswordAsync(user, token, vm.NewPassword);
+            if (!pwResult.Succeeded)
+            {
+                foreach (var e in pwResult.Errors) ModelState.AddModelError(string.Empty, e.Description);
+                vm.AllRoles = await _roleManager.Roles.Select(r => r.Name!).ToListAsync();
+                vm.Email = user.Email ?? string.Empty;
+                return View(vm);
+            }
+        }
+
+        TempData["Success"] = $"User {user.Email} updated.";
+        return RedirectToAction(nameof(Users));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteUser(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user == null) return NotFound();
+        await _userManager.DeleteAsync(user);
+        TempData["Success"] = "User deleted.";
+        return RedirectToAction(nameof(Users));
+    }
+
+    // ── Theme ───────────────────────────────────────────────────────────────
+
     public async Task<IActionResult> Theme()
     {
         var theme = await _themeService.GetThemeAsync();
