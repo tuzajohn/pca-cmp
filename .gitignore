@@ -1,5 +1,8 @@
 ## .NET / ASP.NET Core gitignore
 
+# Generated migration SQL script (produced by make migrations-script)
+migrations.sql
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
