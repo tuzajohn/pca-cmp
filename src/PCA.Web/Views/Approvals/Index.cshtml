@@ -1,0 +1,50 @@
+@model List<PCA.Modules.ChangeManagement.Models.ChangeRequest>
+@using PCA.Modules.Approvals.Models
+@{
+    ViewData["Title"] = "Pending Approvals";
+    var pendingSteps = ViewBag.PendingSteps as List<ApprovalStep> ?? new List<ApprovalStep>();
+}
+
+<h2 class="mb-4"><i class="bi bi-check2-circle"></i> Pending Approvals</h2>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-success"><i class="bi bi-check-all"></i> No pending approvals. All caught up!</div>
+}
+else
+{
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Change Request</th>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Priority</th>
+                        <th>Pending Steps</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var cr in Model)
+                    {
+                        var mySteps = pendingSteps.Where(s => s.ChangeRequestId == cr.Id).ToList();
+                        <tr>
+                            <td><code>@(string.IsNullOrEmpty(cr.SerialNumber) ? $"#{cr.Id}" : cr.SerialNumber)</code></td>
+                            <td>@cr.Title</td>
+                            <td><span class="badge bg-info text-dark">@cr.Type</span></td>
+                            <td><span class="badge bg-secondary">@cr.Priority</span></td>
+                            <td><span class="badge bg-warning text-dark">@mySteps.Count step(s)</span></td>
+                            <td>
+                                <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@cr.Id" class="btn btn-sm btn-outline-primary">
+                                    Review &amp; Act
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
