@@ -1,0 +1,256 @@
+@using PCA.Web.Services
+@inject IThemeService ThemeService
+@{
+    var theme = await ThemeService.GetThemeAsync();
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] – PCA Change Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <style>
+        :root {
+            --color-primary:       @theme.PrimaryColor;
+            --color-primary-hover: @theme.AccentHover;
+            --color-app-bg:        @theme.AppBg;
+            --color-card-bg:       @theme.CardBg;
+            --font-family:         @theme.FontFamily;
+        }
+
+        /* ── Auth split layout ── */
+        html, body { height: 100%; margin: 0; font-family: var(--font-family); }
+
+        .auth-split {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Left panel – form */
+        .auth-left {
+            width: 45%;
+            min-width: 360px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 48px 56px;
+            position: relative;
+        }
+
+        .auth-logo-mark {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            position: absolute;
+            top: 32px;
+            left: 48px;
+            text-decoration: none;
+        }
+        .auth-logo-mark .dot {
+            width: 10px; height: 10px;
+            border-radius: 3px;
+            background: var(--color-primary);
+        }
+        .auth-logo-mark span {
+            font-weight: 700;
+            font-size: 15px;
+            color: #111827;
+        }
+
+        .auth-heading {
+            font-size: 36px;
+            font-weight: 800;
+            line-height: 1.15;
+            color: #111827;
+            margin: 0 0 8px;
+        }
+        .auth-sub {
+            font-size: 14px;
+            color: #9ca3af;
+            margin: 0 0 36px;
+        }
+
+        .auth-field {
+            border: 1.5px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 11px 14px;
+            font-size: 14px;
+            width: 100%;
+            color: #1f2937;
+            outline: none;
+            transition: border-color .15s, box-shadow .15s;
+            background: #fff;
+            margin-bottom: 14px;
+        }
+        .auth-field:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
+        }
+        .auth-field::placeholder { color: #d1d5db; }
+
+        .auth-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+            font-size: 13px;
+        }
+        .auth-check { display: flex; align-items: center; gap: 7px; color: #374151; cursor: pointer; }
+        .auth-check input[type=checkbox] { accent-color: var(--color-primary); width: 15px; height: 15px; }
+        .auth-forgot { color: #9ca3af; text-decoration: none; font-size: 13px; }
+        .auth-forgot:hover { color: var(--color-primary); }
+
+        .auth-btn {
+            width: 100%;
+            padding: 13px;
+            background: var(--color-primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .15s, transform .1s;
+            margin-bottom: 28px;
+        }
+        .auth-btn:hover { background: var(--color-primary-hover); }
+        .auth-btn:active { transform: scale(.98); }
+
+        .auth-footer {
+            font-size: 13px;
+            color: #9ca3af;
+            text-align: center;
+        }
+        .auth-footer a { color: var(--color-primary); font-weight: 600; text-decoration: none; }
+        .auth-footer a:hover { text-decoration: underline; }
+
+        .auth-errors {
+            background: #fef2f2;
+            border-left: 3px solid #ef4444;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 13px;
+            color: #b91c1c;
+            margin-bottom: 20px;
+        }
+
+        /* Right panel – illustration */
+        .auth-right {
+            flex: 1;
+            background: linear-gradient(135deg, var(--color-primary) 0%, color-mix(in srgb, var(--color-primary) 60%, #1e1b4b) 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Decorative blobs */
+        .auth-right::before {
+            content: '';
+            position: absolute;
+            width: 400px; height: 400px;
+            background: rgba(255,255,255,.07);
+            border-radius: 50%;
+            top: -80px; right: -80px;
+        }
+        .auth-right::after {
+            content: '';
+            position: absolute;
+            width: 280px; height: 280px;
+            background: rgba(255,255,255,.05);
+            border-radius: 50%;
+            bottom: -60px; left: -60px;
+        }
+
+        .auth-illustration {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+        .auth-illustration .icon-stack {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .auth-illustration .icon-card {
+            background: rgba(255,255,255,.15);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,.2);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .auth-illustration .icon-card i {
+            font-size: 40px;
+            color: #fff;
+        }
+        .auth-illustration .icon-card.main {
+            padding: 32px;
+            border-radius: 28px;
+            background: rgba(255,255,255,.2);
+        }
+        .auth-illustration .icon-card.main i { font-size: 64px; }
+
+        .auth-right-title {
+            color: #fff;
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        .auth-right-sub {
+            color: rgba(255,255,255,.7);
+            font-size: 14px;
+            line-height: 1.6;
+            max-width: 320px;
+        }
+
+        /* Floating badge */
+        .auth-badge {
+            position: absolute;
+            background: rgba(255,255,255,.95);
+            border-radius: 12px;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.15);
+            font-size: 13px;
+            font-weight: 600;
+            color: #111827;
+            z-index: 2;
+        }
+        .auth-badge .badge-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+        .auth-badge.top-badge { top: 80px; left: 40px; }
+        .auth-badge.bottom-badge { bottom: 100px; right: 40px; }
+
+        /* Responsive */
+        @@media (max-width: 768px) {
+            .auth-right { display: none; }
+            .auth-left { width: 100%; padding: 40px 28px; min-width: unset; }
+            .auth-heading { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+@RenderBody()
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,55 +1,93 @@
 @model LoginViewModel
 @{
     ViewData["Title"] = "Sign In";
-    Layout = null;
+    Layout = "_AuthLayout";
 }
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sign In – PCA Change Management</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-</head>
-<body>
-<div class="auth-wrapper">
-    <div class="auth-card">
-        <div class="auth-logo">
-            <div class="logo-icon" style="width:48px;height:48px;background:var(--color-primary);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px;margin-bottom:12px;">PCA</div>
-            <h2>Welcome back</h2>
-            <p class="sub">Sign in to PCA Change Management</p>
+
+<div class="auth-split">
+
+    <!-- Left: Form -->
+    <div class="auth-left">
+        <div class="auth-logo-mark">
+            <div class="dot"></div>
+            <span>PCA Change Management</span>
         </div>
 
-        <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 small"></div>
+        <div>
+            <h1 class="auth-heading">Holla,<br/>Welcome Back</h1>
+            <p class="auth-sub">Sign in to your change management portal</p>
 
-        <form asp-action="Login" method="post">
-            <input type="hidden" asp-for="ReturnUrl" />
-            <div class="mb-3">
-                <label asp-for="Email" class="form-label">Email address</label>
-                <input asp-for="Email" class="form-control" placeholder="you@example.com" autocomplete="email" />
-                <span asp-validation-for="Email" class="text-danger small"></span>
-            </div>
-            <div class="mb-3">
-                <label asp-for="Password" class="form-label">Password</label>
-                <input asp-for="Password" type="password" class="form-control" placeholder="••••••••" autocomplete="current-password" />
-                <span asp-validation-for="Password" class="text-danger small"></span>
-            </div>
-            <div class="mb-4 form-check">
-                <input asp-for="RememberMe" class="form-check-input" />
-                <label asp-for="RememberMe" class="form-check-label small">Remember me</label>
-            </div>
-            <button type="submit" class="btn btn-primary w-100 py-2">Sign In</button>
-        </form>
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="auth-errors">
+                    @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+                    {
+                        <div>@error.ErrorMessage</div>
+                    }
+                </div>
+            }
 
-        <p class="text-center mt-4 small text-muted">
-            Don't have an account? <a asp-action="Register">Create account</a>
-        </p>
+            <form asp-action="Login" method="post">
+                <input type="hidden" asp-for="ReturnUrl" />
+                <input asp-for="Email" class="auth-field" placeholder="Email address" autocomplete="email" />
+                <input asp-for="Password" type="password" class="auth-field" placeholder="Password" autocomplete="current-password" />
+
+                <div class="auth-row">
+                    <label class="auth-check">
+                        <input asp-for="RememberMe" type="checkbox" />
+                        Remember me
+                    </label>
+                </div>
+
+                <button type="submit" class="auth-btn">Sign In</button>
+            </form>
+
+            <p class="auth-footer text-muted" style="font-size:12px;text-align:center;">
+                Access is by invitation only. Contact your system administrator to request an account.
+            </p>
+        </div>
     </div>
+
+    <!-- Right: Illustration -->
+    <div class="auth-right">
+        <div class="auth-badge top-badge">
+            <div class="badge-dot"></div>
+            Secure Access
+        </div>
+        <div class="auth-badge bottom-badge">
+            <i class="bi bi-shield-check" style="color:var(--color-primary);font-size:16px;"></i>
+            Role-Based Controls
+        </div>
+
+        <div class="auth-illustration">
+            <div class="icon-stack" style="flex-direction:column;gap:16px;margin-bottom:40px;">
+                <div class="d-flex gap-4 justify-content-center">
+                    <div class="icon-card">
+                        <i class="bi bi-ticket-detailed"></i>
+                    </div>
+                    <div class="icon-card main">
+                        <i class="bi bi-clipboard2-check"></i>
+                    </div>
+                    <div class="icon-card">
+                        <i class="bi bi-check2-circle"></i>
+                    </div>
+                </div>
+                <div class="d-flex gap-4 justify-content-center">
+                    <div class="icon-card">
+                        <i class="bi bi-diagram-3"></i>
+                    </div>
+                    <div class="icon-card">
+                        <i class="bi bi-bar-chart-line"></i>
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="auth-right-title">Change Management<br/>Made Simple</h2>
+            <p class="auth-right-sub">
+                Manage change requests, approval workflows, and
+                implementation tracking — all in one unified platform.
+            </p>
+        </div>
+    </div>
+
 </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
