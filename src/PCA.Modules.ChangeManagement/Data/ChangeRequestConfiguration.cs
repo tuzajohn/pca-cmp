@@ -13,19 +13,26 @@ public class ChangeRequestConfiguration : IEntityTypeConfiguration<ChangeRequest
         builder.Property(x => x.SerialNumber).HasMaxLength(30).IsRequired();
         builder.HasIndex(x => x.SerialNumber).IsUnique();
         builder.Property(x => x.Title).HasMaxLength(300).IsRequired();
-        builder.Property(x => x.Description).HasMaxLength(4000).IsRequired();
-        builder.Property(x => x.ImplementationNotes).HasMaxLength(4000);
+
+        // Large text fields → MySQL TEXT (stored off-row, not counted in the 65535-byte row limit)
+        builder.Property(x => x.Description).HasColumnType("text").IsRequired();
+        builder.Property(x => x.ImplementationNotes).HasColumnType("text");
+        builder.Property(x => x.RiskDescription).HasColumnType("text");
+        builder.Property(x => x.RollbackPlan).HasColumnType("text");
+        builder.Property(x => x.TestingSteps).HasColumnType("text");
+
+        // Shorter fields stay as varchar
         builder.Property(x => x.SystemsAffected).HasMaxLength(1000);
-        builder.Property(x => x.RiskDescription).HasMaxLength(2000);
         builder.Property(x => x.ImpactOnUsers).HasMaxLength(1000);
         builder.Property(x => x.ProposedImplementationWindow).HasMaxLength(500);
-        builder.Property(x => x.RollbackPlan).HasMaxLength(4000);
         builder.Property(x => x.RollbackTrigger).HasMaxLength(1000);
-        builder.Property(x => x.TestingSteps).HasMaxLength(4000);
-        builder.Property(x => x.StagingTested).HasConversion<string>();
-        builder.Property(x => x.Type).HasConversion<string>();
-        builder.Property(x => x.Priority).HasConversion<string>();
-        builder.Property(x => x.Status).HasConversion<string>();
+
+        // Enum string conversions (stored as varchar by default — short values, fine inline)
+        builder.Property(x => x.StagingTested).HasConversion<string>().HasMaxLength(10);
+        builder.Property(x => x.Type).HasConversion<string>().HasMaxLength(20);
+        builder.Property(x => x.Priority).HasConversion<string>().HasMaxLength(20);
+        builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+
         builder.HasOne(x => x.RequestedBy)
             .WithMany()
             .HasForeignKey(x => x.RequestedById)
@@ -43,7 +50,7 @@ public class ChangeRequestCommentConfiguration : IEntityTypeConfiguration<Change
     {
         builder.ToTable("ChangeRequestComments");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Content).HasMaxLength(2000).IsRequired();
+        builder.Property(x => x.Content).HasColumnType("text").IsRequired();
         builder.HasOne(x => x.Author)
             .WithMany()
             .HasForeignKey(x => x.AuthorId)
