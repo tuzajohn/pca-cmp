@@ -23,11 +23,21 @@
             --font-family:         @theme.FontFamily;
         }
 
-        /* ── Auth split layout ── */
-        html, body { height: 100%; margin: 0; font-family: var(--font-family); }
+        /* ── Reset site.css body flex so auth fills the full viewport ── */
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            display: block !important;
+            font-family: var(--font-family);
+            background: #fff;
+            overflow-x: hidden;
+        }
 
         .auth-split {
             display: flex;
+            width: 100vw;
             min-height: 100vh;
         }
 
