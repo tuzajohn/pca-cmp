@@ -64,18 +64,24 @@
                             "Requester" => "Can create and submit change requests",
                             _           => ""
                         };
-                        <label class="d-flex align-items-start gap-3 p-3 rounded mb-2"
-                               style="border:1.5px solid var(--bs-border-color);cursor:pointer;">
+                        var checkId = $"role_{role}";
+                        <div class="role-option mb-2" id="wrap_@checkId">
                             <input type="checkbox" name="SelectedRoles" value="@role"
-                                   class="form-check-input mt-1 flex-shrink-0" />
-                            <div>
-                                <div class="fw-semibold" style="font-size:13.5px;">@role</div>
-                                @if (!string.IsNullOrEmpty(desc))
-                                {
-                                    <div class="text-muted" style="font-size:12px;">@desc</div>
-                                }
-                            </div>
-                        </label>
+                                   id="@checkId" class="role-checkbox d-none" />
+                            <label for="@checkId" class="d-flex align-items-start gap-3 p-3 rounded w-100 mb-0"
+                                   style="border:1.5px solid var(--bs-border-color);cursor:pointer;transition:border-color .15s,background .15s;">
+                                <div class="role-check-icon flex-shrink-0 mt-1" style="width:16px;height:16px;border:2px solid var(--bs-border-color);border-radius:4px;display:flex;align-items:center;justify-content:center;transition:all .15s;">
+                                    <i class="bi bi-check2" style="font-size:10px;color:#fff;display:none;"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-semibold" style="font-size:13.5px;">@role</div>
+                                    @if (!string.IsNullOrEmpty(desc))
+                                    {
+                                        <div class="text-muted" style="font-size:12px;">@desc</div>
+                                    }
+                                </div>
+                            </label>
+                        </div>
                     }
                     <div class="d-grid mt-3 gap-2">
                         <button type="submit" class="btn btn-primary">
@@ -89,4 +95,30 @@
     </div>
 </form>
 
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<script>
+document.querySelectorAll('.role-checkbox').forEach(cb => {
+    function sync() {
+        const label = cb.nextElementSibling;
+        const icon  = label.querySelector('.role-check-icon');
+        const tick  = icon.querySelector('i');
+        if (cb.checked) {
+            label.style.borderColor = 'var(--color-primary)';
+            label.style.background  = 'color-mix(in srgb,var(--color-primary) 8%,transparent)';
+            icon.style.background   = 'var(--color-primary)';
+            icon.style.borderColor  = 'var(--color-primary)';
+            tick.style.display      = 'block';
+        } else {
+            label.style.borderColor = '';
+            label.style.background  = '';
+            icon.style.background   = '';
+            icon.style.borderColor  = 'var(--bs-border-color)';
+            tick.style.display      = 'none';
+        }
+    }
+    cb.addEventListener('change', sync);
+    sync();
+});
+</script>
+}
