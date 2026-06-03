@@ -47,3 +47,25 @@ public enum ImplementationOutcome
     Failed,
     RolledBack
 }
+
+public enum DocumentStatus
+{
+    Draft,
+    UnderReview,
+    Active,
+    Superseded,
+    Retired
+}
+
+public enum AccessLevel
+{
+    Viewer,
+    Contributor,
+    Manager
+}
+
+public enum PermissionSubjectType
+{
+    User,
+    Role
+}

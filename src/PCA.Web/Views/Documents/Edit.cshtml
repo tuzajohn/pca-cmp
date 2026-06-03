@@ -1,0 +1,115 @@
+@model PCA.Web.Models.DocumentEditViewModel
+@using PCA.Shared.Enums
+@{
+    ViewData["Title"] = "Edit Document";
+    var folders = ViewBag.Folders as List<PCA.Modules.Documents.Models.DocumentFolder> ?? new();
+    var users = ViewBag.Users as List<PCA.Modules.Identity.Models.ApplicationUser> ?? new();
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Edit Document</h1>
+        <p class="page-header-sub mb-0">Update metadata for this document</p>
+    </div>
+    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <form asp-action="Edit" method="post">
+            @Html.AntiForgeryToken()
+            <input asp-for="Id" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-4 small"></div>
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-file-earmark-text"></i> Document Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="Title" class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
+                            <input asp-for="Title" class="form-control" />
+                            <span asp-validation-for="Title" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Description" class="form-label">Description</label>
+                            <textarea asp-for="Description" class="form-control" rows="4"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="FolderId" class="form-label">Folder</label>
+                            <select asp-for="FolderId" class="form-select">
+                                <option value="">— Root (no folder) —</option>
+                                @foreach (var f in folders.OrderBy(x => x.Name))
+                                {
+                                    if (Model.FolderId == f.Id)
+                                    {
+                                        <option value="@f.Id" selected>@f.Name</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@f.Id">@f.Name</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Tags" class="form-label">Tags</label>
+                            <input asp-for="Tags" class="form-control" placeholder="policy, HR (comma-separated)" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Status" class="form-label">Status</label>
+                            <select asp-for="Status" class="form-select">
+                                @foreach (var s in Enum.GetValues<DocumentStatus>())
+                                {
+                                    if (Model.Status == s)
+                                    {
+                                        <option value="@s" selected>@s</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@s">@s</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        @if (User.IsInRole("Admin"))
+                        {
+                            <div class="col-md-6">
+                                <label asp-for="OwnerId" class="form-label">Owner</label>
+                                <select asp-for="OwnerId" class="form-select">
+                                    @foreach (var u in users)
+                                    {
+                                        if (Model.OwnerId == u.Id)
+                                        {
+                                            <option value="@u.Id" selected>@u.FullName (@u.Email)</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="@u.Id">@u.FullName (@u.Email)</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                        }
+                        else
+                        {
+                            <input asp-for="OwnerId" type="hidden" />
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check2 me-1"></i> Save Changes
+                </button>
+                <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+}

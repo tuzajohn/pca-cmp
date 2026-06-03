@@ -1,0 +1,385 @@
+@model PCA.Modules.Documents.Models.Document
+@using PCA.Shared.Enums
+@using PCA.Modules.Documents.Models
+@{
+    ViewData["Title"] = Model.Title;
+    var access = (AccessLevel)ViewBag.Access;
+    var isOwner = (bool)ViewBag.IsOwner;
+    var canManage = User.IsInRole("Admin") || isOwner || access >= AccessLevel.Manager;
+    var canContribute = canManage || access >= AccessLevel.Contributor;
+    var allUsers = ViewBag.AllUsers as List<PCA.Modules.Identity.Models.ApplicationUser> ?? new();
+    var folderPerms = ViewBag.FolderPermissions as List<FolderPermission> ?? new();
+    var docPerms = ViewBag.DocumentPermissions as List<DocumentPermission> ?? new();
+
+    string FormatSize(long bytes) => bytes switch {
+        < 1024 => $"{bytes} B",
+        < 1048576 => $"{bytes / 1024.0:F1} KB",
+        _ => $"{bytes / 1048576.0:F1} MB"
+    };
+
+    string StatusClass(DocumentStatus s) => s switch {
+        DocumentStatus.Active => "status-approved",
+        DocumentStatus.Draft => "status-draft",
+        DocumentStatus.UnderReview => "status-submitted",
+        DocumentStatus.Superseded => "status-implemented",
+        DocumentStatus.Retired => "status-closed",
+        _ => ""
+    };
+
+    string FileIcon(string ext) => ext.ToUpper() switch {
+        "PDF" => "bi-file-earmark-pdf",
+        "DOC" or "DOCX" => "bi-file-earmark-word",
+        "XLS" or "XLSX" => "bi-file-earmark-excel",
+        "PPT" or "PPTX" => "bi-file-earmark-ppt",
+        "PNG" or "JPG" or "JPEG" or "GIF" => "bi-file-earmark-image",
+        "ZIP" => "bi-file-earmark-zip",
+        "TXT" => "bi-file-earmark-text",
+        "CSV" => "bi-file-earmark-spreadsheet",
+        _ => "bi-file-earmark"
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">@Model.Title</h1>
+        <p class="page-header-sub mb-0">
+            <span class="status-badge @StatusClass(Model.Status) me-2">@Model.Status</span>
+            @Model.SerialNumber
+            @if (Model.Folder != null)
+            {
+                <span class="text-muted mx-1">·</span>
+                <a asp-action="Index" asp-route-folderId="@Model.FolderId" class="text-muted text-decoration-none">
+                    <i class="bi bi-folder2 me-1"></i>@Model.Folder.Name
+                </a>
+            }
+        </p>
+    </div>
+    <a asp-action="Index" asp-route-folderId="@Model.FolderId" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="row g-3">
+    <!-- Left: main content -->
+    <div class="col-lg-8">
+
+        <!-- Metadata -->
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-info-circle"></i> Document Information</div>
+            <div class="form-section-body">
+                @if (!string.IsNullOrEmpty(Model.Description))
+                {
+                    <p style="white-space:pre-wrap;font-size:14px;">@Model.Description</p>
+                }
+                @if (!string.IsNullOrEmpty(Model.Tags))
+                {
+                    <div class="d-flex flex-wrap gap-1 mt-2">
+                        @foreach (var tag in Model.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                        {
+                            <span class="badge" style="background:color-mix(in srgb,var(--color-primary) 12%,transparent);color:var(--color-primary);font-size:11px;">@tag</span>
+                        }
+                    </div>
+                }
+                <div class="row g-2 mt-2">
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Owner</div>
+                        <div style="font-size:13px;">@(Model.Owner?.FullName ?? Model.Owner?.UserName ?? "—")</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Created</div>
+                        <div style="font-size:13px;">@Model.CreatedAt.ToString("dd MMM yyyy") by @(Model.CreatedBy?.FullName ?? "—")</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Last Updated</div>
+                        <div style="font-size:13px;">@Model.UpdatedAt.ToString("dd MMM yyyy HH:mm")</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Versions</div>
+                        <div style="font-size:13px;">@Model.Versions.Count total</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Version History -->
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-clock-history"></i> Version History</div>
+            <div class="form-section-body p-0">
+                @if (!Model.Versions.Any())
+                {
+                    <div class="text-muted text-center py-4" style="font-size:13px;">No versions yet.</div>
+                }
+                else
+                {
+                    <table class="table table-sm mb-0" style="font-size:13px;">
+                        <thead style="background:var(--bs-tertiary-bg);">
+                            <tr>
+                                <th class="ps-3">Version</th>
+                                <th>File</th>
+                                <th>Size</th>
+                                <th>Uploaded by</th>
+                                <th>Date</th>
+                                <th>Notes</th>
+                                <th class="pe-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var v in Model.Versions.OrderByDescending(x => x.VersionNumber))
+                            {
+                                var ext = Path.GetExtension(v.OriginalFileName).TrimStart('.').ToUpper();
+                                <tr class="@(v.IsCurrentVersion ? "table-active" : "")">
+                                    <td class="ps-3 align-middle">
+                                        <span class="fw-semibold">v@v.VersionNumber</span>
+                                        @if (v.IsCurrentVersion)
+                                        {
+                                            <span class="badge ms-1" style="background:var(--color-primary);font-size:9px;">CURRENT</span>
+                                        }
+                                    </td>
+                                    <td class="align-middle">
+                                        <i class="bi @FileIcon(ext) me-1 text-muted"></i>
+                                        @v.OriginalFileName
+                                    </td>
+                                    <td class="align-middle text-muted">@FormatSize(v.FileSizeBytes)</td>
+                                    <td class="align-middle">@(v.UploadedBy?.FullName ?? "—")</td>
+                                    <td class="align-middle text-muted" style="white-space:nowrap;">@v.UploadedAt.ToString("dd MMM yyyy")</td>
+                                    <td class="align-middle text-muted">@(string.IsNullOrEmpty(v.ChangeNotes) ? "—" : v.ChangeNotes)</td>
+                                    <td class="pe-3 align-middle">
+                                        <div class="d-flex gap-1 justify-content-end">
+                                            <a asp-action="Download" asp-route-versionId="@v.Id"
+                                               class="btn btn-outline-secondary btn-sm" title="Download" style="padding:2px 7px;">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                            @if (canManage && !v.IsCurrentVersion)
+                                            {
+                                                <form asp-action="SetCurrentVersion" method="post" class="d-inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="versionId" value="@v.Id" />
+                                                    <input type="hidden" name="documentId" value="@Model.Id" />
+                                                    <button class="btn btn-outline-primary btn-sm" title="Make current" style="padding:2px 7px;"
+                                                            onclick="return confirm('Make this the current version?')">
+                                                        <i class="bi bi-arrow-up-circle"></i>
+                                                    </button>
+                                                </form>
+                                                <form asp-action="DeleteVersion" method="post" class="d-inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="versionId" value="@v.Id" />
+                                                    <input type="hidden" name="documentId" value="@Model.Id" />
+                                                    <button class="btn btn-outline-danger btn-sm" title="Delete version" style="padding:2px 7px;"
+                                                            onclick="return confirm('Delete this version permanently?')">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+        <!-- Upload new version -->
+        @if (canContribute && Model.Status != DocumentStatus.Retired)
+        {
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-cloud-upload"></i> Upload New Version</div>
+                <div class="form-section-body">
+                    <form asp-action="UploadVersion" method="post" enctype="multipart/form-data">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="DocumentId" value="@Model.Id" />
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">File <span class="text-danger">*</span></label>
+                            <div class="upload-zone" id="uploadZone">
+                                <i class="bi bi-cloud-upload" style="font-size:28px;color:var(--color-primary);opacity:.7;"></i>
+                                <p class="mb-1 mt-2" style="font-size:13px;font-weight:600;">Drag and drop or click to choose file</p>
+                                <p class="text-muted mb-2" style="font-size:11px;">PDF, DOCX, XLSX, PPTX, TXT, CSV, PNG, JPG, ZIP — max 50 MB</p>
+                                <input type="file" name="File" id="fileInput" class="d-none" />
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('fileInput').click()">
+                                    Browse
+                                </button>
+                                <div id="fileLabel" class="mt-2 text-muted" style="font-size:12px;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Change Notes</label>
+                            <input type="text" name="ChangeNotes" class="form-control" placeholder="What changed in this version?" />
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-cloud-upload me-1"></i> Upload Version
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        <!-- Permissions -->
+        @if (canManage)
+        {
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-shield-lock"></i> Document Permissions</div>
+                <div class="form-section-body">
+                    <p class="text-muted small mb-3">These override folder-level permissions for this specific document.</p>
+
+                    @if (folderPerms.Any())
+                    {
+                        <div class="mb-3 p-2 rounded" style="background:var(--bs-tertiary-bg);font-size:12px;">
+                            <strong>Inherited from folder:</strong>
+                            @foreach (var p in folderPerms)
+                            {
+                                <span class="badge ms-1" style="background:color-mix(in srgb,var(--color-primary) 15%,transparent);color:var(--color-primary);">
+                                    @p.SubjectType: @p.SubjectId — @p.AccessLevel
+                                </span>
+                            }
+                        </div>
+                    }
+
+                    @if (docPerms.Any())
+                    {
+                        <table class="table table-sm mb-3" style="font-size:13px;">
+                            <thead><tr><th>Type</th><th>Subject</th><th>Level</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var p in docPerms)
+                                {
+                                    <tr>
+                                        <td>@p.SubjectType</td>
+                                        <td>@p.SubjectId</td>
+                                        <td><span class="status-badge status-approved" style="font-size:10px;">@p.AccessLevel</span></td>
+                                        <td>
+                                            <form asp-action="RemoveDocumentPermission" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="permissionId" value="@p.Id" />
+                                                <input type="hidden" name="documentId" value="@Model.Id" />
+                                                <button class="btn btn-outline-danger btn-sm" style="padding:1px 6px;font-size:11px;">Remove</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+
+                    <form asp-action="GrantDocumentPermission" method="post" class="row g-2 align-items-end">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="DocumentId" value="@Model.Id" />
+                        <div class="col-md-3">
+                            <label class="form-label small">Type</label>
+                            <select name="SubjectType" class="form-select form-select-sm">
+                                <option value="User">User</option>
+                                <option value="Role">Role</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small">User / Role</label>
+                            <select name="SubjectId" id="docPermSubject" class="form-select form-select-sm">
+                                @foreach (var u in allUsers)
+                                {
+                                    <option value="@u.Id">@u.FullName (@u.Email)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">Access Level</label>
+                            <select name="AccessLevel" class="form-select form-select-sm">
+                                <option value="Viewer">Viewer</option>
+                                <option value="Contributor">Contributor</option>
+                                <option value="Manager">Manager</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary btn-sm w-100">Grant</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Right: sidebar card -->
+    <div class="col-lg-4">
+        <div class="card position-sticky" style="top:80px;">
+            <div class="card-header"><i class="bi bi-file-earmark me-2"></i>Actions</div>
+            <div class="card-body">
+                @{
+                    var cv = Model.Versions.FirstOrDefault(v => v.IsCurrentVersion);
+                }
+                @if (cv != null)
+                {
+                    var ext = Path.GetExtension(cv.OriginalFileName).TrimStart('.').ToUpper();
+                    <div class="mb-3 p-3 rounded text-center" style="background:var(--bs-tertiary-bg);">
+                        <i class="bi @FileIcon(ext)" style="font-size:36px;color:var(--color-primary);"></i>
+                        <div class="fw-semibold mt-1" style="font-size:13px;">@cv.OriginalFileName</div>
+                        <div class="text-muted" style="font-size:11px;">v@cv.VersionNumber · @FormatSize(cv.FileSizeBytes)</div>
+                    </div>
+                    <a asp-action="Download" asp-route-versionId="@cv.Id" class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-download me-1"></i> Download Current Version
+                    </a>
+                }
+
+                @if (canManage)
+                {
+                    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-secondary w-100 mb-2">
+                        <i class="bi bi-pencil me-1"></i> Edit Metadata
+                    </a>
+                }
+
+                @if (canManage && Model.Status != DocumentStatus.Retired)
+                {
+                    <form asp-action="Retire" asp-route-id="@Model.Id" method="post"
+                          onsubmit="return confirm('Retire this document? It will remain visible but marked as retired.')">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="bi bi-archive me-1"></i> Retire Document
+                        </button>
+                    </form>
+                }
+            </div>
+            <div class="card-footer" style="font-size:11px;color:var(--bs-secondary-color);">
+                <div><strong>Your access:</strong> @access</div>
+                @if (Model.Status == DocumentStatus.Retired)
+                {
+                    <div class="mt-1 text-danger"><i class="bi bi-exclamation-circle me-1"></i>This document is retired.</div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const dropzone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const fileLabel = document.getElementById('fileLabel');
+
+if (dropzone) {
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            fileLabel.textContent = e.dataTransfer.files[0].name;
+        }
+    });
+    fileInput.addEventListener('change', () => {
+        fileLabel.textContent = fileInput.files[0]?.name ?? '';
+    });
+}
+
+// Doc perm subject toggle (User vs Role)
+document.querySelector('[name="SubjectType"]')?.addEventListener('change', function() {
+    const sel = document.getElementById('docPermSubject');
+    if (!sel) return;
+    if (this.value === 'Role') {
+        sel.innerHTML = `
+            <option value="Admin">Admin</option>
+            <option value="Approver">Approver</option>
+            <option value="Requester">Requester</option>`;
+    } else {
+        sel.innerHTML = `@Html.Raw(string.Join("", allUsers.Select(u => $"<option value='{u.Id}'>{System.Web.HttpUtility.HtmlEncode(u.FullName)} ({System.Web.HttpUtility.HtmlEncode(u.Email)})</option>")))`;
+    }
+});
+</script>
+}

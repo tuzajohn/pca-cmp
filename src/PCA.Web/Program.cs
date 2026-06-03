@@ -4,6 +4,7 @@ using PCA.Modules.Approvals;
 using PCA.Modules.Approvals.Services;
 using PCA.Modules.ChangeManagement;
 using PCA.Modules.ChangeManagement.Services;
+using PCA.Modules.Documents.Services;
 using PCA.Modules.Identity;
 using PCA.Modules.Identity.Models;
 using PCA.Web.Data;
@@ -24,6 +25,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Register ApplicationDbContext as the module interfaces
 builder.Services.AddScoped<IApplicationDbContextForCM>(sp => sp.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<IApplicationDbContextForApprovals>(sp => sp.GetRequiredService<ApplicationDbContext>());
+builder.Services.AddScoped<IApplicationDbContextForDocuments>(sp => sp.GetRequiredService<ApplicationDbContext>());
 
 // Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -48,6 +50,12 @@ var config = builder.Configuration;
 new PCA.Modules.Identity.ModuleRegistration().Register(builder.Services, config);
 new PCA.Modules.ChangeManagement.ModuleRegistration().Register(builder.Services, config);
 new PCA.Modules.Approvals.ModuleRegistration().Register(builder.Services, config);
+
+// Document storage
+var docsStorageRoot = builder.Configuration["DocumentStoragePath"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "uploads", "documents");
+builder.Services.AddScoped<IDocumentService>(sp =>
+    new DocumentService(sp.GetRequiredService<IApplicationDbContextForDocuments>(), docsStorageRoot));
 
 // Theme
 builder.Services.AddScoped<IThemeService, ThemeService>();
