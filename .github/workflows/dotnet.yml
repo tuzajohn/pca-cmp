@@ -20,7 +20,7 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Publish project
-        run: dotnet publish PCA.Web/PCA.Web.csproj -c Release -o ./publish
+        run: dotnet publish src/PCA.Web/PCA.Web.csproj -c Release -o ./publish
 
       - name: Backup existing deployment
         run: |
