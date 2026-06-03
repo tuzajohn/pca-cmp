@@ -1,0 +1,86 @@
+@* Params via ViewData: Controller (string), EntityId (int), Attachments (List<Attachment>), CurrentUserId (string), IsAdmin (bool) *@
+@using PCA.Web.Models
+@{
+    var controller = (string)ViewData["Controller"]!;
+    var entityId = (int)ViewData["EntityId"]!;
+    var attachments = ViewData["Attachments"] as List<Attachment> ?? new();
+    var currentUserId = ViewData["CurrentUserId"] as string;
+    var isAdmin = ViewData["IsAdmin"] is true;
+
+    string FileIcon(string fileName)
+    {
+        var ext = System.IO.Path.GetExtension(fileName).ToUpper().TrimStart('.');
+        return ext switch
+        {
+            "PDF" => "bi-file-earmark-pdf text-danger",
+            "DOC" or "DOCX" => "bi-file-earmark-word text-primary",
+            "XLS" or "XLSX" => "bi-file-earmark-excel text-success",
+            "PPT" or "PPTX" => "bi-file-earmark-ppt text-warning",
+            "PNG" or "JPG" or "JPEG" or "GIF" => "bi-file-earmark-image text-info",
+            "ZIP" => "bi-file-earmark-zip text-secondary",
+            "LOG" or "TXT" => "bi-file-earmark-text text-muted",
+            _ => "bi-file-earmark text-muted"
+        };
+    }
+
+    string FormatSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024):F1} MB";
+    }
+}
+
+<div class="form-section">
+    <div class="form-section-header"><i class="bi bi-paperclip"></i> Attachments</div>
+    <div class="form-section-body">
+
+        @if (!attachments.Any())
+        {
+            <p class="text-muted mb-3" style="font-size:13px;">No attachments yet.</p>
+        }
+        else
+        {
+            <div class="list-group list-group-flush mb-3">
+                @foreach (var a in attachments)
+                {
+                    <div class="list-group-item px-0 py-2 d-flex align-items-center gap-2" style="border-color:var(--bs-border-color);">
+                        <i class="bi @FileIcon(a.OriginalFileName) fs-5 flex-shrink-0"></i>
+                        <div class="flex-grow-1 min-width-0">
+                            <a asp-controller="@controller" asp-action="DownloadAttachment"
+                               asp-route-id="@entityId" asp-route-attachmentId="@a.Id"
+                               class="fw-semibold text-decoration-none d-block text-truncate" style="font-size:13px;color:inherit;">
+                                @a.OriginalFileName
+                            </a>
+                            <div class="text-muted" style="font-size:11px;">
+                                @FormatSize(a.FileSizeBytes) · @(a.UploadedBy?.FullName ?? "—") · @a.CreatedAt.ToString("dd MMM yyyy")
+                            </div>
+                        </div>
+                        @if (isAdmin || a.UploadedById == currentUserId)
+                        {
+                            <form asp-controller="@controller" asp-action="DeleteAttachment"
+                                  asp-route-id="@entityId" asp-route-attachmentId="@a.Id" method="post"
+                                  onsubmit="return confirm('Delete this attachment?')">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-outline-danger btn-sm" style="padding:2px 8px;">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        <form asp-controller="@controller" asp-action="UploadAttachment"
+              asp-route-id="@entityId" method="post" enctype="multipart/form-data"
+              class="d-flex gap-2 align-items-center">
+            @Html.AntiForgeryToken()
+            <input type="file" name="file" class="form-control form-control-sm" style="font-size:12px;" />
+            <button type="submit" class="btn btn-outline-primary btn-sm" style="white-space:nowrap;">
+                <i class="bi bi-upload me-1"></i>Upload
+            </button>
+        </form>
+        <div class="text-muted mt-1" style="font-size:11px;">Allowed: PDF, Word, Excel, PowerPoint, images, ZIP, TXT, CSV, LOG</div>
+    </div>
+</div>

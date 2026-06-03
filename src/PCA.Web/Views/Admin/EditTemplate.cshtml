@@ -25,21 +25,38 @@
                         <label class="form-label fw-semibold">Template Name <span class="text-danger">*</span></label>
                         <input type="text" name="name" value="@Model.Name" class="form-control" required />
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Change Type</label>
-                        <select name="changeType" class="form-select">
-                            @foreach (var ct in Enum.GetValues<PCA.Shared.Enums.ChangeType>())
-                            {
-                                if (Model.ChangeType == ct)
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Module</label>
+                            <select name="entityType" id="entityType" class="form-select">
+                                @if (Model.EntityType == "Incident")
                                 {
-                                    <option value="@ct" selected>@ct</option>
+                                    <option value="ChangeRequest">Change Request</option>
+                                    <option value="Incident" selected>Incident</option>
                                 }
                                 else
                                 {
-                                    <option value="@ct">@ct</option>
+                                    <option value="ChangeRequest" selected>Change Request</option>
+                                    <option value="Incident">Incident</option>
                                 }
-                            }
-                        </select>
+                            </select>
+                        </div>
+                        <div class="col-md-6" id="subTypeRow" style="@(Model.EntityType == "Incident" ? "display:none;" : "")">
+                            <label class="form-label fw-semibold">Change Type</label>
+                            <select name="entitySubType" class="form-select">
+                                @foreach (var ct in new[] { "Standard", "Normal", "Emergency" })
+                                {
+                                    if (Model.EntitySubType == ct)
+                                    {
+                                        <option value="@ct" selected>@ct</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@ct">@ct</option>
+                                    }
+                                }
+                            </select>
+                        </div>
                     </div>
 
                     <h6 class="mt-4 mb-3">Approval Steps</h6>
@@ -64,7 +81,7 @@
                                     </select>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label small">Role Name</label>
+                                    <label class="form-label small">Role Label</label>
                                     <input type="text" name="roleNames" value="@step.RoleName" class="form-control" placeholder="e.g. Manager" />
                                 </div>
                                 <div class="col-md-2 d-flex align-items-end">
@@ -92,31 +109,33 @@
 
 @section Scripts {
 <script>
-    const userOptions = `@Html.Raw(string.Join("", users.Select(u => $"<option value='{u.Id}'>{System.Web.HttpUtility.HtmlEncode(u.FullName)} ({System.Web.HttpUtility.HtmlEncode(u.Email)})</option>")))`;
+const userOptions = `@Html.Raw(string.Join("", users.Select(u => $"<option value='{u.Id}'>{System.Net.WebUtility.HtmlEncode(u.FullName)} ({System.Net.WebUtility.HtmlEncode(u.Email ?? "")})</option>")))`;
 
-    document.getElementById('addStep').addEventListener('click', () => {
-        const container = document.getElementById('stepsContainer');
-        const div = document.createElement('div');
-        div.className = 'row g-2 mb-2 step-row';
-        div.innerHTML = `
-            <div class="col-md-6">
-                <label class="form-label small">Approver</label>
-                <select name="approverIds" class="form-select">${userOptions}</select>
-            </div>
-            <div class="col-md-4">
-                <label class="form-label small">Role Name</label>
-                <input type="text" name="roleNames" class="form-control" placeholder="e.g. Manager" />
-            </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <button type="button" class="btn btn-outline-danger btn-sm remove-step">Remove</button>
-            </div>`;
-        container.appendChild(div);
-    });
+document.getElementById('entityType').addEventListener('change', function() {
+    document.getElementById('subTypeRow').style.display = this.value === 'ChangeRequest' ? '' : 'none';
+});
 
-    document.addEventListener('click', (e) => {
-        if (e.target.classList.contains('remove-step')) {
-            e.target.closest('.step-row').remove();
-        }
-    });
+document.getElementById('addStep').addEventListener('click', () => {
+    const container = document.getElementById('stepsContainer');
+    const div = document.createElement('div');
+    div.className = 'row g-2 mb-2 step-row';
+    div.innerHTML = `
+        <div class="col-md-6">
+            <label class="form-label small">Approver</label>
+            <select name="approverIds" class="form-select">${userOptions}</select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small">Role Label</label>
+            <input type="text" name="roleNames" class="form-control" placeholder="e.g. Manager" />
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="button" class="btn btn-outline-danger btn-sm remove-step">Remove</button>
+        </div>`;
+    container.appendChild(div);
+});
+
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('remove-step')) e.target.closest('.step-row').remove();
+});
 </script>
 }

@@ -91,6 +91,14 @@ else
                 </a>
             }
 
+            <div class="sidebar-section-label">Incident Management</div>
+
+            <a asp-controller="Incidents" asp-action="Index"
+               class="sidebar-link @ActiveIf("Incidents")">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>Incidents</span>
+            </a>
+
             <div class="sidebar-section-label">Documents</div>
 
             <a asp-controller="Documents" asp-action="Index"
@@ -153,6 +161,13 @@ else
                         <li>
                             <a class="dropdown-item" asp-controller="ChangeRequests" asp-action="Create">
                                 <i class="bi bi-ticket-detailed me-2"></i>New Change Request
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider my-1" /></li>
+                        <li><span class="dropdown-item-text text-muted" style="font-size:10px;padding:8px 16px 4px;text-transform:uppercase;letter-spacing:.06em;">Incidents</span></li>
+                        <li>
+                            <a class="dropdown-item" asp-controller="Incidents" asp-action="Create">
+                                <i class="bi bi-exclamation-triangle me-2"></i>Report Incident
                             </a>
                         </li>
                         <li><hr class="dropdown-divider my-1" /></li>

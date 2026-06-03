@@ -26,5 +26,6 @@
     <ProjectReference Include="..\PCA.Modules.ChangeManagement\PCA.Modules.ChangeManagement.csproj" />
     <ProjectReference Include="..\PCA.Modules.Approvals\PCA.Modules.Approvals.csproj" />
     <ProjectReference Include="..\PCA.Modules.Documents\PCA.Modules.Documents.csproj" />
+    <ProjectReference Include="..\PCA.Modules.Incidents\PCA.Modules.Incidents.csproj" />
   </ItemGroup>
 </Project>

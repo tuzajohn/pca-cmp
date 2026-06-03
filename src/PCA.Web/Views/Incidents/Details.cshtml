@@ -1,0 +1,262 @@
+@model PCA.Modules.Incidents.Models.Incident
+@using PCA.Shared.Enums
+@using PCA.Web.Helpers
+@{
+    ViewData["Title"] = Model.Title;
+    var currentUserId = ViewBag.CurrentUserId as string;
+    var isAdmin = (bool)ViewBag.IsAdmin;
+    var allUsers = ViewBag.AllUsers as List<PCA.Modules.Identity.Models.ApplicationUser> ?? new();
+    var canEdit = isAdmin || Model.ReportedById == currentUserId;
+    var canClose = isAdmin;
+    var isActive = Model.Status != IncidentStatus.Closed && Model.Status != IncidentStatus.Resolved;
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">@Model.Title</h1>
+        <p class="page-header-sub mb-0">
+            <span class="badge @IncidentViewHelpers.SeverityBadgeClass(Model.Severity) me-1">@IncidentViewHelpers.SeverityLabel(Model.Severity)</span>
+            <span class="status-badge @IncidentViewHelpers.StatusClass(Model.Status) me-2">@Model.Status</span>
+            @Model.SerialNumber
+        </p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="row g-3">
+    <!-- Left: details + timeline -->
+    <div class="col-lg-8">
+
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-info-circle"></i> Incident Information</div>
+            <div class="form-section-body">
+                @if (!string.IsNullOrEmpty(Model.Description))
+                {
+                    <p style="white-space:pre-wrap;font-size:14px;">@Model.Description</p>
+                }
+                <div class="row g-2 mt-1">
+                    <div class="col-sm-4">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Category</div>
+                        <div style="font-size:13px;">@Model.Category</div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Priority</div>
+                        <div style="font-size:13px;"><span class="status-badge status-@Model.Priority.ToString().ToLower()" style="font-size:10px;">@Model.Priority</span></div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Detected</div>
+                        <div style="font-size:13px;">@Model.DetectedAt.ToString("dd MMM yyyy HH:mm")</div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(Model.AffectedSystems))
+                    {
+                        <div class="col-sm-6">
+                            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Affected Systems</div>
+                            <div style="font-size:13px;">@Model.AffectedSystems</div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.ImpactDescription))
+                    {
+                        <div class="col-12">
+                            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Impact</div>
+                            <div style="font-size:13px;white-space:pre-wrap;">@Model.ImpactDescription</div>
+                        </div>
+                    }
+                    @if (Model.LinkedChangeRequestId.HasValue)
+                    {
+                        <div class="col-sm-6">
+                            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Linked Change Request</div>
+                            <div>
+                                <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@Model.LinkedChangeRequestId"
+                                   class="badge text-decoration-none" style="background:color-mix(in srgb,var(--color-primary) 15%,transparent);color:var(--color-primary);">
+                                    <i class="bi bi-ticket-detailed me-1"></i>CR #@Model.LinkedChangeRequestId
+                                </a>
+                            </div>
+                        </div>
+                    }
+                </div>
+                @if (Model.Status == IncidentStatus.Resolved || Model.Status == IncidentStatus.Closed)
+                {
+                    <hr style="border-color:var(--bs-border-color);" />
+                    @if (!string.IsNullOrEmpty(Model.RootCause))
+                    {
+                        <div class="mb-2">
+                            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Root Cause</div>
+                            <div style="font-size:13px;white-space:pre-wrap;">@Model.RootCause</div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.ResolutionSummary))
+                    {
+                        <div>
+                            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Resolution Summary</div>
+                            <div style="font-size:13px;white-space:pre-wrap;">@Model.ResolutionSummary</div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-clock-history"></i> Activity Timeline</div>
+            <div class="form-section-body">
+                @if (!Model.Updates.Any())
+                {
+                    <p class="text-muted" style="font-size:13px;">No activity yet.</p>
+                }
+                else
+                {
+                    <div class="timeline">
+                        @foreach (var u in Model.Updates.OrderBy(x => x.CreatedAt))
+                        {
+                            <div class="timeline-item">
+                                <div class="timeline-dot @IncidentViewHelpers.UpdateDotClass(u.UpdateType)"></div>
+                                <div class="timeline-content">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <span class="fw-semibold" style="font-size:13px;">@(u.Author?.FullName ?? "System")</span>
+                                        <span class="text-muted" style="font-size:11px;">@u.CreatedAt.ToString("dd MMM yyyy HH:mm")</span>
+                                    </div>
+                                    @if (u.UpdateType == IncidentUpdateType.StatusChange && u.OldStatus.HasValue)
+                                    {
+                                        <div class="text-muted" style="font-size:12px;">
+                                            Status: <span class="status-badge @IncidentViewHelpers.StatusClass(u.OldStatus.Value)" style="font-size:10px;">@u.OldStatus</span>
+                                            <i class="bi bi-arrow-right mx-1"></i>
+                                            <span class="status-badge @IncidentViewHelpers.StatusClass(u.NewStatus!.Value)" style="font-size:10px;">@u.NewStatus</span>
+                                        </div>
+                                    }
+                                    <p class="mb-0 mt-1" style="font-size:13px;white-space:pre-wrap;">@u.Content</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (isActive)
+                {
+                    <hr style="border-color:var(--bs-border-color);" />
+                    <form asp-action="AddComment" method="post" class="d-flex gap-2 align-items-start mt-2">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <textarea name="content" class="form-control form-control-sm" rows="2"
+                                  placeholder="Add a comment or update…" style="font-size:13px;"></textarea>
+                        <button type="submit" class="btn btn-primary btn-sm" style="white-space:nowrap;">
+                            <i class="bi bi-chat me-1"></i>Add
+                        </button>
+                    </form>
+                }
+            </div>
+        </div>
+
+        @await Html.PartialAsync("_AttachmentsPanel", (object)null!, new ViewDataDictionary(ViewData)
+        {
+            ["Controller"] = "Incidents",
+            ["EntityId"] = Model.Id,
+            ["Attachments"] = ViewBag.Attachments,
+            ["CurrentUserId"] = currentUserId,
+            ["IsAdmin"] = isAdmin
+        })
+
+    </div>
+
+    <!-- Right: actions -->
+    <div class="col-lg-4">
+        <div class="card position-sticky" style="top:80px;">
+            <div class="card-header"><i class="bi bi-person-gear me-2"></i>Assignment</div>
+            <div class="card-body">
+                <div class="mb-2" style="font-size:13px;">
+                    <span class="text-muted">Reported by:</span> @(Model.ReportedBy?.FullName ?? "—")
+                </div>
+                <div class="mb-3" style="font-size:13px;">
+                    <span class="text-muted">Assigned to:</span> <strong>@(Model.AssignedTo?.FullName ?? "Unassigned")</strong>
+                </div>
+                @if (isAdmin && isActive)
+                {
+                    <form asp-action="Assign" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <select name="assigneeId" class="form-select form-select-sm mb-2">
+                            <option value="">-- Unassigned --</option>
+                            @foreach (var u in allUsers)
+                            {
+                                if (u.Id == Model.AssignedToId)
+                                {
+                                    <option value="@u.Id" selected>@u.FullName</option>
+                                }
+                                else
+                                {
+                                    <option value="@u.Id">@u.FullName</option>
+                                }
+                            }
+                        </select>
+                        <button type="submit" class="btn btn-outline-secondary btn-sm w-100">Update Assignment</button>
+                    </form>
+                }
+            </div>
+
+            @if (canEdit || isAdmin)
+            {
+                <div class="card-body border-top pt-3">
+                    <div class="d-flex flex-column gap-2">
+                        @if (canEdit && isActive)
+                        {
+                            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-pencil me-1"></i> Edit Incident
+                            </a>
+                        }
+                        @if (isActive && Model.Status != IncidentStatus.Resolved)
+                        {
+                            <a asp-action="Resolve" asp-route-id="@Model.Id" class="btn btn-outline-success btn-sm">
+                                <i class="bi bi-check-circle me-1"></i> Mark Resolved
+                            </a>
+                        }
+                        @if (isAdmin && Model.Status == IncidentStatus.Resolved)
+                        {
+                            <form asp-action="Close" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@Model.Id" />
+                                <button type="submit" class="btn btn-outline-secondary btn-sm w-100"
+                                        onclick="return confirm('Close this incident?')">
+                                    <i class="bi bi-archive me-1"></i> Close Incident
+                                </button>
+                            </form>
+                        }
+                        @if (isAdmin && isActive)
+                        {
+                            <form asp-action="UpdateStatus" method="post" class="d-flex gap-2">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@Model.Id" />
+                                <select name="newStatus" class="form-select form-select-sm">
+                                    @foreach (var s in Enum.GetValues<IncidentStatus>())
+                                    {
+                                        if (s == Model.Status)
+                                        {
+                                            <option value="@s" selected>@s</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="@s">@s</option>
+                                        }
+                                    }
+                                </select>
+                                <button type="submit" class="btn btn-outline-primary btn-sm" style="white-space:nowrap;">Set</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div class="card-footer" style="font-size:11px;color:var(--bs-secondary-color);">
+                <div>Created: @Model.CreatedAt.ToString("dd MMM yyyy HH:mm")</div>
+                @if (Model.ResolvedAt.HasValue)
+                {
+                    <div>Resolved: @Model.ResolvedAt.Value.ToString("dd MMM yyyy HH:mm")</div>
+                }
+                @if (Model.ClosedAt.HasValue)
+                {
+                    <div>Closed: @Model.ClosedAt.Value.ToString("dd MMM yyyy HH:mm")</div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

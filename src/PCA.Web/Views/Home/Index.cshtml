@@ -168,12 +168,19 @@
                         <div class="d-flex align-items-center gap-3 px-3 py-2" style="border-bottom:1px solid var(--bs-border-color);font-size:13px;">
                             <div class="step-dot pending flex-shrink-0"><i class="bi bi-hourglass-split"></i></div>
                             <div class="flex-grow-1 min-width-0">
-                                <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@step.ChangeRequestId"
-                                   class="fw-semibold text-decoration-none d-block" style="color:inherit;">CR #@step.ChangeRequestId</a>
+                                <span class="fw-semibold d-block" style="font-size:13px;">@step.EntityType #@step.EntityId</span>
                                 <div class="text-muted" style="font-size:11px;">Step @step.Order — awaiting decision</div>
                             </div>
-                            <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@step.ChangeRequestId"
-                               class="btn btn-sm btn-primary flex-shrink-0" style="font-size:11px;padding:3px 10px;">Review</a>
+                            @if (step.EntityType == "Incident")
+                            {
+                                <a asp-controller="Incidents" asp-action="Details" asp-route-id="@step.EntityId"
+                                   class="btn btn-sm btn-primary flex-shrink-0" style="font-size:11px;padding:3px 10px;">Review</a>
+                            }
+                            else
+                            {
+                                <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@step.EntityId"
+                                   class="btn btn-sm btn-primary flex-shrink-0" style="font-size:11px;padding:3px 10px;">Review</a>
+                            }
                         </div>
                     }
                 </div>
@@ -249,6 +256,102 @@
         </table>
     }
 </div>
+
+<!-- ── Incident Management section ───────────────────────────────────────── -->
+<div class="dashboard-section-header">
+    <i class="bi bi-exclamation-triangle me-2"></i>Incident Management
+    <a asp-controller="Incidents" asp-action="Index" class="ms-auto btn btn-outline-primary btn-sm">View All</a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-sm-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fef2f2;"><i class="bi bi-exclamation-triangle" style="color:#ef4444;"></i></div>
+            <div class="stat-body">
+                <div class="stat-value">@Model.OpenIncidents</div>
+                <div class="stat-label">Open Incidents</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fef2f2;"><i class="bi bi-fire" style="color:#dc2626;"></i></div>
+            <div class="stat-body">
+                <div class="stat-value">@Model.CriticalIncidents</div>
+                <div class="stat-label">S1 Critical</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-3">
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fff7ed;"><i class="bi bi-exclamation-circle" style="color:#f97316;"></i></div>
+            <div class="stat-body">
+                <div class="stat-value">@Model.HighIncidents</div>
+                <div class="stat-label">S2 High</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-sm-3">
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="bi bi-shield-check"></i></div>
+            <div class="stat-body">
+                <div class="stat-value">@(Model.IncidentsBySeverity.TryGetValue(PCA.Shared.Enums.IncidentSeverity.S4Low, out var low) ? low : 0)</div>
+                <div class="stat-label">S4 Low</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.RecentIncidents.Any())
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            <span><i class="bi bi-clock me-2"></i>Recent Incidents</span>
+            <a asp-controller="Incidents" asp-action="Index" class="btn btn-sm btn-outline-primary">View All</a>
+        </div>
+        <table class="table mb-0" style="font-size:13px;">
+            <thead>
+                <tr>
+                    <th class="ps-3">Serial #</th>
+                    <th>Title</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                    <th class="pe-3">Detected</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var inc in Model.RecentIncidents)
+                {
+                    var sevCls = inc.Severity switch {
+                        PCA.Shared.Enums.IncidentSeverity.S1Critical => "bg-danger",
+                        PCA.Shared.Enums.IncidentSeverity.S2High => "bg-warning text-dark",
+                        PCA.Shared.Enums.IncidentSeverity.S3Medium => "bg-info text-dark",
+                        _ => "bg-secondary"
+                    };
+                    var stCls = inc.Status switch {
+                        PCA.Shared.Enums.IncidentStatus.Open => "status-submitted",
+                        PCA.Shared.Enums.IncidentStatus.InProgress => "status-underreview",
+                        PCA.Shared.Enums.IncidentStatus.Resolved => "status-approved",
+                        PCA.Shared.Enums.IncidentStatus.Closed => "status-closed",
+                        _ => "status-draft"
+                    };
+                    <tr>
+                        <td class="ps-3">
+                            <a asp-controller="Incidents" asp-action="Details" asp-route-id="@inc.Id"
+                               class="fw-semibold text-decoration-none" style="color:var(--color-primary);">
+                                @inc.SerialNumber
+                            </a>
+                        </td>
+                        <td class="text-truncate" style="max-width:220px;">@inc.Title</td>
+                        <td><span class="badge @sevCls" style="font-size:10px;">@inc.Severity</span></td>
+                        <td><span class="status-badge @stCls">@inc.Status</span></td>
+                        <td class="pe-3 text-muted">@inc.DetectedAt.ToString("dd MMM yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
 
 <!-- ── Document Repository section ───────────────────────────────────────── -->
 <div class="dashboard-section-header">

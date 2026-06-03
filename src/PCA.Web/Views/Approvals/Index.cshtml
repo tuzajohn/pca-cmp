@@ -1,14 +1,10 @@
-@model List<PCA.Modules.ChangeManagement.Models.ChangeRequest>
+@model List<PCA.Modules.Approvals.Models.ApprovalStep>
 @using PCA.Modules.Approvals.Models
-@using PCA.Shared.Enums
+@using PCA.Modules.ChangeManagement.Models
 @{
     ViewData["Title"] = "Approvals";
-    string StatusCls(ChangeStatus st) => st switch {
-        ChangeStatus.UnderReview => "status-underreview",
-        ChangeStatus.Approved => "status-approved",
-        ChangeStatus.Rejected => "status-rejected",
-        _ => "status-submitted"
-    };
+    var crs = ViewBag.ChangeRequests as List<ChangeRequest> ?? new();
+    ChangeRequest? GetCr(int id) => crs.FirstOrDefault(c => c.Id == id);
 }
 
 <div class="page-header">
@@ -20,49 +16,91 @@
     <div class="card">
         <div class="card-body text-center py-5 text-muted">
             <i class="bi bi-check-all fs-1 d-block mb-2 opacity-25"></i>
-            <strong>All caught up!</strong> No change requests currently need your approval.
+            <strong>All caught up!</strong> No items currently need your approval.
         </div>
     </div>
 }
 else
 {
-    <div class="card">
-        <table class="table mb-0">
-            <thead>
-                <tr>
-                    <th>Serial #</th>
-                    <th>Title</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th>Requested By</th>
-                    <th>Target Date</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var cr in Model)
-                {
+    var crSteps = Model.Where(s => s.EntityType == "ChangeRequest").ToList();
+    var incidentSteps = Model.Where(s => s.EntityType == "Incident").ToList();
+
+    if (crSteps.Any())
+    {
+        <h5 class="mb-2 mt-3" style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--color-primary);">Change Requests</h5>
+        <div class="card mb-4">
+            <table class="table mb-0">
+                <thead>
                     <tr>
-                        <td>
-                            <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@cr.Id"
-                               class="fw-semibold" style="color:var(--color-primary);">
-                                @(string.IsNullOrEmpty(cr.SerialNumber) ? $"#{cr.Id}" : cr.SerialNumber)
-                            </a>
-                        </td>
-                        <td>@cr.Title</td>
-                        <td><span class="status-badge status-submitted">@cr.Type</span></td>
-                        <td><span class="status-badge @StatusCls(cr.Status)">@cr.Status</span></td>
-                        <td class="text-muted">@(cr.RequestedBy?.FullName ?? cr.RequestedBy?.UserName ?? "—")</td>
-                        <td class="text-muted" style="font-size:12px;">@(cr.TargetDate?.ToString("dd MMM yyyy") ?? "—")</td>
-                        <td>
-                            <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@cr.Id"
-                               class="btn btn-sm btn-primary">
-                                <i class="bi bi-eye me-1"></i> Review
-                            </a>
-                        </td>
+                        <th>Serial #</th>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Requester</th>
+                        <th>Step</th>
+                        <th></th>
                     </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+                </thead>
+                <tbody>
+                    @foreach (var step in crSteps)
+                    {
+                        var cr = GetCr(step.EntityId);
+                        <tr>
+                            <td>
+                                <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@step.EntityId"
+                                   class="fw-semibold" style="color:var(--color-primary);">
+                                    @(cr != null && !string.IsNullOrEmpty(cr.SerialNumber) ? cr.SerialNumber : $"#{step.EntityId}")
+                                </a>
+                            </td>
+                            <td>@(cr?.Title ?? "—")</td>
+                            <td><span class="status-badge status-submitted">@(cr?.Type.ToString() ?? "—")</span></td>
+                            <td class="text-muted">@(cr?.RequestedBy?.FullName ?? "—")</td>
+                            <td class="text-muted" style="font-size:12px;">Step @step.Order — @step.RoleName</td>
+                            <td>
+                                <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@step.EntityId"
+                                   class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye me-1"></i> Review
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    if (incidentSteps.Any())
+    {
+        <h5 class="mb-2" style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--color-primary);">Incidents</h5>
+        <div class="card mb-4">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Incident</th>
+                        <th>Step</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var step in incidentSteps)
+                    {
+                        <tr>
+                            <td>
+                                <a asp-controller="Incidents" asp-action="Details" asp-route-id="@step.EntityId"
+                                   class="fw-semibold" style="color:var(--color-primary);">
+                                    #@step.EntityId
+                                </a>
+                            </td>
+                            <td class="text-muted" style="font-size:12px;">Step @step.Order — @step.RoleName</td>
+                            <td>
+                                <a asp-controller="Incidents" asp-action="Details" asp-route-id="@step.EntityId"
+                                   class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye me-1"></i> Review
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 }

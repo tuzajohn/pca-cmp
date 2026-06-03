@@ -5,6 +5,7 @@ using PCA.Modules.Approvals.Services;
 using PCA.Modules.ChangeManagement.Services;
 using PCA.Modules.Documents.Services;
 using PCA.Modules.Identity.Models;
+using PCA.Modules.Incidents.Services;
 using PCA.Shared.Enums;
 using PCA.Web.Models;
 
@@ -16,14 +17,17 @@ public class HomeController : Controller
     private readonly IChangeRequestService _crService;
     private readonly IApprovalService _approvalService;
     private readonly IDocumentService _docService;
+    private readonly IIncidentService _incidentService;
     private readonly UserManager<ApplicationUser> _userManager;
 
     public HomeController(IChangeRequestService crService, IApprovalService approvalService,
-        IDocumentService docService, UserManager<ApplicationUser> userManager)
+        IDocumentService docService, IIncidentService incidentService,
+        UserManager<ApplicationUser> userManager)
     {
         _crService = crService;
         _approvalService = approvalService;
         _docService = docService;
+        _incidentService = incidentService;
         _userManager = userManager;
     }
 
@@ -51,6 +55,11 @@ public class HomeController : Controller
             }
         }
 
+        var incidentStatusCounts = await _incidentService.GetStatusCountsAsync();
+        var openIncidents = incidentStatusCounts
+            .Where(kv => kv.Key == IncidentStatus.Open || kv.Key == IncidentStatus.InProgress)
+            .Sum(kv => kv.Value);
+
         var vm = new DashboardViewModel
         {
             RecentChangeRequests = await _crService.GetRecentAsync(8),
@@ -58,7 +67,10 @@ public class HomeController : Controller
             TotalDocuments = visibleDocs.Count,
             ActiveDocuments = visibleDocs.Count(d => d.Status == DocumentStatus.Active),
             TotalFolders = folders.Count,
-            RecentDocuments = visibleDocs.OrderByDescending(d => d.UpdatedAt).Take(5).ToList()
+            RecentDocuments = visibleDocs.OrderByDescending(d => d.UpdatedAt).Take(5).ToList(),
+            OpenIncidents = openIncidents,
+            IncidentsBySeverity = await _incidentService.GetOpenBySeverityAsync(),
+            RecentIncidents = await _incidentService.GetRecentAsync(5)
         };
 
         if (user != null)

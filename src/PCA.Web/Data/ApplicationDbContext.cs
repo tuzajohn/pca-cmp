@@ -9,6 +9,9 @@ using PCA.Modules.ChangeManagement.Services;
 using PCA.Modules.Documents.Data;
 using PCA.Modules.Documents.Models;
 using PCA.Modules.Documents.Services;
+using PCA.Modules.Incidents.Data;
+using PCA.Modules.Incidents.Models;
+using PCA.Modules.Incidents.Services;
 using PCA.Modules.Identity.Models;
 using PCA.Web.Models;
 
@@ -17,7 +20,8 @@ namespace PCA.Web.Data;
 public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     IApplicationDbContextForCM,
     IApplicationDbContextForApprovals,
-    IApplicationDbContextForDocuments
+    IApplicationDbContextForDocuments,
+    IApplicationDbContextForIncidents
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
@@ -39,6 +43,15 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     public DbSet<DocumentPermission> DocumentPermissions => Set<DocumentPermission>();
     public DbSet<DocumentSequence> DocumentSequences => Set<DocumentSequence>();
 
+    // Incidents
+    public DbSet<Incident> Incidents => Set<Incident>();
+    public DbSet<IncidentUpdate> IncidentUpdates => Set<IncidentUpdate>();
+    public DbSet<IncidentDocument> IncidentDocuments => Set<IncidentDocument>();
+    public DbSet<IncidentSequence> IncidentSequences => Set<IncidentSequence>();
+
+    // Attachments
+    public DbSet<Attachment> Attachments => Set<Attachment>();
+
     // Theme
     public DbSet<ThemeSettings> ThemeSettings => Set<ThemeSettings>();
 
@@ -57,8 +70,26 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
         builder.ApplyConfiguration(new DocumentVersionConfiguration());
         builder.ApplyConfiguration(new FolderPermissionConfiguration());
         builder.ApplyConfiguration(new DocumentPermissionConfiguration());
+        builder.ApplyConfiguration(new IncidentConfiguration());
+        builder.ApplyConfiguration(new IncidentUpdateConfiguration());
+        builder.ApplyConfiguration(new IncidentDocumentConfiguration());
 
         builder.Entity<DocumentSequence>().ToTable("DocumentSequences").HasKey(x => x.Id);
+        builder.Entity<IncidentSequence>().ToTable("IncidentSequences").HasKey(x => x.Id);
         builder.Entity<ThemeSettings>().ToTable("ThemeSettings").HasKey(x => x.Id);
+
+        builder.Entity<Attachment>(b =>
+        {
+            b.ToTable("Attachments");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.EntityType).HasMaxLength(100).IsRequired();
+            b.Property(x => x.OriginalFileName).HasMaxLength(500).IsRequired();
+            b.Property(x => x.StoredFileName).HasMaxLength(500).IsRequired();
+            b.Property(x => x.FilePath).HasMaxLength(1000).IsRequired();
+            b.Property(x => x.ContentType).HasMaxLength(200);
+            b.HasIndex(x => new { x.EntityType, x.EntityId });
+            b.HasOne(x => x.UploadedBy).WithMany().HasForeignKey(x => x.UploadedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
     }
 }
