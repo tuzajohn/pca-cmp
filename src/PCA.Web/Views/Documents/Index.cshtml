@@ -37,7 +37,19 @@
                         <i class="bi bi-house me-1"></i>
                         <span>All Documents</span>
                     </a>
-                    @Html.Raw(RenderFolderTree(Model.FolderTree.Where(f => f.ParentId == null), 0))
+                    @foreach (var item in Model.FlatFolderTree)
+                    {
+                        var isActive = Model.ActiveFolderId == item.Folder.Id;
+                        var indent = 14 + item.Depth * 14;
+                        var folderIcon = isActive ? "folder2-open" : "folder2";
+                        <a href="@Url.Action("Index", "Documents", new { folderId = item.Folder.Id })"
+                           class="folder-tree-item @(isActive ? "active" : "")"
+                           style="padding-left: @(indent)px;">
+                            <i class="bi bi-@(folderIcon) me-1"></i>
+                            <span>@item.Folder.Name</span>
+                            <span class="ms-auto text-muted" style="font-size:11px;">@item.Folder.Documents.Count</span>
+                        </a>
+                    }
                 </div>
 
                 <!-- Status filters -->
@@ -236,28 +248,5 @@
         _ => "bi-file-earmark"
     };
 
-    string RenderFolderTree(IEnumerable<PCA.Modules.Documents.Models.DocumentFolder> folders, int depth)
-    {
-        var sb = new System.Text.StringBuilder();
-        foreach (var f in folders.OrderBy(x => x.Name))
-        {
-            var isActive = Model.ActiveFolderId == f.Id;
-            var indent = 14 + depth * 14;
-            var activeClass = isActive ? " active" : string.Empty;
-            var folderIcon = isActive ? "folder2-open" : "folder2";
-            var url = Url.Action("Index", "Documents", new { folderId = f.Id });
-            var name = System.Net.WebUtility.HtmlEncode(f.Name);
-            sb.Append("<a href='").Append(url)
-              .Append("' class='folder-tree-item").Append(activeClass)
-              .Append("' style='padding-left:").Append(indent).Append("px;'>");
-            sb.Append("<i class='bi bi-").Append(folderIcon).Append(" me-1'></i>");
-            sb.Append("<span>").Append(name).Append("</span>");
-            sb.Append("<span class='ms-auto text-muted' style='font-size:11px;'>")
-              .Append(f.Documents.Count).Append("</span>");
-            sb.Append("</a>");
-            if (f.Children.Any())
-                sb.Append(RenderFolderTree(f.Children, depth + 1));
-        }
-        return sb.ToString();
-    }
+
 }
