@@ -276,7 +276,7 @@
         @foreach (var doc in Model.RecentDocuments)
         {
             var cv = doc.Versions.FirstOrDefault(v => v.IsCurrentVersion);
-            var ext = cv != null ? Path.GetExtension(cv.OriginalFileName).TrimStart('.') : "";
+            var ext = cv != null ? System.IO.Path.GetExtension(cv.OriginalFileName).TrimStart('.') : "";
             <div class="col-sm-6 col-lg-4 col-xl-3">
                 <div class="card doc-card h-100">
                     <div class="card-body">
