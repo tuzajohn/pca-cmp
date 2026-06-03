@@ -33,7 +33,7 @@ jobs:
         sudo rsync -a --delete \
           --exclude='appsettings.Staging.json' \
           --exclude='appsettings.Production.json' \
-          ./publish/ /var/www/pcuganda-staging/
+          ./publish/ /var/www/pcuganda-admin/
 
     - name: Set permissions
       run: |
