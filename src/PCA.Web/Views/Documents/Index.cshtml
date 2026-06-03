@@ -3,41 +3,6 @@
 @using PCA.Modules.Documents.Models
 @{
     ViewData["Title"] = "Document Repository";
-
-    string FormatSize(long bytes) => bytes switch {
-        < 1024 => $"{bytes} B",
-        < 1048576 => $"{bytes / 1024.0:F1} KB",
-        _ => $"{bytes / 1048576.0:F1} MB"
-    };
-
-    string StatusClass(DocumentStatus s) => s switch {
-        DocumentStatus.Active => "status-approved",
-        DocumentStatus.Draft => "status-draft",
-        DocumentStatus.UnderReview => "status-submitted",
-        DocumentStatus.Superseded => "status-implemented",
-        DocumentStatus.Retired => "status-closed",
-        _ => ""
-    };
-
-    void RenderFolderTree(IEnumerable<DocumentFolder> folders, int depth)
-    {
-        foreach (var f in folders.OrderBy(x => x.Name))
-        {
-            var isActive = Model.ActiveFolderId == f.Id;
-            var indent = depth * 14;
-            <a href="@Url.Action("Index", "Documents", new { folderId = f.Id })"
-               class="folder-tree-item @(isActive ? "active" : "")"
-               style="padding-left: @(14 + indent)px;">
-                <i class="bi bi-@(isActive ? "folder2-open" : "folder2") me-1"></i>
-                <span>@f.Name</span>
-                <span class="ms-auto text-muted" style="font-size:11px;">@f.Documents.Count</span>
-            </a>
-            @if (f.Children.Any())
-            {
-                RenderFolderTree(f.Children, depth + 1);
-            }
-        }
-    }
 }
 
 <div class="page-header">
@@ -72,7 +37,7 @@
                         <i class="bi bi-house me-1"></i>
                         <span>All Documents</span>
                     </a>
-                    @{ RenderFolderTree(Model.FolderTree.Where(f => f.ParentId == null), 0); }
+                    @Html.Raw(RenderFolderTree(Model.FolderTree.Where(f => f.ParentId == null), 0))
                 </div>
 
                 <!-- Status filters -->
@@ -244,6 +209,21 @@
 </div>
 
 @functions {
+    string FormatSize(long bytes) => bytes switch {
+        < 1024 => $"{bytes} B",
+        < 1048576 => $"{bytes / 1024.0:F1} KB",
+        _ => $"{bytes / 1048576.0:F1} MB"
+    };
+
+    string StatusClass(DocumentStatus s) => s switch {
+        DocumentStatus.Active => "status-approved",
+        DocumentStatus.Draft => "status-draft",
+        DocumentStatus.UnderReview => "status-submitted",
+        DocumentStatus.Superseded => "status-implemented",
+        DocumentStatus.Retired => "status-closed",
+        _ => ""
+    };
+
     string FileIcon(string ext) => ext.ToUpper() switch {
         "PDF" => "bi-file-earmark-pdf",
         "DOC" or "DOCX" => "bi-file-earmark-word",
@@ -255,4 +235,25 @@
         "CSV" => "bi-file-earmark-spreadsheet",
         _ => "bi-file-earmark"
     };
+
+    string RenderFolderTree(IEnumerable<PCA.Modules.Documents.Models.DocumentFolder> folders, int depth)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var f in folders.OrderBy(x => x.Name))
+        {
+            var isActive = Model.ActiveFolderId == f.Id;
+            var indent = 14 + depth * 14;
+            var activeClass = isActive ? " active" : "";
+            var folderIcon = isActive ? "folder2-open" : "folder2";
+            var url = Url.Action("Index", "Documents", new { folderId = f.Id });
+            sb.Append($"<a href=\"{url}\" class=\"folder-tree-item{activeClass}\" style=\"padding-left:{indent}px;\">");
+            sb.Append($"<i class=\"bi bi-{folderIcon} me-1\"></i>");
+            sb.Append($"<span>{System.Net.WebUtility.HtmlEncode(f.Name)}</span>");
+            sb.Append($"<span class=\"ms-auto text-muted\" style=\"font-size:11px;\">{f.Documents.Count}</span>");
+            sb.Append("</a>");
+            if (f.Children.Any())
+                sb.Append(RenderFolderTree(f.Children, depth + 1));
+        }
+        return sb.ToString();
+    }
 }

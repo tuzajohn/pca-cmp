@@ -10,33 +10,6 @@
     var allUsers = ViewBag.AllUsers as List<PCA.Modules.Identity.Models.ApplicationUser> ?? new();
     var folderPerms = ViewBag.FolderPermissions as List<FolderPermission> ?? new();
     var docPerms = ViewBag.DocumentPermissions as List<DocumentPermission> ?? new();
-
-    string FormatSize(long bytes) => bytes switch {
-        < 1024 => $"{bytes} B",
-        < 1048576 => $"{bytes / 1024.0:F1} KB",
-        _ => $"{bytes / 1048576.0:F1} MB"
-    };
-
-    string StatusClass(DocumentStatus s) => s switch {
-        DocumentStatus.Active => "status-approved",
-        DocumentStatus.Draft => "status-draft",
-        DocumentStatus.UnderReview => "status-submitted",
-        DocumentStatus.Superseded => "status-implemented",
-        DocumentStatus.Retired => "status-closed",
-        _ => ""
-    };
-
-    string FileIcon(string ext) => ext.ToUpper() switch {
-        "PDF" => "bi-file-earmark-pdf",
-        "DOC" or "DOCX" => "bi-file-earmark-word",
-        "XLS" or "XLSX" => "bi-file-earmark-excel",
-        "PPT" or "PPTX" => "bi-file-earmark-ppt",
-        "PNG" or "JPG" or "JPEG" or "GIF" => "bi-file-earmark-image",
-        "ZIP" => "bi-file-earmark-zip",
-        "TXT" => "bi-file-earmark-text",
-        "CSV" => "bi-file-earmark-spreadsheet",
-        _ => "bi-file-earmark"
-    };
 }
 
 <div class="page-header">
@@ -345,6 +318,35 @@
         </div>
     </div>
 </div>
+
+@functions {
+    string FormatSize(long bytes) => bytes switch {
+        < 1024 => $"{bytes} B",
+        < 1048576 => $"{bytes / 1024.0:F1} KB",
+        _ => $"{bytes / 1048576.0:F1} MB"
+    };
+
+    string StatusClass(DocumentStatus s) => s switch {
+        DocumentStatus.Active => "status-approved",
+        DocumentStatus.Draft => "status-draft",
+        DocumentStatus.UnderReview => "status-submitted",
+        DocumentStatus.Superseded => "status-implemented",
+        DocumentStatus.Retired => "status-closed",
+        _ => ""
+    };
+
+    string FileIcon(string ext) => ext.ToUpper() switch {
+        "PDF" => "bi-file-earmark-pdf",
+        "DOC" or "DOCX" => "bi-file-earmark-word",
+        "XLS" or "XLSX" => "bi-file-earmark-excel",
+        "PPT" or "PPTX" => "bi-file-earmark-ppt",
+        "PNG" or "JPG" or "JPEG" or "GIF" => "bi-file-earmark-image",
+        "ZIP" => "bi-file-earmark-zip",
+        "TXT" => "bi-file-earmark-text",
+        "CSV" => "bi-file-earmark-spreadsheet",
+        _ => "bi-file-earmark"
+    };
+}
 
 @section Scripts {
 <script>
