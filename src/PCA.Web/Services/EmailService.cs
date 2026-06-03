@@ -96,7 +96,8 @@ public class EmailService : IEmailService
             message.Body = new BodyBuilder { HtmlBody = htmlBody }.ToMessageBody();
 
             using var client = new SmtpClient();
-            await client.ConnectAsync(_settings.Host, _settings.Port, SecureSocketOptions.StartTls);
+            await client.ConnectAsync(_settings.Host, _settings.Port,
+                _settings.Port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls);
             await client.AuthenticateAsync(_settings.Username, _settings.Password);
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
