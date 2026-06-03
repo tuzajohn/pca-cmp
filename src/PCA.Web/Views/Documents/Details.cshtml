@@ -1,6 +1,7 @@
 @model PCA.Modules.Documents.Models.Document
 @using PCA.Shared.Enums
 @using PCA.Modules.Documents.Models
+@using PCA.Web.Helpers
 @{
     ViewData["Title"] = Model.Title;
     var access = (AccessLevel)ViewBag.Access;
@@ -16,7 +17,7 @@
     <div>
         <h1 class="page-header-title">@Model.Title</h1>
         <p class="page-header-sub mb-0">
-            <span class="status-badge @StatusClass(Model.Status) me-2">@Model.Status</span>
+            <span class="status-badge @DocumentViewHelpers.StatusClass(Model.Status) me-2">@Model.Status</span>
             @Model.SerialNumber
             @if (Model.Folder != null)
             {
@@ -109,10 +110,10 @@
                                         }
                                     </td>
                                     <td class="align-middle">
-                                        <i class="bi @FileIcon(ext) me-1 text-muted"></i>
+                                        <i class="bi @DocumentViewHelpers.FileIcon(ext) me-1 text-muted"></i>
                                         @v.OriginalFileName
                                     </td>
-                                    <td class="align-middle text-muted">@FormatSize(v.FileSizeBytes)</td>
+                                    <td class="align-middle text-muted">@DocumentViewHelpers.FormatSize(v.FileSizeBytes)</td>
                                     <td class="align-middle">@(v.UploadedBy?.FullName ?? "—")</td>
                                     <td class="align-middle text-muted" style="white-space:nowrap;">@v.UploadedAt.ToString("dd MMM yyyy")</td>
                                     <td class="align-middle text-muted">@(string.IsNullOrEmpty(v.ChangeNotes) ? "—" : v.ChangeNotes)</td>
@@ -281,9 +282,9 @@
                 {
                     var ext = System.IO.Path.GetExtension(cv.OriginalFileName).TrimStart('.').ToUpper();
                     <div class="mb-3 p-3 rounded text-center" style="background:var(--bs-tertiary-bg);">
-                        <i class="bi @FileIcon(ext)" style="font-size:36px;color:var(--color-primary);"></i>
+                        <i class="bi @DocumentViewHelpers.FileIcon(ext)" style="font-size:36px;color:var(--color-primary);"></i>
                         <div class="fw-semibold mt-1" style="font-size:13px;">@cv.OriginalFileName</div>
-                        <div class="text-muted" style="font-size:11px;">v@cv.VersionNumber · @FormatSize(cv.FileSizeBytes)</div>
+                        <div class="text-muted" style="font-size:11px;">v@cv.VersionNumber · @DocumentViewHelpers.FormatSize(cv.FileSizeBytes)</div>
                     </div>
                     <a asp-action="Download" asp-route-versionId="@cv.Id" class="btn btn-primary w-100 mb-2">
                         <i class="bi bi-download me-1"></i> Download Current Version
@@ -318,35 +319,6 @@
         </div>
     </div>
 </div>
-
-@functions {
-    string FormatSize(long bytes) => bytes switch {
-        < 1024 => $"{bytes} B",
-        < 1048576 => $"{bytes / 1024.0:F1} KB",
-        _ => $"{bytes / 1048576.0:F1} MB"
-    };
-
-    string StatusClass(DocumentStatus s) => s switch {
-        DocumentStatus.Active => "status-approved",
-        DocumentStatus.Draft => "status-draft",
-        DocumentStatus.UnderReview => "status-submitted",
-        DocumentStatus.Superseded => "status-implemented",
-        DocumentStatus.Retired => "status-closed",
-        _ => ""
-    };
-
-    string FileIcon(string ext) => ext.ToUpper() switch {
-        "PDF" => "bi-file-earmark-pdf",
-        "DOC" or "DOCX" => "bi-file-earmark-word",
-        "XLS" or "XLSX" => "bi-file-earmark-excel",
-        "PPT" or "PPTX" => "bi-file-earmark-ppt",
-        "PNG" or "JPG" or "JPEG" or "GIF" => "bi-file-earmark-image",
-        "ZIP" => "bi-file-earmark-zip",
-        "TXT" => "bi-file-earmark-text",
-        "CSV" => "bi-file-earmark-spreadsheet",
-        _ => "bi-file-earmark"
-    };
-}
 
 @section Scripts {
 <script>
