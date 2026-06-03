@@ -59,6 +59,12 @@ var docsStorageRoot = builder.Configuration["DocumentStoragePath"]
 builder.Services.AddScoped<IDocumentService>(sp =>
     new DocumentService(sp.GetRequiredService<IApplicationDbContextForDocuments>(), docsStorageRoot));
 
+// Attachment storage
+var attachmentStorageRoot = builder.Configuration["AttachmentStoragePath"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "uploads", "attachments");
+builder.Services.AddScoped<IAttachmentService>(sp =>
+    new AttachmentService(sp.GetRequiredService<ApplicationDbContext>(), attachmentStorageRoot));
+
 // Email
 var smtpSettings = builder.Configuration.GetSection("Smtp").Get<SmtpSettings>() ?? new SmtpSettings();
 builder.Services.AddSingleton(smtpSettings);

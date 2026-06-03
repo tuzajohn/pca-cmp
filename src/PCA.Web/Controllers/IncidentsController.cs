@@ -7,6 +7,7 @@ using PCA.Modules.Incidents.Models;
 using PCA.Modules.Incidents.Services;
 using PCA.Shared.Enums;
 using PCA.Web.Models;
+using PCA.Web.Services;
 
 namespace PCA.Web.Controllers;
 
@@ -15,11 +16,14 @@ public class IncidentsController : Controller
 {
     private readonly IIncidentService _incidentService;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IAttachmentService _attachmentService;
 
-    public IncidentsController(IIncidentService incidentService, UserManager<ApplicationUser> userManager)
+    public IncidentsController(IIncidentService incidentService, UserManager<ApplicationUser> userManager,
+        IAttachmentService attachmentService)
     {
         _incidentService = incidentService;
         _userManager = userManager;
+        _attachmentService = attachmentService;
     }
 
     public async Task<IActionResult> Index(string? status, string? severity, string? category)
@@ -82,6 +86,7 @@ public class IncidentsController : Controller
         ViewBag.CurrentUserId = user?.Id;
         ViewBag.IsAdmin = User.IsInRole("Admin");
         ViewBag.AllUsers = await _userManager.Users.ToListAsync();
+        ViewBag.Attachments = await _attachmentService.GetForEntityAsync("Incident", id);
         return View(incident);
     }
 
@@ -208,5 +213,50 @@ public class IncidentsController : Controller
         await _incidentService.CloseAsync(id, user!.Id, comment);
         TempData["Success"] = "Incident closed.";
         return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> UploadAttachment(int id, IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            TempData["Error"] = "Please select a file.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+        var user = await _userManager.GetUserAsync(User);
+        try
+        {
+            await _attachmentService.UploadAsync("Incident", id, file, user!.Id);
+            TempData["Success"] = "Attachment uploaded.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAttachment(int id, int attachmentId)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        try
+        {
+            await _attachmentService.DeleteAsync(attachmentId, user!.Id, User.IsInRole("Admin"));
+            TempData["Success"] = "Attachment deleted.";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            TempData["Error"] = "You cannot delete this attachment.";
+        }
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    public async Task<IActionResult> DownloadAttachment(int id, int attachmentId)
+    {
+        var result = await _attachmentService.GetFileAsync(attachmentId);
+        if (result == null) return NotFound();
+        var (filePath, contentType, fileName) = result.Value;
+        return PhysicalFile(filePath, contentType, fileName);
     }
 }

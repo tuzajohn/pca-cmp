@@ -7,6 +7,7 @@ using PCA.Modules.ChangeManagement.Services;
 using PCA.Modules.Identity.Models;
 using PCA.Shared.Enums;
 using PCA.Web.Models;
+using PCA.Web.Services;
 
 namespace PCA.Web.Controllers;
 
@@ -16,12 +17,15 @@ public class ChangeRequestsController : Controller
     private readonly IChangeRequestService _crService;
     private readonly IApprovalService _approvalService;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IAttachmentService _attachmentService;
 
-    public ChangeRequestsController(IChangeRequestService crService, IApprovalService approvalService, UserManager<ApplicationUser> userManager)
+    public ChangeRequestsController(IChangeRequestService crService, IApprovalService approvalService,
+        UserManager<ApplicationUser> userManager, IAttachmentService attachmentService)
     {
         _crService = crService;
         _approvalService = approvalService;
         _userManager = userManager;
+        _attachmentService = attachmentService;
     }
 
     public async Task<IActionResult> Index()
@@ -77,6 +81,7 @@ public class ChangeRequestsController : Controller
         ViewBag.ApprovalSteps = await _approvalService.GetStepsForEntityAsync("ChangeRequest", id);
         var user = await _userManager.GetUserAsync(User);
         ViewBag.CurrentUserId = user?.Id;
+        ViewBag.Attachments = await _attachmentService.GetForEntityAsync("ChangeRequest", id);
         return View(cr);
     }
 
@@ -226,5 +231,50 @@ public class ChangeRequestsController : Controller
             TempData["Error"] = "Unable to submit PIR. Ensure the CR is in Implemented status.";
 
         return RedirectToAction(nameof(Details), new { id = vm.ChangeRequestId });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> UploadAttachment(int id, IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            TempData["Error"] = "Please select a file.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+        var user = await _userManager.GetUserAsync(User);
+        try
+        {
+            await _attachmentService.UploadAsync("ChangeRequest", id, file, user!.Id);
+            TempData["Success"] = "Attachment uploaded.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAttachment(int id, int attachmentId)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        try
+        {
+            await _attachmentService.DeleteAsync(attachmentId, user!.Id, User.IsInRole("Admin"));
+            TempData["Success"] = "Attachment deleted.";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            TempData["Error"] = "You cannot delete this attachment.";
+        }
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    public async Task<IActionResult> DownloadAttachment(int id, int attachmentId)
+    {
+        var result = await _attachmentService.GetFileAsync(attachmentId);
+        if (result == null) return NotFound();
+        var (filePath, contentType, fileName) = result.Value;
+        return PhysicalFile(filePath, contentType, fileName);
     }
 }

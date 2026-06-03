@@ -49,6 +49,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     public DbSet<IncidentDocument> IncidentDocuments => Set<IncidentDocument>();
     public DbSet<IncidentSequence> IncidentSequences => Set<IncidentSequence>();
 
+    // Attachments
+    public DbSet<Attachment> Attachments => Set<Attachment>();
+
     // Theme
     public DbSet<ThemeSettings> ThemeSettings => Set<ThemeSettings>();
 
@@ -74,5 +77,19 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
         builder.Entity<DocumentSequence>().ToTable("DocumentSequences").HasKey(x => x.Id);
         builder.Entity<IncidentSequence>().ToTable("IncidentSequences").HasKey(x => x.Id);
         builder.Entity<ThemeSettings>().ToTable("ThemeSettings").HasKey(x => x.Id);
+
+        builder.Entity<Attachment>(b =>
+        {
+            b.ToTable("Attachments");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.EntityType).HasMaxLength(100).IsRequired();
+            b.Property(x => x.OriginalFileName).HasMaxLength(500).IsRequired();
+            b.Property(x => x.StoredFileName).HasMaxLength(500).IsRequired();
+            b.Property(x => x.FilePath).HasMaxLength(1000).IsRequired();
+            b.Property(x => x.ContentType).HasMaxLength(200);
+            b.HasIndex(x => new { x.EntityType, x.EntityId });
+            b.HasOne(x => x.UploadedBy).WithMany().HasForeignKey(x => x.UploadedById)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
     }
 }

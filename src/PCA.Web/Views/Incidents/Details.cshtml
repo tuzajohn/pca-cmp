@@ -148,6 +148,15 @@
             </div>
         </div>
 
+        @await Html.PartialAsync("_AttachmentsPanel", (object)null!, new ViewDataDictionary(ViewData)
+        {
+            ["Controller"] = "Incidents",
+            ["EntityId"] = Model.Id,
+            ["Attachments"] = ViewBag.Attachments,
+            ["CurrentUserId"] = currentUserId,
+            ["IsAdmin"] = isAdmin
+        })
+
     </div>
 
     <!-- Right: actions -->
