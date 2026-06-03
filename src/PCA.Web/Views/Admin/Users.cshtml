@@ -1,7 +1,8 @@
 @model List<UserListItemViewModel>
 @{
     ViewData["Title"] = "Users";
-    ViewData["Subtitle"] = "Manage system users and role assignments";
+    var inviteLink = TempData["InviteLink"] as string;
+    var inviteUser = TempData["InviteUser"] as string;
 
     string RoleBadge(string role) => role switch {
         "Admin"     => "background:#fef2f2;color:#b91c1c;",
@@ -14,10 +15,10 @@
 <div class="page-header">
     <div>
         <h1 class="page-header-title">Users</h1>
-        <p class="page-header-sub mb-0">@Model.Count user(s) registered</p>
+        <p class="page-header-sub mb-0">@Model.Count user(s) — @Model.Count(u => u.Status == UserAccountStatus.Active) active · @Model.Count(u => u.Status == UserAccountStatus.Pending) pending · @Model.Count(u => u.Status == UserAccountStatus.Blocked) blocked</p>
     </div>
     <div class="d-flex gap-2">
-        <a asp-action="CreateUser" class="btn btn-primary">
+        <a asp-action="CreateUser" class="btn btn-primary btn-sm">
             <i class="bi bi-person-plus me-1"></i> Add User
         </a>
         <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
@@ -26,31 +27,59 @@
     </div>
 </div>
 
+@if (!string.IsNullOrEmpty(inviteLink))
+{
+    <div class="card mb-4" style="border:1.5px solid color-mix(in srgb,var(--color-primary) 30%,transparent);background:color-mix(in srgb,var(--color-primary) 4%,transparent);">
+        <div class="card-body">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-link-45deg" style="color:var(--color-primary);font-size:18px;"></i>
+                <strong style="font-size:14px;">Invite link for @inviteUser</strong>
+                <span class="status-badge status-submitted ms-1" style="font-size:10px;">One-time use</span>
+            </div>
+            <p class="text-muted small mb-2">Copy and share this link with the user. It expires once used or if regenerated.</p>
+            <div class="d-flex gap-2 align-items-center">
+                <input type="text" id="inviteLinkInput" value="@inviteLink" class="form-control form-control-sm" readonly style="font-family:monospace;font-size:12px;" />
+                <button class="btn btn-primary btn-sm flex-shrink-0" onclick="copyInviteLink()">
+                    <i class="bi bi-clipboard me-1"></i> Copy
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 <div class="card">
     @if (!Model.Any())
     {
         <div class="card-body text-center py-5 text-muted">
-            <i class="bi bi-people fs-1 d-block mb-2 opacity-25"></i>
+            <i class="bi bi-people" style="font-size:40px;opacity:.2;display:block;margin-bottom:10px;"></i>
             No users yet. <a asp-action="CreateUser"><i class="bi bi-person-plus me-1"></i>Add the first user</a>
         </div>
     }
     else
     {
-        <table class="table mb-0">
+        <table class="table mb-0" style="font-size:13px;">
             <thead>
                 <tr>
-                    <th>Full Name</th>
+                    <th class="ps-3">Name</th>
                     <th>Email</th>
                     <th>Department</th>
                     <th>Roles</th>
-                    <th></th>
+                    <th>Status</th>
+                    <th class="pe-3"></th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var user in Model)
                 {
+                    var (statusCls, statusIcon, statusLabel) = user.Status switch {
+                        UserAccountStatus.Active  => ("status-approved", "bi-check-circle", "Active"),
+                        UserAccountStatus.Pending => ("status-submitted", "bi-hourglass-split", "Pending"),
+                        UserAccountStatus.Blocked => ("status-closed", "bi-slash-circle", "Blocked"),
+                        _ => ("", "bi-circle", "Unknown")
+                    };
+
                     <tr>
-                        <td>
+                        <td class="ps-3">
                             <div class="fw-semibold">@user.FullName</div>
                         </td>
                         <td class="text-muted">@user.Email</td>
@@ -59,24 +88,66 @@
                             <div class="d-flex flex-wrap gap-1">
                                 @foreach (var role in user.Roles)
                                 {
-                                    <span class="status-badge" style="@RoleBadge(role)">@role</span>
+                                    <span class="status-badge" style="@RoleBadge(role) font-size:10px;">@role</span>
                                 }
                                 @if (!user.Roles.Any())
                                 {
-                                    <span class="text-muted" style="font-size:12px;">No roles</span>
+                                    <span class="text-muted" style="font-size:11px;">No roles</span>
                                 }
                             </div>
                         </td>
                         <td>
-                            <div class="d-flex gap-1 justify-content-end">
+                            <span class="status-badge @statusCls" style="font-size:10px;">
+                                <i class="bi @statusIcon me-1"></i>@statusLabel
+                            </span>
+                        </td>
+                        <td class="pe-3">
+                            <div class="d-flex gap-1 justify-content-end flex-wrap">
                                 <a asp-action="EditUser" asp-route-id="@user.Id"
-                                   class="btn btn-sm btn-outline-primary" title="Edit">
+                                   class="btn btn-sm btn-outline-secondary" title="Edit user" style="padding:2px 8px;">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <form asp-action="DeleteUser" method="post" class="d-inline"
-                                      onsubmit="return confirm('Delete @user.FullName? This cannot be undone.')">
+
+                                <!-- Reset / Resend invite -->
+                                <form asp-action="ResetUserLink" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
                                     <input type="hidden" name="id" value="@user.Id" />
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary" style="padding:2px 8px;"
+                                            title="@(user.Status == UserAccountStatus.Pending ? "Resend invite link" : "Generate password reset link")"
+                                            onclick="return confirm('@(user.Status == UserAccountStatus.Pending ? "Regenerate invite link for " : "Generate password reset link for ")@user.Email?')">
+                                        <i class="bi @(user.Status == UserAccountStatus.Pending ? "bi-envelope" : "bi-key")"></i>
+                                    </button>
+                                </form>
+
+                                <!-- Block / Unblock -->
+                                @if (user.Status == UserAccountStatus.Blocked)
+                                {
+                                    <form asp-action="UnblockUser" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@user.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-success" style="padding:2px 8px;" title="Unblock user">
+                                            <i class="bi bi-unlock"></i>
+                                        </button>
+                                    </form>
+                                }
+                                else if (user.Status == UserAccountStatus.Active)
+                                {
+                                    <form asp-action="BlockUser" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@user.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-warning" style="padding:2px 8px;" title="Block user"
+                                                onclick="return confirm('Block @user.FullName? They will not be able to sign in.')">
+                                            <i class="bi bi-lock"></i>
+                                        </button>
+                                    </form>
+                                }
+
+                                <!-- Delete -->
+                                <form asp-action="DeleteUser" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@user.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" style="padding:2px 8px;" title="Delete user"
+                                            onclick="return confirm('Permanently delete @user.FullName? This cannot be undone.')">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>
@@ -88,3 +159,19 @@
         </table>
     }
 </div>
+
+@section Scripts {
+<script>
+function copyInviteLink() {
+    const input = document.getElementById('inviteLinkInput');
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => {
+        const btn = input.nextElementSibling;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check2 me-1"></i> Copied!';
+        btn.classList.replace('btn-primary', 'btn-success');
+        setTimeout(() => { btn.innerHTML = orig; btn.classList.replace('btn-success', 'btn-primary'); }, 2000);
+    });
+}
+</script>
+}
