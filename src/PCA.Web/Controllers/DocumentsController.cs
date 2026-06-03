@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
 using PCA.Modules.Documents.Models;
 using PCA.Modules.Documents.Services;
 using PCA.Modules.Identity.Models;

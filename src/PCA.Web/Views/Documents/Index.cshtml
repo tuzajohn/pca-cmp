@@ -183,7 +183,7 @@
                 @foreach (var doc in Model.Documents)
                 {
                     var cv = doc.Versions.FirstOrDefault(v => v.IsCurrentVersion);
-                    var ext = cv != null ? Path.GetExtension(cv.OriginalFileName).TrimStart('.').ToUpper() : "—";
+                    var ext = cv != null ? System.IO.Path.GetExtension(cv.OriginalFileName).TrimStart('.').ToUpper() : "—";
                     <div class="col-md-6 col-xl-4">
                         <div class="card h-100 doc-card">
                             <div class="card-body">

@@ -126,10 +126,10 @@
                         <tbody>
                             @foreach (var v in Model.Versions.OrderByDescending(x => x.VersionNumber))
                             {
-                                var ext = Path.GetExtension(v.OriginalFileName).TrimStart('.').ToUpper();
+                                var ext = System.IO.Path.GetExtension(v.OriginalFileName).TrimStart('.').ToUpper();
                                 <tr class="@(v.IsCurrentVersion ? "table-active" : "")">
                                     <td class="ps-3 align-middle">
-                                        <span class="fw-semibold">v@v.VersionNumber</span>
+                                        <span class="fw-semibold">v@(v.VersionNumber)</span>
                                         @if (v.IsCurrentVersion)
                                         {
                                             <span class="badge ms-1" style="background:var(--color-primary);font-size:9px;">CURRENT</span>
@@ -306,7 +306,7 @@
                 }
                 @if (cv != null)
                 {
-                    var ext = Path.GetExtension(cv.OriginalFileName).TrimStart('.').ToUpper();
+                    var ext = System.IO.Path.GetExtension(cv.OriginalFileName).TrimStart('.').ToUpper();
                     <div class="mb-3 p-3 rounded text-center" style="background:var(--bs-tertiary-bg);">
                         <i class="bi @FileIcon(ext)" style="font-size:36px;color:var(--color-primary);"></i>
                         <div class="fw-semibold mt-1" style="font-size:13px;">@cv.OriginalFileName</div>
