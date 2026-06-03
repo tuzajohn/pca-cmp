@@ -5,9 +5,16 @@ using PCA.Shared.Enums;
 
 namespace PCA.Web.Models;
 
+public class FlatFolderItem
+{
+    public DocumentFolder Folder { get; set; } = null!;
+    public int Depth { get; set; }
+}
+
 public class DocumentIndexViewModel
 {
     public List<DocumentFolder> FolderTree { get; set; } = new();
+    public List<FlatFolderItem> FlatFolderTree { get; set; } = new();
     public List<Document> Documents { get; set; } = new();
     public int? ActiveFolderId { get; set; }
     public string? SearchQuery { get; set; }

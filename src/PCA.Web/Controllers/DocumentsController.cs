@@ -59,9 +59,13 @@ public class DocumentsController : Controller
             folderAccess = isAdmin ? AccessLevel.Manager
                 : await _docService.GetEffectiveAccessAsync(null, folderId, user!.Id, roles);
 
+        var flat = new List<FlatFolderItem>();
+        FlattenFolderTree(folderTree.Where(f => f.ParentId == null).OrderBy(f => f.Name), 0, flat);
+
         var vm = new DocumentIndexViewModel
         {
             FolderTree = folderTree,
+            FlatFolderTree = flat,
             Documents = docs,
             ActiveFolderId = folderId,
             SearchQuery = q,
@@ -448,5 +452,15 @@ public class DocumentsController : Controller
         var access = await _docService.GetEffectiveAccessAsync(null, folderId, user!.Id, roles);
         if (!access.HasValue || access < AccessLevel.Manager)
             throw new UnauthorizedAccessException();
+    }
+
+    private static void FlattenFolderTree(IEnumerable<DocumentFolder> folders, int depth, List<FlatFolderItem> result)
+    {
+        foreach (var f in folders)
+        {
+            result.Add(new FlatFolderItem { Folder = f, Depth = depth });
+            if (f.Children.Any())
+                FlattenFolderTree(f.Children.OrderBy(c => c.Name), depth + 1, result);
+        }
     }
 }
