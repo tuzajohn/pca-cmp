@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PCA.Modules.Approvals.Models;
 using PCA.Modules.Identity.Models;
-using PCA.Shared.Enums;
 
 namespace PCA.Web.Data;
 
@@ -47,13 +46,14 @@ public static class DbSeeder
         // Seed approval templates
         if (!await db.ApprovalTemplates.AnyAsync())
         {
-            var changeTypes = new[] { ChangeType.Standard, ChangeType.Emergency, ChangeType.Normal };
-            foreach (var ct in changeTypes)
+            var crSubTypes = new[] { "Standard", "Normal", "Emergency" };
+            foreach (var subType in crSubTypes)
             {
-                var template = new ApprovalTemplate
+                db.ApprovalTemplates.Add(new ApprovalTemplate
                 {
-                    Name = $"{ct} Change Approval",
-                    ChangeType = ct,
+                    Name = $"{subType} Change Approval",
+                    EntityType = "ChangeRequest",
+                    EntitySubType = subType,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
                     Steps = new List<ApprovalTemplateStep>
@@ -75,9 +75,29 @@ public static class DbSeeder
                             UpdatedAt = DateTime.UtcNow
                         }
                     }
-                };
-                db.ApprovalTemplates.Add(template);
+                });
             }
+
+            db.ApprovalTemplates.Add(new ApprovalTemplate
+            {
+                Name = "Incident Approval",
+                EntityType = "Incident",
+                EntitySubType = null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Steps = new List<ApprovalTemplateStep>
+                {
+                    new ApprovalTemplateStep
+                    {
+                        Order = 1,
+                        ApproverId = admin!.Id,
+                        RoleName = "Approver",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    }
+                }
+            });
+
             await db.SaveChangesAsync();
         }
     }
