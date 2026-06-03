@@ -57,6 +57,11 @@ var docsStorageRoot = builder.Configuration["DocumentStoragePath"]
 builder.Services.AddScoped<IDocumentService>(sp =>
     new DocumentService(sp.GetRequiredService<IApplicationDbContextForDocuments>(), docsStorageRoot));
 
+// Email
+var smtpSettings = builder.Configuration.GetSection("Smtp").Get<SmtpSettings>() ?? new SmtpSettings();
+builder.Services.AddSingleton(smtpSettings);
+builder.Services.AddScoped<IEmailService, EmailService>();
+
 // Theme
 builder.Services.AddScoped<IThemeService, ThemeService>();
 
