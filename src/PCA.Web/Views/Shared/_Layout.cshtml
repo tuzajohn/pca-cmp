@@ -144,9 +144,34 @@ else
                 }
             </div>
             <div class="topbar-actions">
-                <a asp-controller="ChangeRequests" asp-action="Create" class="btn btn-primary btn-sm px-3">
-                    <i class="bi bi-plus-lg me-1"></i> New CR
-                </a>
+                <div class="dropdown">
+                    <button class="btn btn-primary btn-sm px-3 dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-plus-lg me-1"></i> Quick Action
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-1" style="border-radius:10px;font-size:13px;min-width:200px;">
+                        <li><span class="dropdown-item-text text-muted" style="font-size:10px;padding:8px 16px 4px;text-transform:uppercase;letter-spacing:.06em;">Change Management</span></li>
+                        <li>
+                            <a class="dropdown-item" asp-controller="ChangeRequests" asp-action="Create">
+                                <i class="bi bi-ticket-detailed me-2"></i>New Change Request
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider my-1" /></li>
+                        <li><span class="dropdown-item-text text-muted" style="font-size:10px;padding:8px 16px 4px;text-transform:uppercase;letter-spacing:.06em;">Documents</span></li>
+                        <li>
+                            <a class="dropdown-item" asp-controller="Documents" asp-action="Create">
+                                <i class="bi bi-file-earmark-plus me-2"></i>New Document
+                            </a>
+                        </li>
+                        @if (User.IsInRole("Admin"))
+                        {
+                            <li>
+                                <a class="dropdown-item" asp-controller="Documents" asp-action="CreateFolder">
+                                    <i class="bi bi-folder-plus me-2"></i>New Folder
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </div>
                 <div class="dropdown">
                     <a href="#" class="topbar-user dropdown-toggle" data-bs-toggle="dropdown">
                         <div class="avatar">@UserInitials()</div>
