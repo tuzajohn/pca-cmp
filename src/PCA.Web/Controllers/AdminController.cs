@@ -18,16 +18,19 @@ public class AdminController : Controller
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly IThemeService _themeService;
+    private readonly IEmailService _emailService;
 
     public AdminController(IApprovalService approvalService,
         UserManager<ApplicationUser> userManager,
         RoleManager<IdentityRole> roleManager,
-        IThemeService themeService)
+        IThemeService themeService,
+        IEmailService emailService)
     {
         _approvalService = approvalService;
         _userManager = userManager;
         _roleManager = roleManager;
         _themeService = themeService;
+        _emailService = emailService;
     }
 
     // ── Approval Templates ──────────────────────────────────────────────────
@@ -157,11 +160,19 @@ public class AdminController : Controller
         if (vm.SelectedRoles.Any())
             await _userManager.AddToRolesAsync(user, vm.SelectedRoles);
 
-        // Generate invite link and show it immediately
         var inviteLink = await GenerateSetPasswordLinkAsync(user);
-        TempData["InviteLink"] = inviteLink;
-        TempData["InviteUser"] = vm.Email;
-        TempData["Success"] = $"User {vm.Email} created. Copy and share the invite link below.";
+        try
+        {
+            await _emailService.SendInviteAsync(user.Email!, user.FullName, inviteLink);
+            TempData["Success"] = $"User {vm.Email} created. An activation email has been sent.";
+        }
+        catch
+        {
+            // Email failed — fall back to copy-link so admin can still onboard the user
+            TempData["InviteLink"] = inviteLink;
+            TempData["InviteUser"] = vm.Email;
+            TempData["Success"] = $"User {vm.Email} created. Email delivery failed — copy the invite link below.";
+        }
         return RedirectToAction(nameof(Users));
     }
 
@@ -231,9 +242,24 @@ public class AdminController : Controller
         if (user == null) return NotFound();
 
         var link = await GenerateSetPasswordLinkAsync(user);
-        TempData["InviteLink"] = link;
-        TempData["InviteUser"] = user.Email;
-        TempData["Success"] = $"Password reset link generated for {user.Email}.";
+        var isInvite = !user.EmailConfirmed;
+        try
+        {
+            if (isInvite)
+                await _emailService.SendInviteAsync(user.Email!, user.FullName, link);
+            else
+                await _emailService.SendPasswordResetAsync(user.Email!, user.FullName, link);
+
+            TempData["Success"] = isInvite
+                ? $"Invite email resent to {user.Email}."
+                : $"Password reset email sent to {user.Email}.";
+        }
+        catch
+        {
+            TempData["InviteLink"] = link;
+            TempData["InviteUser"] = user.Email;
+            TempData["Success"] = $"Email delivery failed — copy the link below to share manually.";
+        }
         return RedirectToAction(nameof(Users));
     }
 

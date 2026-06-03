@@ -18,6 +18,7 @@
     </PackageReference>
     <!-- Pomelo 9.0.0 is the stable release that targets EF Core 9 -->
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
+    <PackageReference Include="MailKit" Version="4.8.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PCA.Shared\PCA.Shared.csproj" />
