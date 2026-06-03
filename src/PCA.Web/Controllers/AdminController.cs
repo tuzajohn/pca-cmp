@@ -103,13 +103,18 @@ public class AdminController : Controller
         var list = new List<UserListItemViewModel>();
         foreach (var u in users)
         {
+            var status = !u.EmailConfirmed ? UserAccountStatus.Pending
+                : u.LockoutEnd.HasValue && u.LockoutEnd > DateTimeOffset.UtcNow ? UserAccountStatus.Blocked
+                : UserAccountStatus.Active;
+
             list.Add(new UserListItemViewModel
             {
                 Id = u.Id,
                 FullName = u.FullName,
                 Email = u.Email ?? string.Empty,
                 Department = u.Department,
-                Roles = (await _userManager.GetRolesAsync(u)).ToList()
+                Roles = (await _userManager.GetRolesAsync(u)).ToList(),
+                Status = status
             });
         }
         return View(list);
@@ -135,11 +140,13 @@ public class AdminController : Controller
             UserName = vm.Email,
             Email = vm.Email,
             FullName = vm.FullName,
-            Department = vm.Department,
-            EmailConfirmed = true
+            Department = vm.Department ?? string.Empty,
+            EmailConfirmed = false,
+            LockoutEnabled = true
         };
 
-        var result = await _userManager.CreateAsync(user, vm.Password);
+        // Create without a password — user will set it via the invite link
+        var result = await _userManager.CreateAsync(user);
         if (!result.Succeeded)
         {
             foreach (var e in result.Errors) ModelState.AddModelError(string.Empty, e.Description);
@@ -150,7 +157,11 @@ public class AdminController : Controller
         if (vm.SelectedRoles.Any())
             await _userManager.AddToRolesAsync(user, vm.SelectedRoles);
 
-        TempData["Success"] = $"User {vm.Email} created successfully.";
+        // Generate invite link and show it immediately
+        var inviteLink = await GenerateSetPasswordLinkAsync(user);
+        TempData["InviteLink"] = inviteLink;
+        TempData["InviteUser"] = vm.Email;
+        TempData["Success"] = $"User {vm.Email} created. Copy and share the invite link below.";
         return RedirectToAction(nameof(Users));
     }
 
@@ -178,41 +189,76 @@ public class AdminController : Controller
         if (user == null) return NotFound();
 
         user.FullName = vm.FullName;
-        user.Department = vm.Department;
+        user.Department = vm.Department ?? string.Empty;
         await _userManager.UpdateAsync(user);
 
-        // Sync roles
         var currentRoles = await _userManager.GetRolesAsync(user);
         await _userManager.RemoveFromRolesAsync(user, currentRoles);
         if (vm.SelectedRoles.Any())
             await _userManager.AddToRolesAsync(user, vm.SelectedRoles);
-
-        // Optional password reset
-        if (!string.IsNullOrWhiteSpace(vm.NewPassword))
-        {
-            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var pwResult = await _userManager.ResetPasswordAsync(user, token, vm.NewPassword);
-            if (!pwResult.Succeeded)
-            {
-                foreach (var e in pwResult.Errors) ModelState.AddModelError(string.Empty, e.Description);
-                vm.AllRoles = await _roleManager.Roles.Select(r => r.Name!).ToListAsync();
-                vm.Email = user.Email ?? string.Empty;
-                return View(vm);
-            }
-        }
 
         TempData["Success"] = $"User {user.Email} updated.";
         return RedirectToAction(nameof(Users));
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteUser(string id)
+    public async Task<IActionResult> BlockUser(string id)
     {
         var user = await _userManager.FindByIdAsync(id);
         if (user == null) return NotFound();
-        await _userManager.DeleteAsync(user);
-        TempData["Success"] = "User deleted.";
+        user.LockoutEnabled = true;
+        user.LockoutEnd = DateTimeOffset.MaxValue;
+        await _userManager.UpdateAsync(user);
+        TempData["Success"] = $"{user.FullName} has been blocked.";
         return RedirectToAction(nameof(Users));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> UnblockUser(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user == null) return NotFound();
+        user.LockoutEnd = null;
+        await _userManager.UpdateAsync(user);
+        TempData["Success"] = $"{user.FullName} has been unblocked.";
+        return RedirectToAction(nameof(Users));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetUserLink(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user == null) return NotFound();
+
+        var link = await GenerateSetPasswordLinkAsync(user);
+        TempData["InviteLink"] = link;
+        TempData["InviteUser"] = user.Email;
+        TempData["Success"] = $"Password reset link generated for {user.Email}.";
+        return RedirectToAction(nameof(Users));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteUser(string id)
+    {
+        var currentUser = await _userManager.GetUserAsync(User);
+        if (currentUser?.Id == id)
+        {
+            TempData["Error"] = "You cannot delete your own account.";
+            return RedirectToAction(nameof(Users));
+        }
+        var user = await _userManager.FindByIdAsync(id);
+        if (user == null) return NotFound();
+        await _userManager.DeleteAsync(user);
+        TempData["Success"] = $"User {user.Email} deleted.";
+        return RedirectToAction(nameof(Users));
+    }
+
+    private async Task<string> GenerateSetPasswordLinkAsync(ApplicationUser user)
+    {
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        return Url.Action("SetPassword", "Account",
+            new { userId = user.Id, token },
+            Request.Scheme)!;
     }
 
     // ── Theme ───────────────────────────────────────────────────────────────

@@ -13,7 +13,7 @@ public class LoginViewModel
     [Display(Name = "Remember me")]
     public bool RememberMe { get; set; }
 
-    public string? ReturnUrl { get;set; } = string.Empty;
+    public string? ReturnUrl { get; set; } = string.Empty;
 }
 
 public class CreateUserViewModel
@@ -24,14 +24,8 @@ public class CreateUserViewModel
     [Required, MaxLength(200), Display(Name = "Full Name")]
     public string FullName { get; set; } = string.Empty;
 
-    [Required, MaxLength(100)]
-    public string Department { get; set; } = string.Empty;
-
-    [Required, DataType(DataType.Password), MinLength(6)]
-    public string Password { get; set; } = string.Empty;
-
-    [Required, DataType(DataType.Password), Compare(nameof(Password)), Display(Name = "Confirm Password")]
-    public string ConfirmPassword { get; set; } = string.Empty;
+    [MaxLength(100)]
+    public string? Department { get; set; }
 
     public List<string> SelectedRoles { get; set; } = new();
 }
@@ -39,20 +33,16 @@ public class CreateUserViewModel
 public class EditUserViewModel
 {
     public string Id { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
 
     [Required, MaxLength(200), Display(Name = "Full Name")]
     public string FullName { get; set; } = string.Empty;
 
-    [Required, MaxLength(100)]
-    public string Department { get; set; } = string.Empty;
-
-    [Display(Name = "New Password")]
-    [DataType(DataType.Password), MinLength(6)]
-    public string? NewPassword { get; set; }
+    [MaxLength(100)]
+    public string? Department { get; set; }
 
     public List<string> SelectedRoles { get; set; } = new();
     public List<string> AllRoles { get; set; } = new();
-    public string Email { get; set; } = string.Empty;
 }
 
 public class UserListItemViewModel
@@ -60,6 +50,24 @@ public class UserListItemViewModel
     public string Id { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
-    public string Department { get; set; } = string.Empty;
+    public string? Department { get; set; }
     public List<string> Roles { get; set; } = new();
+    public UserAccountStatus Status { get; set; }
 }
+
+public enum UserAccountStatus { Pending, Active, Blocked }
+
+public class SetPasswordViewModel
+{
+    public string UserId { get; set; } = string.Empty;
+    public string Token { get; set; } = string.Empty;
+
+    [Required, DataType(DataType.Password), MinLength(8)]
+    [Display(Name = "New Password")]
+    public string Password { get; set; } = string.Empty;
+
+    [Required, DataType(DataType.Password), Compare(nameof(Password))]
+    [Display(Name = "Confirm Password")]
+    public string ConfirmPassword { get; set; } = string.Empty;
+}
+

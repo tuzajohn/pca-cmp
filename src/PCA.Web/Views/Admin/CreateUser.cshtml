@@ -1,18 +1,21 @@
 @model CreateUserViewModel
 @{
     ViewData["Title"] = "Add User";
-    ViewData["Subtitle"] = "Create a new system user";
     var allRoles = ViewBag.AllRoles as List<string> ?? new();
 }
 
 <div class="page-header">
-    <h1 class="page-header-title">Add User</h1>
+    <div>
+        <h1 class="page-header-title">Add User</h1>
+        <p class="page-header-sub mb-0">Create the account — the user will set their own password via an invite link.</p>
+    </div>
     <a asp-action="Users" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left me-1"></i> Back to Users
     </a>
 </div>
 
 <form asp-action="CreateUser" method="post">
+    @Html.AntiForgeryToken()
     <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-4 small"></div>
 
     <div class="row g-3">
@@ -22,39 +25,28 @@
                 <div class="form-section-body">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label asp-for="FullName" class="form-label">Full Name <span class="text-danger">*</span></label>
+                            <label asp-for="FullName" class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
                             <input asp-for="FullName" class="form-control" placeholder="e.g. Jane Smith" />
                             <span asp-validation-for="FullName" class="text-danger small"></span>
                         </div>
                         <div class="col-md-6">
-                            <label asp-for="Email" class="form-label">Email Address <span class="text-danger">*</span></label>
+                            <label asp-for="Email" class="form-label fw-semibold">Email Address <span class="text-danger">*</span></label>
                             <input asp-for="Email" class="form-control" placeholder="jane@company.com" autocomplete="off" />
                             <span asp-validation-for="Email" class="text-danger small"></span>
                         </div>
                         <div class="col-md-6">
-                            <label asp-for="Department" class="form-label">Department <span class="text-danger">*</span></label>
+                            <label asp-for="Department" class="form-label">Department</label>
                             <input asp-for="Department" class="form-control" placeholder="e.g. IT, Operations" />
-                            <span asp-validation-for="Department" class="text-danger small"></span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="form-section">
-                <div class="form-section-header"><i class="bi bi-lock"></i> Password</div>
-                <div class="form-section-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label asp-for="Password" class="form-label">Password <span class="text-danger">*</span></label>
-                            <input asp-for="Password" type="password" class="form-control" autocomplete="new-password" />
-                            <span asp-validation-for="Password" class="text-danger small"></span>
-                            <div class="text-muted small mt-1">Min 6 chars, must include uppercase, digit, and symbol.</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="ConfirmPassword" class="form-label">Confirm Password <span class="text-danger">*</span></label>
-                            <input asp-for="ConfirmPassword" type="password" class="form-control" autocomplete="new-password" />
-                            <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
-                        </div>
+            <div class="card" style="background:color-mix(in srgb,var(--color-primary) 4%,transparent);border:1px solid color-mix(in srgb,var(--color-primary) 20%,transparent);">
+                <div class="card-body py-3 d-flex align-items-start gap-3">
+                    <i class="bi bi-info-circle-fill mt-1" style="color:var(--color-primary);font-size:16px;flex-shrink:0;"></i>
+                    <div style="font-size:13px;">
+                        No password is set at this step. After creating the user, you will receive a <strong>one-time invite link</strong> to copy and share. The user follows the link to set their own password and activate their account.
                     </div>
                 </div>
             </div>
@@ -72,24 +64,28 @@
                             "Requester" => "Can create and submit change requests",
                             _           => ""
                         };
-                        <label class="d-flex align-items-start gap-3 p-3 rounded mb-2 cursor-pointer"
-                               style="border:1.5px solid #e5e7eb;cursor:pointer;"
-                               onclick="this.querySelector('input').click()">
+                        var checkId = $"role_{role}";
+                        <div class="role-option mb-2" id="wrap_@checkId">
                             <input type="checkbox" name="SelectedRoles" value="@role"
-                                   class="form-check-input mt-1 flex-shrink-0"
-                                   @(Model.SelectedRoles.Contains(role) ? "checked" : "") />
-                            <div>
-                                <div class="fw-semibold" style="font-size:13.5px;">@role</div>
-                                @if (!string.IsNullOrEmpty(desc))
-                                {
-                                    <div class="text-muted" style="font-size:12px;">@desc</div>
-                                }
-                            </div>
-                        </label>
+                                   id="@checkId" class="role-checkbox d-none" />
+                            <label for="@checkId" class="d-flex align-items-start gap-3 p-3 rounded w-100 mb-0"
+                                   style="border:1.5px solid var(--bs-border-color);cursor:pointer;transition:border-color .15s,background .15s;">
+                                <div class="role-check-icon flex-shrink-0 mt-1" style="width:16px;height:16px;border:2px solid var(--bs-border-color);border-radius:4px;display:flex;align-items:center;justify-content:center;transition:all .15s;">
+                                    <i class="bi bi-check2" style="font-size:10px;color:#fff;display:none;"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-semibold" style="font-size:13.5px;">@role</div>
+                                    @if (!string.IsNullOrEmpty(desc))
+                                    {
+                                        <div class="text-muted" style="font-size:12px;">@desc</div>
+                                    }
+                                </div>
+                            </label>
+                        </div>
                     }
                     <div class="d-grid mt-3 gap-2">
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-person-check me-1"></i> Create User
+                            <i class="bi bi-person-check me-1"></i> Create User &amp; Generate Invite
                         </button>
                         <a asp-action="Users" class="btn btn-outline-secondary">Cancel</a>
                     </div>
@@ -99,4 +95,30 @@
     </div>
 </form>
 
-@section Scripts { <partial name="_ValidationScriptsPartial" /> }
+@section Scripts {
+<partial name="_ValidationScriptsPartial" />
+<script>
+document.querySelectorAll('.role-checkbox').forEach(cb => {
+    function sync() {
+        const label = cb.nextElementSibling;
+        const icon  = label.querySelector('.role-check-icon');
+        const tick  = icon.querySelector('i');
+        if (cb.checked) {
+            label.style.borderColor = 'var(--color-primary)';
+            label.style.background  = 'color-mix(in srgb,var(--color-primary) 8%,transparent)';
+            icon.style.background   = 'var(--color-primary)';
+            icon.style.borderColor  = 'var(--color-primary)';
+            tick.style.display      = 'block';
+        } else {
+            label.style.borderColor = '';
+            label.style.background  = '';
+            icon.style.background   = '';
+            icon.style.borderColor  = 'var(--bs-border-color)';
+            tick.style.display      = 'none';
+        }
+    }
+    cb.addEventListener('change', sync);
+    sync();
+});
+</script>
+}
