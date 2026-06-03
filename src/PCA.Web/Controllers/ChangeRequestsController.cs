@@ -74,7 +74,7 @@ public class ChangeRequestsController : Controller
     {
         var cr = await _crService.GetByIdAsync(id);
         if (cr == null) return NotFound();
-        ViewBag.ApprovalSteps = await _approvalService.GetStepsForRequestAsync(id);
+        ViewBag.ApprovalSteps = await _approvalService.GetStepsForEntityAsync("ChangeRequest", id);
         var user = await _userManager.GetUserAsync(User);
         ViewBag.CurrentUserId = user?.Id;
         return View(cr);
@@ -153,7 +153,7 @@ public class ChangeRequestsController : Controller
         var success = await _crService.SubmitAsync(id, user!.Id);
         if (success)
         {
-            await _approvalService.InitiateApprovalFlowAsync(id, cr.Type);
+            await _approvalService.InitiateApprovalFlowAsync("ChangeRequest", id, cr.Type.ToString());
             TempData["Success"] = "Change request submitted for approval.";
         }
         else

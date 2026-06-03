@@ -1,0 +1,49 @@
+@model PCA.Web.Models.IncidentResolveViewModel
+@{
+    ViewData["Title"] = "Resolve Incident";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Resolve Incident</h1>
+        <p class="page-header-sub mb-0">@Model.SerialNumber — @Model.Title</p>
+    </div>
+    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="row g-3 justify-content-center">
+    <div class="col-lg-7">
+        <form asp-action="Resolve" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="SerialNumber" />
+            <input type="hidden" asp-for="Title" />
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-check-circle"></i> Resolution Details</div>
+                <div class="form-section-body">
+                    <div class="mb-3">
+                        <label asp-for="RootCause" class="form-label fw-semibold">Root Cause <span class="text-danger">*</span></label>
+                        <textarea asp-for="RootCause" class="form-control" rows="4"
+                                  placeholder="What caused this incident?"></textarea>
+                        <span asp-validation-for="RootCause" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="ResolutionSummary" class="form-label fw-semibold">Resolution Summary <span class="text-danger">*</span></label>
+                        <textarea asp-for="ResolutionSummary" class="form-control" rows="4"
+                                  placeholder="How was the incident resolved? What actions were taken?"></textarea>
+                        <span asp-validation-for="ResolutionSummary" class="text-danger small"></span>
+                    </div>
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-circle me-1"></i> Mark as Resolved
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

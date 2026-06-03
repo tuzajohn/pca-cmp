@@ -7,6 +7,8 @@ using PCA.Modules.ChangeManagement.Services;
 using PCA.Modules.Documents.Services;
 using PCA.Modules.Identity;
 using PCA.Modules.Identity.Models;
+using PCA.Modules.Incidents;
+using PCA.Modules.Incidents.Services;
 using PCA.Web.Data;
 using PCA.Web.Services;
 
@@ -16,8 +18,6 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-// Use a configured (or defaulted) server version so startup doesn't require
-// a live DB connection just to resolve the provider version.
 var mySqlVersion = builder.Configuration["MySqlVersion"] ?? "8.0.33-mysql";
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.Parse(mySqlVersion)));
@@ -26,6 +26,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IApplicationDbContextForCM>(sp => sp.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<IApplicationDbContextForApprovals>(sp => sp.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<IApplicationDbContextForDocuments>(sp => sp.GetRequiredService<ApplicationDbContext>());
+builder.Services.AddScoped<IApplicationDbContextForIncidents>(sp => sp.GetRequiredService<ApplicationDbContext>());
 
 // Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -50,6 +51,7 @@ var config = builder.Configuration;
 new PCA.Modules.Identity.ModuleRegistration().Register(builder.Services, config);
 new PCA.Modules.ChangeManagement.ModuleRegistration().Register(builder.Services, config);
 new PCA.Modules.Approvals.ModuleRegistration().Register(builder.Services, config);
+new PCA.Modules.Incidents.ModuleRegistration().Register(builder.Services, config);
 
 // Document storage
 var docsStorageRoot = builder.Configuration["DocumentStoragePath"]

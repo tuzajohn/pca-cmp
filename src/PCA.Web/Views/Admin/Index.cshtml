@@ -24,7 +24,11 @@ else
                 <div class="card h-100">
                     <div class="card-header d-flex justify-content-between">
                         <strong>@template.Name</strong>
-                        <span class="badge bg-info text-dark">@template.ChangeType</span>
+                        <span class="badge bg-primary">@template.EntityType</span>
+                        @if (!string.IsNullOrEmpty(template.EntitySubType))
+                        {
+                            <span class="badge bg-info text-dark ms-1">@template.EntitySubType</span>
+                        }
                     </div>
                     <div class="card-body">
                         <h6 class="mb-2">Approval Steps</h6>

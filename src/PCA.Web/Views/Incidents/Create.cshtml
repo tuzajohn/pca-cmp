@@ -1,0 +1,102 @@
+@model PCA.Web.Models.IncidentCreateViewModel
+@using PCA.Shared.Enums
+@{
+    ViewData["Title"] = "Report Incident";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Report Incident</h1>
+        <p class="page-header-sub mb-0">Log a new operational incident</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <div class="row g-3">
+        <div class="col-lg-8">
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-exclamation-triangle"></i> Incident Details</div>
+                <div class="form-section-body">
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
+                        <input asp-for="Title" class="form-control" placeholder="Brief description of the incident" />
+                        <span asp-validation-for="Title" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label fw-semibold">Description <span class="text-danger">*</span></label>
+                        <textarea asp-for="Description" class="form-control" rows="4" placeholder="Detailed description of what happened"></textarea>
+                        <span asp-validation-for="Description" class="text-danger small"></span>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label asp-for="Category" class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
+                            <select asp-for="Category" class="form-select" asp-items="Html.GetEnumSelectList<IncidentCategory>()"></select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Severity" class="form-label fw-semibold">Severity <span class="text-danger">*</span></label>
+                            <select asp-for="Severity" class="form-select" asp-items="Html.GetEnumSelectList<IncidentSeverity>()"></select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Priority" class="form-label fw-semibold">Priority <span class="text-danger">*</span></label>
+                            <select asp-for="Priority" class="form-select" asp-items="Html.GetEnumSelectList<Priority>()"></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-geo-alt"></i> Impact &amp; Timing</div>
+                <div class="form-section-body">
+                    <div class="mb-3">
+                        <label asp-for="DetectedAt" class="form-label fw-semibold">Detected At <span class="text-danger">*</span></label>
+                        <input asp-for="DetectedAt" type="datetime-local" class="form-control" />
+                        <span asp-validation-for="DetectedAt" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="AffectedSystems" class="form-label fw-semibold">Affected Systems</label>
+                        <input asp-for="AffectedSystems" class="form-control" placeholder="e.g. ERP, email, VPN" />
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="ImpactDescription" class="form-label fw-semibold">Impact on Users / Operations</label>
+                        <textarea asp-for="ImpactDescription" class="form-control" rows="3" placeholder="Describe how users and operations are affected"></textarea>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card position-sticky" style="top:80px;">
+                <div class="card-header"><i class="bi bi-info-circle me-2"></i>Severity Guide</div>
+                <div class="card-body" style="font-size:12px;">
+                    <div class="mb-2">
+                        <span class="badge bg-danger me-2">S1 Critical</span>
+                        <span class="text-muted">Complete service outage, data loss risk</span>
+                    </div>
+                    <div class="mb-2">
+                        <span class="badge bg-warning text-dark me-2">S2 High</span>
+                        <span class="text-muted">Major feature broken, many users affected</span>
+                    </div>
+                    <div class="mb-2">
+                        <span class="badge bg-info text-dark me-2">S3 Medium</span>
+                        <span class="text-muted">Partial degradation, workaround available</span>
+                    </div>
+                    <div class="mb-2">
+                        <span class="badge bg-secondary me-2">S4 Low</span>
+                        <span class="text-muted">Minor issue, minimal user impact</span>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-exclamation-triangle me-1"></i> Report Incident
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

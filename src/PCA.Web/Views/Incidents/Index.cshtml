@@ -1,0 +1,133 @@
+@model List<PCA.Modules.Incidents.Models.Incident>
+@using PCA.Shared.Enums
+@using PCA.Web.Helpers
+@{
+    ViewData["Title"] = "Incidents";
+    var statusFilter = ViewBag.StatusFilter as string;
+    var severityFilter = ViewBag.SeverityFilter as string;
+    var categoryFilter = ViewBag.CategoryFilter as string;
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Incidents</h1>
+        <p class="page-header-sub mb-0">Track and manage operational incidents</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg me-1"></i> Report Incident
+    </a>
+</div>
+
+<!-- Filter bar -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+            <select name="status" class="form-select form-select-sm" style="width:auto;">
+                <option value="">All Statuses</option>
+                @foreach (var s in Enum.GetValues<IncidentStatus>())
+                {
+                    if (s.ToString() == statusFilter)
+                    {
+                        <option value="@s" selected>@s</option>
+                    }
+                    else
+                    {
+                        <option value="@s">@s</option>
+                    }
+                }
+            </select>
+            <select name="severity" class="form-select form-select-sm" style="width:auto;">
+                <option value="">All Severities</option>
+                @foreach (var sv in Enum.GetValues<IncidentSeverity>())
+                {
+                    if (sv.ToString() == severityFilter)
+                    {
+                        <option value="@sv" selected>@IncidentViewHelpers.SeverityLabel(sv)</option>
+                    }
+                    else
+                    {
+                        <option value="@sv">@IncidentViewHelpers.SeverityLabel(sv)</option>
+                    }
+                }
+            </select>
+            <select name="category" class="form-select form-select-sm" style="width:auto;">
+                <option value="">All Categories</option>
+                @foreach (var cat in Enum.GetValues<IncidentCategory>())
+                {
+                    if (cat.ToString() == categoryFilter)
+                    {
+                        <option value="@cat" selected>@cat</option>
+                    }
+                    else
+                    {
+                        <option value="@cat">@cat</option>
+                    }
+                }
+            </select>
+            <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
+            @if (!string.IsNullOrEmpty(statusFilter) || !string.IsNullOrEmpty(severityFilter) || !string.IsNullOrEmpty(categoryFilter))
+            {
+                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear</a>
+            }
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        @if (!Model.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-exclamation-triangle" style="font-size:40px;opacity:.3;"></i>
+                <p class="mt-3">No incidents found.</p>
+            </div>
+        }
+        else
+        {
+            <table class="table table-hover mb-0" style="font-size:13px;">
+                <thead style="background:var(--bs-tertiary-bg);">
+                    <tr>
+                        <th class="ps-3">Serial</th>
+                        <th>Title</th>
+                        <th>Severity</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Assigned To</th>
+                        <th>Detected</th>
+                        <th class="pe-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var inc in Model)
+                    {
+                        <tr>
+                            <td class="ps-3 align-middle text-muted" style="white-space:nowrap;">@inc.SerialNumber</td>
+                            <td class="align-middle fw-semibold">
+                                <a asp-action="Details" asp-route-id="@inc.Id" class="text-decoration-none" style="color:inherit;">@inc.Title</a>
+                                <div class="text-muted fw-normal" style="font-size:11px;">@inc.Category</div>
+                            </td>
+                            <td class="align-middle">
+                                <span class="badge @IncidentViewHelpers.SeverityBadgeClass(inc.Severity)" style="font-size:11px;">
+                                    @IncidentViewHelpers.SeverityLabel(inc.Severity)
+                                </span>
+                            </td>
+                            <td class="align-middle">
+                                <span class="status-badge status-@inc.Priority.ToString().ToLower()" style="font-size:10px;">@inc.Priority</span>
+                            </td>
+                            <td class="align-middle">
+                                <span class="status-badge @IncidentViewHelpers.StatusClass(inc.Status)" style="font-size:10px;">@inc.Status</span>
+                            </td>
+                            <td class="align-middle text-muted">@(inc.AssignedTo?.FullName ?? "—")</td>
+                            <td class="align-middle text-muted" style="white-space:nowrap;">@inc.DetectedAt.ToString("dd MMM yyyy")</td>
+                            <td class="pe-3 align-middle">
+                                <a asp-action="Details" asp-route-id="@inc.Id" class="btn btn-outline-primary btn-sm" style="padding:2px 8px;font-size:11px;">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

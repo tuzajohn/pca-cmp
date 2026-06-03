@@ -11,7 +11,8 @@ public class ApprovalTemplateConfiguration : IEntityTypeConfiguration<ApprovalTe
         builder.ToTable("ApprovalTemplates");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
-        builder.Property(x => x.ChangeType).HasConversion<string>();
+        builder.Property(x => x.EntityType).HasMaxLength(100).IsRequired();
+        builder.Property(x => x.EntitySubType).HasMaxLength(100);
         builder.HasMany(x => x.Steps)
             .WithOne(x => x.Template)
             .HasForeignKey(x => x.TemplateId)
@@ -39,8 +40,10 @@ public class ApprovalStepConfiguration : IEntityTypeConfiguration<ApprovalStep>
     {
         builder.ToTable("ApprovalSteps");
         builder.HasKey(x => x.Id);
+        builder.Property(x => x.EntityType).HasMaxLength(100).IsRequired();
         builder.Property(x => x.Comment).HasMaxLength(2000);
         builder.Property(x => x.Status).HasConversion<string>();
+        builder.HasIndex(x => new { x.EntityType, x.EntityId });
         builder.HasOne(x => x.Approver)
             .WithMany()
             .HasForeignKey(x => x.ApproverId)

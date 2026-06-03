@@ -593,3 +593,30 @@ a:hover { color: var(--color-primary-hover); }
     padding-bottom: 8px;
     border-bottom: 2px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
+
+/* ── Incident timeline ── */
+.timeline { display: flex; flex-direction: column; gap: 0; }
+.timeline-item { display: flex; gap: 12px; padding-bottom: 16px; position: relative; }
+.timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 22px;
+    bottom: 0;
+    width: 2px;
+    background: var(--bs-border-color);
+}
+.timeline-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.dot-success { background: #dcfce7; color: #16a34a; }
+.dot-primary { background: color-mix(in srgb, var(--color-primary) 15%, transparent); color: var(--color-primary); }
+.dot-warning { background: #fef9c3; color: #b45309; }
+.dot-muted   { background: #f3f4f6; color: #6b7280; }

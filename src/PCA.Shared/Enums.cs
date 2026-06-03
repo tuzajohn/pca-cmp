@@ -33,6 +33,13 @@ public enum ApprovalStatus
     Rejected
 }
 
+public enum ApprovalOutcome
+{
+    StillPending,
+    AllApproved,
+    AnyRejected
+}
+
 public enum StagingTestedStatus
 {
     Yes,
@@ -69,3 +76,39 @@ public enum PermissionSubjectType
     User,
     Role
 }
+
+public enum IncidentStatus
+{
+    Open,
+    InProgress,
+    OnHold,
+    Resolved,
+    Closed
+}
+
+public enum IncidentCategory
+{
+    Infrastructure,
+    Application,
+    Security,
+    Network,
+    Process,
+    Other
+}
+
+public enum IncidentSeverity
+{
+    S1Critical,
+    S2High,
+    S3Medium,
+    S4Low
+}
+
+public enum IncidentUpdateType
+{
+    Comment,
+    StatusChange,
+    Assignment,
+    Resolution
+}
+

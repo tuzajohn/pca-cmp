@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using PCA.Modules.Approvals.Models;
 using PCA.Modules.Approvals.Services;
 using PCA.Modules.Identity.Models;
-using PCA.Shared.Enums;
 using PCA.Web.Models;
 using PCA.Web.Services;
 
@@ -50,14 +49,15 @@ public class AdminController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditTemplate(int id, string name, ChangeType changeType,
+    public async Task<IActionResult> EditTemplate(int id, string name, string entityType, string? entitySubType,
         List<string> approverIds, List<string> roleNames)
     {
         var template = (await _approvalService.GetTemplatesAsync()).FirstOrDefault(t => t.Id == id);
         if (template == null) return NotFound();
 
         template.Name = name;
-        template.ChangeType = changeType;
+        template.EntityType = entityType;
+        template.EntitySubType = string.IsNullOrWhiteSpace(entitySubType) ? null : entitySubType;
         template.Steps = approverIds.Select((aid, i) => new ApprovalTemplateStep
         {
             TemplateId = id,
@@ -78,7 +78,7 @@ public class AdminController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> CreateTemplate(string name, ChangeType changeType,
+    public async Task<IActionResult> CreateTemplate(string name, string entityType, string? entitySubType,
         List<string> approverIds, List<string> roleNames)
     {
         var steps = approverIds.Select((id, i) => new ApprovalTemplateStep
@@ -91,7 +91,8 @@ public class AdminController : Controller
         await _approvalService.CreateTemplateAsync(new ApprovalTemplate
         {
             Name = name,
-            ChangeType = changeType,
+            EntityType = entityType,
+            EntitySubType = string.IsNullOrWhiteSpace(entitySubType) ? null : entitySubType,
             Steps = steps
         });
         TempData["Success"] = "Approval template created.";
@@ -148,7 +149,6 @@ public class AdminController : Controller
             LockoutEnabled = true
         };
 
-        // Create without a password — user will set it via the invite link
         var result = await _userManager.CreateAsync(user);
         if (!result.Succeeded)
         {
@@ -168,7 +168,6 @@ public class AdminController : Controller
         }
         catch
         {
-            // Email failed — fall back to copy-link so admin can still onboard the user
             TempData["InviteLink"] = inviteLink;
             TempData["InviteUser"] = vm.Email;
             TempData["Success"] = $"User {vm.Email} created. Email delivery failed — copy the invite link below.";
