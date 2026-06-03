@@ -243,13 +243,17 @@
         {
             var isActive = Model.ActiveFolderId == f.Id;
             var indent = 14 + depth * 14;
-            var activeClass = isActive ? " active" : "";
+            var activeClass = isActive ? " active" : string.Empty;
             var folderIcon = isActive ? "folder2-open" : "folder2";
             var url = Url.Action("Index", "Documents", new { folderId = f.Id });
-            sb.Append($"<a href=\"{url}\" class=\"folder-tree-item{activeClass}\" style=\"padding-left:{indent}px;\">");
-            sb.Append($"<i class=\"bi bi-{folderIcon} me-1\"></i>");
-            sb.Append($"<span>{System.Net.WebUtility.HtmlEncode(f.Name)}</span>");
-            sb.Append($"<span class=\"ms-auto text-muted\" style=\"font-size:11px;\">{f.Documents.Count}</span>");
+            var name = System.Net.WebUtility.HtmlEncode(f.Name);
+            sb.Append("<a href='").Append(url)
+              .Append("' class='folder-tree-item").Append(activeClass)
+              .Append("' style='padding-left:").Append(indent).Append("px;'>");
+            sb.Append("<i class='bi bi-").Append(folderIcon).Append(" me-1'></i>");
+            sb.Append("<span>").Append(name).Append("</span>");
+            sb.Append("<span class='ms-auto text-muted' style='font-size:11px;'>")
+              .Append(f.Documents.Count).Append("</span>");
             sb.Append("</a>");
             if (f.Children.Any())
                 sb.Append(RenderFolderTree(f.Children, depth + 1));
