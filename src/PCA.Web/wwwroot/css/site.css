@@ -579,3 +579,17 @@ a:hover { color: var(--color-primary-hover); }
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 7%, transparent);
 }
+
+/* ── Dashboard section headers ── */
+.dashboard-section-header {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--color-primary);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
