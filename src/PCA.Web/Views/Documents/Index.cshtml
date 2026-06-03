@@ -1,6 +1,7 @@
 @model PCA.Web.Models.DocumentIndexViewModel
 @using PCA.Shared.Enums
 @using PCA.Modules.Documents.Models
+@using PCA.Web.Helpers
 @{
     ViewData["Title"] = "Document Repository";
 }
@@ -60,7 +61,7 @@
                         var cls = s.ToString() == Model.StatusFilter ? "fw-semibold" : "text-muted";
                         <a href="@Url.Action("Index", "Documents", new { folderId = Model.ActiveFolderId, status = s.ToString() })"
                            class="d-block py-1 text-decoration-none @cls" style="font-size:13px;">
-                            <span class="status-badge @StatusClass(s) me-1" style="font-size:10px;">@s</span>
+                            <span class="status-badge @DocumentViewHelpers.StatusClass(s) me-1" style="font-size:10px;">@s</span>
                         </a>
                     }
                     @if (!string.IsNullOrEmpty(Model.StatusFilter))
@@ -166,7 +167,7 @@
                             <div class="card-body">
                                 <div class="d-flex align-items-start gap-2 mb-2">
                                     <div class="doc-icon">
-                                        <i class="bi @FileIcon(ext)"></i>
+                                        <i class="bi @DocumentViewHelpers.FileIcon(ext)"></i>
                                     </div>
                                     <div class="flex-grow-1 min-width-0">
                                         <a asp-action="Details" asp-route-id="@doc.Id"
@@ -187,9 +188,9 @@
                                 }
 
                                 <div class="d-flex align-items-center justify-content-between mt-auto pt-2" style="border-top:1px solid var(--bs-border-color);margin-top:8px;">
-                                    <span class="status-badge @StatusClass(doc.Status)" style="font-size:10px;">@doc.Status</span>
+                                    <span class="status-badge @DocumentViewHelpers.StatusClass(doc.Status)" style="font-size:10px;">@doc.Status</span>
                                     <span class="text-muted" style="font-size:11px;">
-                                        @(cv != null ? $"v{cv.VersionNumber} · {FormatSize(cv.FileSizeBytes)}" : "No file")
+                                        @(cv != null ? $"v{cv.VersionNumber} · {DocumentViewHelpers.FormatSize(cv.FileSizeBytes)}" : "No file")
                                     </span>
                                 </div>
 
@@ -220,33 +221,3 @@
     </div>
 </div>
 
-@functions {
-    string FormatSize(long bytes) => bytes switch {
-        < 1024 => $"{bytes} B",
-        < 1048576 => $"{bytes / 1024.0:F1} KB",
-        _ => $"{bytes / 1048576.0:F1} MB"
-    };
-
-    string StatusClass(DocumentStatus s) => s switch {
-        DocumentStatus.Active => "status-approved",
-        DocumentStatus.Draft => "status-draft",
-        DocumentStatus.UnderReview => "status-submitted",
-        DocumentStatus.Superseded => "status-implemented",
-        DocumentStatus.Retired => "status-closed",
-        _ => ""
-    };
-
-    string FileIcon(string ext) => ext.ToUpper() switch {
-        "PDF" => "bi-file-earmark-pdf",
-        "DOC" or "DOCX" => "bi-file-earmark-word",
-        "XLS" or "XLSX" => "bi-file-earmark-excel",
-        "PPT" or "PPTX" => "bi-file-earmark-ppt",
-        "PNG" or "JPG" or "JPEG" or "GIF" => "bi-file-earmark-image",
-        "ZIP" => "bi-file-earmark-zip",
-        "TXT" => "bi-file-earmark-text",
-        "CSV" => "bi-file-earmark-spreadsheet",
-        _ => "bi-file-earmark"
-    };
-
-
-}
