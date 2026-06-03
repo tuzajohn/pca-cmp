@@ -1,0 +1,53 @@
+name: Deploy PCA Admin Portal
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    environment: ${{ github.ref == 'refs/heads/develop' && 'develop' || 'production' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build project
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Publish project
+        run: dotnet publish PCA.Web/PCA.Web.csproj -c Release -o ./publish
+
+      - name: Backup existing deployment
+        run: |
+          [ -d /var/www/pcuganda-admin ] && \
+            sudo cp -r /var/www/pcuganda-admin \
+              /var/www/pcuganda-admin_backup_$(date +%Y%m%d_%H%M%S) || true
+          # Keep only last 3 backups
+          ls -dt /var/www/pcuganda-admin_backup_* 2>/dev/null | tail -n +4 | xargs rm -rf
+
+      - name: Deploy to server
+        run: |
+          sudo rsync -a --delete \
+            --exclude='appsettings.Staging.json' \
+            --exclude='appsettings.Production.json' \
+            ./publish/ /var/www/pcuganda-admin/
+
+      - name: Set permissions
+        run: |
+          sudo chown -R deploy:www-data /var/www/pcuganda-admin
+          sudo chmod -R 755 /var/www/pcuganda-admin
+
+      - name: Restart service
+        run: sudo systemctl restart pcugandaadmin.service
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          sudo systemctl is-active --quiet pcugandaadmin.service \
+            && echo '✅ Service is running' \
+            || (echo '❌ Service failed' && sudo journalctl -u pcugandaadmin.service --no-pager -n 20 && exit 1)
