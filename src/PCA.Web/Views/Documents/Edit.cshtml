@@ -103,15 +103,33 @@
             <div class="form-section mt-4">
                 <div class="form-section-header"><i class="bi bi-calendar-check"></i> Review Schedule</div>
                 <div class="form-section-body">
+                    @{
+                        var knownPeriods = new[] { 30, 60, 90, 180, 365, 730 };
+                        var savedDays    = Model.ReviewPeriodDays;
+                        var isCustom     = savedDays.HasValue && !knownPeriods.Contains(savedDays.Value);
+                    }
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label asp-for="ReviewPeriodDays" class="form-label fw-semibold">Review Every (days)</label>
-                            <input asp-for="ReviewPeriodDays" type="number" class="form-control" placeholder="e.g. 90" min="1" max="3650" />
-                            <div class="form-text">Leave blank to remove the review schedule.</div>
+                            <label class="form-label fw-semibold">Review Period</label>
+                            <select id="reviewPeriodSelect" class="form-select">
+                                <option value=""      @(savedDays == null ? "selected" : "")>— No scheduled review —</option>
+                                <option value="30"    @(savedDays == 30  ? "selected" : "")>Monthly (30 days)</option>
+                                <option value="60"    @(savedDays == 60  ? "selected" : "")>Every 2 months (60 days)</option>
+                                <option value="90"    @(savedDays == 90  ? "selected" : "")>Quarterly (90 days)</option>
+                                <option value="180"   @(savedDays == 180 ? "selected" : "")>Semi-annually (180 days)</option>
+                                <option value="365"   @(savedDays == 365 ? "selected" : "")>Annually (365 days)</option>
+                                <option value="730"   @(savedDays == 730 ? "selected" : "")>Every 2 years (730 days)</option>
+                                <option value="custom" @(isCustom        ? "selected" : "")>Custom…</option>
+                            </select>
+                            <input asp-for="ReviewPeriodDays" type="number" id="reviewPeriodCustom"
+                                   class="form-control mt-2 @(isCustom ? "" : "d-none")"
+                                   placeholder="Enter days (1–3650)" min="1" max="3650" />
+                            <div class="form-text">Sets how often this document must be reviewed.</div>
                         </div>
                         <div class="col-md-6">
-                            <label asp-for="NextReviewDate" class="form-label fw-semibold">Next Review Date</label>
-                            <input asp-for="NextReviewDate" type="date" class="form-control" />
+                            <label asp-for="NextReviewDate" class="form-label fw-semibold">Period Start Date</label>
+                            <input asp-for="NextReviewDate" type="date" id="nextReviewDate" class="form-control" />
+                            <div class="form-text" id="nextReviewHint"></div>
                         </div>
                     </div>
                 </div>
@@ -129,4 +147,54 @@
 
 @section Scripts {
 <partial name="_ValidationScriptsPartial" />
+<script>
+const periodSelect = document.getElementById('reviewPeriodSelect');
+const periodCustom = document.getElementById('reviewPeriodCustom');
+const periodHidden = document.getElementById('ReviewPeriodDays');
+const startDate    = document.getElementById('nextReviewDate');
+const reviewHint   = document.getElementById('nextReviewHint');
+
+function addDays(dateStr, days) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+}
+
+function updateHint() {
+    const days  = parseInt(periodHidden.value);
+    const start = startDate.value;
+    if (!isNaN(days) && days > 0 && start) {
+        reviewHint.textContent = `First review due: ${addDays(start, days)}`;
+    } else if (!isNaN(days) && days > 0) {
+        reviewHint.textContent = 'Set a start date to calculate the first due date.';
+    } else {
+        reviewHint.textContent = '';
+    }
+}
+
+periodSelect.addEventListener('change', function () {
+    if (this.value === 'custom') {
+        periodCustom.classList.remove('d-none');
+        periodHidden.value = '';
+    } else {
+        periodCustom.classList.add('d-none');
+        periodHidden.value = this.value;
+        if (this.value && !startDate.value)
+            startDate.value = new Date().toISOString().slice(0, 10);
+        if (!this.value) startDate.value = '';
+    }
+    updateHint();
+});
+
+periodCustom.addEventListener('input', function () {
+    periodHidden.value = this.value;
+    updateHint();
+});
+
+startDate.addEventListener('change', updateHint);
+
+// Initialise hint on load
+updateHint();
+</script>
 }
