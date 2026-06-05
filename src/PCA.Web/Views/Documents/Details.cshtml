@@ -353,37 +353,133 @@ else if (reviewState == ReviewDueState.DueSoon)
                         ["EntityId"]   = Model.Id
                     })
 
-                    @* Inline action for the current approver's active step *@
+                    @* Action button for the current approver's active step *@
                     @{ var myStep = approvalSteps.FirstOrDefault(s => s.Status == ApprovalStatus.Pending && s.ApproverId == currentUserId
                             && approvalSteps.Where(x => x.Order < s.Order).All(x => x.Status == ApprovalStatus.Approved)); }
                     @if (myStep != null)
                     {
-                        <div class="px-3 pb-3 d-flex gap-2 align-items-center flex-wrap">
-                            <span class="text-muted" style="font-size:12px;"><i class="bi bi-arrow-return-right me-1"></i>Your turn — Step @myStep.Order:</span>
-                            <form asp-controller="Approvals" asp-action="Approve" method="post" class="d-inline">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="stepId" value="@myStep.Id" />
-                                <input type="hidden" name="entityType" value="Document" />
-                                <input type="hidden" name="entityId" value="@Model.Id" />
-                                <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check2 me-1"></i>Approve</button>
-                            </form>
-                            <form asp-controller="Approvals" asp-action="Reject" method="post" class="d-inline d-flex gap-1">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="stepId" value="@myStep.Id" />
-                                <input type="hidden" name="entityType" value="Document" />
-                                <input type="hidden" name="entityId" value="@Model.Id" />
-                                <input type="text" name="comment" class="form-control form-control-sm" style="width:160px;" placeholder="Rejection reason…" required />
-                                <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-x-lg me-1"></i>Reject</button>
-                            </form>
-                            <form asp-controller="Approvals" asp-action="ReturnForEdit" method="post" class="d-inline d-flex gap-1">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="stepId" value="@myStep.Id" />
-                                <input type="hidden" name="entityType" value="Document" />
-                                <input type="hidden" name="entityId" value="@Model.Id" />
-                                <input type="text" name="comment" class="form-control form-control-sm" style="width:200px;" placeholder="What needs to be corrected…" required />
-                                <button type="submit" class="btn btn-warning btn-sm"><i class="bi bi-arrow-return-left me-1"></i>Return for Edit</button>
-                            </form>
+                        <div class="px-3 pb-3">
+                            <div class="p-3 rounded d-flex align-items-center justify-content-between"
+                                 style="background:color-mix(in srgb,var(--color-primary) 6%,transparent);border:1px solid color-mix(in srgb,var(--color-primary) 20%,transparent);">
+                                <div style="font-size:13px;">
+                                    <i class="bi bi-bell-fill me-2" style="color:var(--color-primary);"></i>
+                                    <strong>Your approval is required</strong> — Step @myStep.Order
+                                </div>
+                                <button type="button" class="btn btn-primary btn-sm"
+                                        data-bs-toggle="modal" data-bs-target="#approvalActionModal">
+                                    <i class="bi bi-check2-square me-1"></i> Take Action
+                                </button>
+                            </div>
                         </div>
+
+                        <!-- Approval action modal -->
+                        <div class="modal fade" id="approvalActionModal" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title"><i class="bi bi-check2-circle me-2"></i>Review Decision — Step @myStep.Order</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p class="text-muted mb-3" style="font-size:13px;">
+                                            Select your decision. A comment is optional for approval but required for rejection or return.
+                                        </p>
+
+                                        <!-- Action selector -->
+                                        <div class="d-flex gap-2 mb-3">
+                                            <button type="button" class="btn btn-outline-success flex-fill action-choice" data-action="Approve">
+                                                <i class="bi bi-check2-circle d-block fs-4 mb-1"></i>Approve
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger flex-fill action-choice" data-action="Reject">
+                                                <i class="bi bi-x-circle d-block fs-4 mb-1"></i>Reject
+                                            </button>
+                                            <button type="button" class="btn btn-outline-warning flex-fill action-choice" data-action="ReturnForEdit">
+                                                <i class="bi bi-arrow-return-left d-block fs-4 mb-1"></i>Return for Edit
+                                            </button>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label small fw-semibold" id="commentLabel">Comment <span class="text-muted">(optional)</span></label>
+                                            <textarea id="approvalComment" class="form-control" rows="3"
+                                                      placeholder="Add a note for the submitter…"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="button" class="btn btn-primary btn-sm" id="submitApprovalAction" disabled>
+                                            Confirm Decision
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden forms — submitted via JS -->
+                        <form id="formApprove" asp-controller="Approvals" asp-action="Approve" method="post" class="d-none">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="stepId" value="@myStep.Id" />
+                            <input type="hidden" name="entityType" value="Document" />
+                            <input type="hidden" name="entityId" value="@Model.Id" />
+                            <input type="hidden" name="comment" id="approveComment" />
+                        </form>
+                        <form id="formReject" asp-controller="Approvals" asp-action="Reject" method="post" class="d-none">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="stepId" value="@myStep.Id" />
+                            <input type="hidden" name="entityType" value="Document" />
+                            <input type="hidden" name="entityId" value="@Model.Id" />
+                            <input type="hidden" name="comment" id="rejectComment" />
+                        </form>
+                        <form id="formReturn" asp-controller="Approvals" asp-action="ReturnForEdit" method="post" class="d-none">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="stepId" value="@myStep.Id" />
+                            <input type="hidden" name="entityType" value="Document" />
+                            <input type="hidden" name="entityId" value="@Model.Id" />
+                            <input type="hidden" name="comment" id="returnComment" />
+                        </form>
+
+                        <script>
+                        (function () {
+                            var selected = null;
+                            var requiresComment = { Reject: true, ReturnForEdit: true };
+
+                            document.querySelectorAll('.action-choice').forEach(function (btn) {
+                                btn.addEventListener('click', function () {
+                                    document.querySelectorAll('.action-choice').forEach(b => b.classList.remove('active'));
+                                    btn.classList.add('active');
+                                    selected = btn.dataset.action;
+
+                                    var label = document.getElementById('commentLabel');
+                                    label.innerHTML = requiresComment[selected]
+                                        ? 'Comment <span class="text-danger">*required</span>'
+                                        : 'Comment <span class="text-muted">(optional)</span>';
+
+                                    updateSubmitState();
+                                });
+                            });
+
+                            document.getElementById('approvalComment').addEventListener('input', updateSubmitState);
+
+                            function updateSubmitState() {
+                                var comment = document.getElementById('approvalComment').value.trim();
+                                var ok = selected && (!requiresComment[selected] || comment.length > 0);
+                                document.getElementById('submitApprovalAction').disabled = !ok;
+                            }
+
+                            document.getElementById('submitApprovalAction').addEventListener('click', function () {
+                                var comment = document.getElementById('approvalComment').value.trim();
+                                if (selected === 'Approve') {
+                                    document.getElementById('approveComment').value = comment;
+                                    document.getElementById('formApprove').submit();
+                                } else if (selected === 'Reject') {
+                                    document.getElementById('rejectComment').value = comment;
+                                    document.getElementById('formReject').submit();
+                                } else if (selected === 'ReturnForEdit') {
+                                    document.getElementById('returnComment').value = comment;
+                                    document.getElementById('formReturn').submit();
+                                }
+                            });
+                        })();
+                        </script>
                     }
                 </div>
             </div>
