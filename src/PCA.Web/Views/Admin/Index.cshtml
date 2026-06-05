@@ -31,35 +31,38 @@ else
                         }
                     </div>
                     <div class="card-body p-0">
-                        <div class="d-flex gap-2 flex-wrap px-3 pt-3 pb-2">
-                            <span class="badge bg-secondary" style="font-size:10px;">@template.ApprovalMode</span>
-                            @if (template.AutoTriggerOn != PCA.Modules.Approvals.Models.AutoTriggerOn.None)
-                            {
-                                <span class="badge bg-warning text-dark" style="font-size:10px;">⚡ @template.AutoTriggerOn</span>
-                            }
-                            @if (!string.IsNullOrEmpty(template.ConditionField))
-                            {
-                                <span class="badge bg-light text-dark border" style="font-size:10px;">If @template.ConditionField = @template.ConditionValue</span>
-                            }
-                        </div>
-
-                        @{
-                            var previewSteps = template.Steps.OrderBy(s => s.Order)
-                                .Select(s => new PCA.Modules.Approvals.Models.ApprovalStep
+                        <table class="table table-sm mb-0" style="font-size:13px;">
+                            <tbody>
+                                <tr>
+                                    <td class="text-muted ps-3" style="width:110px;">Mode</td>
+                                    <td>@template.ApprovalMode</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted ps-3">Trigger</td>
+                                    <td>
+                                        @if (template.AutoTriggerOn != PCA.Modules.Approvals.Models.AutoTriggerOn.None)
+                                        {
+                                            <span>⚡ @template.AutoTriggerOn</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Manual</span>
+                                        }
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted ps-3">Steps</td>
+                                    <td>@template.Steps.Count</td>
+                                </tr>
+                                @if (!string.IsNullOrEmpty(template.ConditionField))
                                 {
-                                    Order      = s.Order,
-                                    RoleName   = s.RoleName,
-                                    Approver   = s.Approver,
-                                    ApproverId = s.ApproverId,
-                                    Status     = PCA.Shared.Enums.ApprovalStatus.Pending
-                                }).ToList();
-                        }
-                        @await Html.PartialAsync("_ApprovalFlowChart", (object)null!, new ViewDataDictionary(ViewData)
-                        {
-                            ["Steps"]      = previewSteps,
-                            ["EntityType"] = template.EntityType,
-                            ["EntityId"]   = 0
-                        })
+                                    <tr>
+                                        <td class="text-muted ps-3">Condition</td>
+                                        <td><code style="font-size:11px;">@template.ConditionField = @template.ConditionValue</code></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
                     </div>
                     <div class="card-footer d-flex gap-2">
                         <a asp-action="TemplateDetails" asp-route-id="@template.Id" class="btn btn-sm btn-outline-secondary">
