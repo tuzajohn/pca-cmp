@@ -89,6 +89,7 @@ builder.Services.AddHostedService<DocumentReviewAlertWorker>();
 
 // Logging
 builder.Services.AddScoped<ILogService, LogService>();
+builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Logging.AddProvider(new DbLoggerProvider(
     builder.Services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>()));
 

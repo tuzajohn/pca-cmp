@@ -8,22 +8,25 @@ namespace PCA.Web.Controllers.Api;
 [Route("api/logs")]
 public class LogsApiController : ControllerBase
 {
-    private readonly ILogService _logService;
-    private readonly IConfiguration _config;
+    private readonly ILogService    _logService;
+    private readonly IApiKeyService _apiKeyService;
 
-    public LogsApiController(ILogService logService, IConfiguration config)
+    public LogsApiController(ILogService logService, IApiKeyService apiKeyService)
     {
-        _logService = logService;
-        _config = config;
+        _logService    = logService;
+        _apiKeyService = apiKeyService;
     }
 
     [HttpPost]
     public async Task<IActionResult> Ingest([FromHeader(Name = "X-Api-Key")] string? apiKey,
         [FromBody] ExternalLogRequest req)
     {
-        var expectedKey = _config["Logging:ExternalApiKey"];
-        if (string.IsNullOrEmpty(expectedKey) || apiKey != expectedKey)
-            return Unauthorized(new { error = "Invalid or missing API key." });
+        if (string.IsNullOrWhiteSpace(apiKey))
+            return Unauthorized(new { error = "Missing X-Api-Key header." });
+
+        var key = await _apiKeyService.ValidateAsync(apiKey);
+        if (key == null)
+            return Unauthorized(new { error = "Invalid or revoked API key." });
 
         if (string.IsNullOrWhiteSpace(req.Message))
             return BadRequest(new { error = "Message is required." });
@@ -32,7 +35,7 @@ public class LogsApiController : ControllerBase
         {
             Level      = NormalizeLevel(req.Level),
             Category   = "External",
-            Source     = string.IsNullOrWhiteSpace(req.Source) ? "Unknown" : req.Source,
+            Source     = string.IsNullOrWhiteSpace(req.Source) ? key.AppName : req.Source,
             Message    = req.Message,
             Details    = req.Details,
             Action     = req.Action,
@@ -47,10 +50,10 @@ public class LogsApiController : ControllerBase
 
     private static string NormalizeLevel(string? level) => level?.ToLower() switch
     {
-        "warning" or "warn" => "Warning",
-        "error"             => "Error",
-        "critical" or "fatal" => "Critical",
-        _                   => "Info"
+        "warning" or "warn"    => "Warning",
+        "error"                => "Error",
+        "critical" or "fatal"  => "Critical",
+        _                      => "Info"
     };
 }
 

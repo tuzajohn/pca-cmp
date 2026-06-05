@@ -134,6 +134,12 @@ else
                     <i class="bi bi-journal-text"></i>
                     <span>Log Viewer</span>
                 </a>
+
+                <a asp-controller="ApiKeys" asp-action="Index"
+                   class="sidebar-link @ActiveIf("ApiKeys")">
+                    <i class="bi bi-key"></i>
+                    <span>API Keys</span>
+                </a>
             }
         </nav>
 
