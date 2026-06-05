@@ -461,9 +461,10 @@ a:hover { color: var(--color-primary-hover); }
     font-size: 15px;
     z-index: 1;
 }
-.step-dot.pending  { background: #fef9c3; color: #854d0e; border: 2px solid #fde047; }
-.step-dot.approved { background: #f0fdf4; color: #15803d; border: 2px solid #86efac; }
-.step-dot.rejected { background: #fef2f2; color: #b91c1c; border: 2px solid #fca5a5; }
+.step-dot.pending   { background: #fef9c3; color: #854d0e; border: 2px solid #fde047; }
+.step-dot.approved  { background: #f0fdf4; color: #15803d; border: 2px solid #86efac; }
+.step-dot.rejected  { background: #fef2f2; color: #b91c1c; border: 2px solid #fca5a5; }
+.step-dot.returned  { background: #fffbeb; color: #92400e; border: 2px solid #f59e0b; }
 .step-content { flex: 1; padding-top: 6px; }
 .step-content .step-title { font-weight: 600; font-size: 13.5px; color: #1f2937; }
 .step-content .step-meta  { font-size: 12px; color: #9ca3af; margin-top: 2px; }
@@ -676,9 +677,11 @@ a:hover { color: var(--color-primary-hover); }
 }
 .afc-box.afc-approved  { border-color: #22c55e; background: #f0fdf4; }
 .afc-box.afc-rejected  { border-color: #ef4444; background: #fef2f2; }
+.afc-box.afc-returned  { border-color: #f59e0b; background: #fffbeb; }
 .afc-box.afc-active    { border-color: var(--color-primary); background: color-mix(in srgb,var(--color-primary) 5%,transparent); }
 .afc-box.afc-end.afc-approved { background: #dcfce7; color: #15803d; border-color: #22c55e; }
 .afc-box.afc-end.afc-rejected { background: #fee2e2; color: #b91c1c; border-color: #ef4444; }
+.afc-box.afc-end.afc-returned { background: #fef9c3; color: #92400e; border-color: #f59e0b; }
 .afc-step-num {
     font-size: 10px;
     font-weight: 700;

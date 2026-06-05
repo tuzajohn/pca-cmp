@@ -48,4 +48,10 @@ public class ChangeRequestApprovalWorkflow : IApprovalWorkflow
             await svc.UpdateStatusAsync(entityId, ChangeStatus.Rejected, actorId);
         }
     }
+
+    public async Task OnStepReturnedAsync(int entityId, string actorId, string comment, IServiceProvider sp)
+    {
+        var svc = sp.GetRequiredService<IChangeRequestService>();
+        await svc.UpdateStatusAsync(entityId, ChangeStatus.Draft, actorId);
+    }
 }

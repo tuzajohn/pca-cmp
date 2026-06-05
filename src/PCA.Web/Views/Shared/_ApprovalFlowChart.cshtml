@@ -7,11 +7,11 @@
 
     // Determine overall outcome
     bool anyRejected  = steps.Any(s => s.Status == ApprovalStatus.Rejected);
+    bool anyReturned  = steps.Any(s => s.Status == ApprovalStatus.ReturnedForEdit);
     bool allApproved  = steps.Any() && steps.All(s => s.Status == ApprovalStatus.Approved);
-    bool hasPending   = steps.Any(s => s.Status == ApprovalStatus.Pending);
 
-    string endCls  = allApproved ? "afc-approved" : anyRejected ? "afc-rejected" : "";
-    string endText = allApproved ? "✓ Approved"   : anyRejected ? "✗ Rejected"  : "Closed";
+    string endCls  = allApproved ? "afc-approved" : anyRejected ? "afc-rejected" : anyReturned ? "afc-returned" : "";
+    string endText = allApproved ? "✓ Approved"   : anyRejected ? "✗ Rejected"  : anyReturned ? "↩ Returned"  : "Closed";
 }
 
 <div class="approval-flow">
@@ -25,18 +25,21 @@
             ? string.Concat(n.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => p[0]))
             : "?";
 
-        var boxCls = step.Status == ApprovalStatus.Approved ? "afc-approved"
-                   : step.Status == ApprovalStatus.Rejected  ? "afc-rejected"
+        var boxCls = step.Status == ApprovalStatus.Approved        ? "afc-approved"
+                   : step.Status == ApprovalStatus.Rejected         ? "afc-rejected"
+                   : step.Status == ApprovalStatus.ReturnedForEdit  ? "afc-returned"
                    : steps.Where(s => s.Order < step.Order).All(s => s.Status == ApprovalStatus.Approved)
                        ? "afc-active" : "";
 
-        var badgeCls  = step.Status == ApprovalStatus.Approved ? "bg-success"
-                      : step.Status == ApprovalStatus.Rejected  ? "bg-danger"
-                      : boxCls == "afc-active"                  ? "bg-warning text-dark"
+        var badgeCls  = step.Status == ApprovalStatus.Approved       ? "bg-success"
+                      : step.Status == ApprovalStatus.Rejected        ? "bg-danger"
+                      : step.Status == ApprovalStatus.ReturnedForEdit ? "bg-warning text-dark"
+                      : boxCls == "afc-active"                        ? "bg-primary text-white"
                       : "bg-secondary";
-        var badgeText = step.Status == ApprovalStatus.Approved ? "Approved"
-                      : step.Status == ApprovalStatus.Rejected  ? "Rejected"
-                      : boxCls == "afc-active"                  ? "Awaiting"
+        var badgeText = step.Status == ApprovalStatus.Approved       ? "Approved"
+                      : step.Status == ApprovalStatus.Rejected        ? "Rejected"
+                      : step.Status == ApprovalStatus.ReturnedForEdit ? "Returned"
+                      : boxCls == "afc-active"                        ? "Awaiting"
                       : "Queued";
 
         <div class="approval-flow-connector"><div class="arrow"></div></div>

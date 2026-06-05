@@ -30,14 +30,16 @@ public enum ApprovalStatus
 {
     Pending,
     Approved,
-    Rejected
+    Rejected,
+    ReturnedForEdit
 }
 
 public enum ApprovalOutcome
 {
     StillPending,
     AllApproved,
-    AnyRejected
+    AnyRejected,
+    ReturnedForEdit
 }
 
 public enum StagingTestedStatus

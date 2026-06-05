@@ -14,4 +14,5 @@ public interface IApprovalWorkflow
     Task OnFlowInitiatedAsync(int entityId, string initiatedById, IServiceProvider sp);
     Task OnStepApprovedAsync(int entityId, ApprovalOutcome outcome, string actorId, IServiceProvider sp);
     Task OnStepRejectedAsync(int entityId, ApprovalOutcome outcome, string actorId, IServiceProvider sp);
+    Task OnStepReturnedAsync(int entityId, string actorId, string comment, IServiceProvider sp);
 }

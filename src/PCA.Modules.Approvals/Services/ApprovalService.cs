@@ -142,6 +142,21 @@ public class ApprovalService : IApprovalService
         return await EvaluateOutcomeAsync(step.EntityType, step.EntityId);
     }
 
+    public async Task<ApprovalOutcome> ReturnStepAsync(int stepId, string approverId, string comment)
+    {
+        var step = await _db.ApprovalSteps.FindAsync(stepId);
+        if (step == null || step.ApproverId != approverId || step.Status != ApprovalStatus.Pending)
+            return ApprovalOutcome.StillPending;
+
+        step.Status = ApprovalStatus.ReturnedForEdit;
+        step.Comment = comment;
+        step.ActedAt = DateTime.UtcNow;
+        step.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return ApprovalOutcome.ReturnedForEdit;
+    }
+
     private async Task<ApprovalOutcome> EvaluateOutcomeAsync(string entityType, int entityId)
     {
         var steps = await _db.ApprovalSteps
@@ -149,9 +164,9 @@ public class ApprovalService : IApprovalService
             .ToListAsync();
 
         if (!steps.Any()) return ApprovalOutcome.StillPending;
+        if (steps.Any(s => s.Status == ApprovalStatus.ReturnedForEdit)) return ApprovalOutcome.ReturnedForEdit;
         if (steps.Any(s => s.Status == ApprovalStatus.Rejected)) return ApprovalOutcome.AnyRejected;
 
-        // Resolve approval mode from template
         var template = await _db.ApprovalTemplates
             .FirstOrDefaultAsync(t => t.EntityType == entityType);
         var mode = template?.ApprovalMode ?? ApprovalMode.AllMustApprove;

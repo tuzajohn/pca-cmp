@@ -349,6 +349,14 @@ else if (reviewState == ReviewDueState.DueSoon)
                                 <input type="text" name="comment" class="form-control form-control-sm" style="width:160px;" placeholder="Rejection reason…" required />
                                 <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-x-lg me-1"></i>Reject</button>
                             </form>
+                            <form asp-controller="Approvals" asp-action="ReturnForEdit" method="post" class="d-inline d-flex gap-1">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="stepId" value="@myStep.Id" />
+                                <input type="hidden" name="entityType" value="Document" />
+                                <input type="hidden" name="entityId" value="@Model.Id" />
+                                <input type="text" name="comment" class="form-control form-control-sm" style="width:200px;" placeholder="What needs to be corrected…" required />
+                                <button type="submit" class="btn btn-warning btn-sm"><i class="bi bi-arrow-return-left me-1"></i>Return for Edit</button>
+                            </form>
                         </div>
                     }
                 </div>
