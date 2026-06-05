@@ -112,14 +112,22 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Review Period</label>
                             <select id="reviewPeriodSelect" class="form-select">
-                                <option value=""      @(savedDays == null ? "selected" : "")>— No scheduled review —</option>
-                                <option value="30"    @(savedDays == 30  ? "selected" : "")>Monthly (30 days)</option>
-                                <option value="60"    @(savedDays == 60  ? "selected" : "")>Every 2 months (60 days)</option>
-                                <option value="90"    @(savedDays == 90  ? "selected" : "")>Quarterly (90 days)</option>
-                                <option value="180"   @(savedDays == 180 ? "selected" : "")>Semi-annually (180 days)</option>
-                                <option value="365"   @(savedDays == 365 ? "selected" : "")>Annually (365 days)</option>
-                                <option value="730"   @(savedDays == 730 ? "selected" : "")>Every 2 years (730 days)</option>
-                                <option value="custom" @(isCustom        ? "selected" : "")>Custom…</option>
+                                @if (savedDays == null)      { <option value="" selected>— No scheduled review —</option> }
+                                else                         { <option value="">— No scheduled review —</option> }
+                                @if (savedDays == 30)        { <option value="30" selected>Monthly (30 days)</option> }
+                                else                         { <option value="30">Monthly (30 days)</option> }
+                                @if (savedDays == 60)        { <option value="60" selected>Every 2 months (60 days)</option> }
+                                else                         { <option value="60">Every 2 months (60 days)</option> }
+                                @if (savedDays == 90)        { <option value="90" selected>Quarterly (90 days)</option> }
+                                else                         { <option value="90">Quarterly (90 days)</option> }
+                                @if (savedDays == 180)       { <option value="180" selected>Semi-annually (180 days)</option> }
+                                else                         { <option value="180">Semi-annually (180 days)</option> }
+                                @if (savedDays == 365)       { <option value="365" selected>Annually (365 days)</option> }
+                                else                         { <option value="365">Annually (365 days)</option> }
+                                @if (savedDays == 730)       { <option value="730" selected>Every 2 years (730 days)</option> }
+                                else                         { <option value="730">Every 2 years (730 days)</option> }
+                                @if (isCustom)               { <option value="custom" selected>Custom…</option> }
+                                else                         { <option value="custom">Custom…</option> }
                             </select>
                             <input asp-for="ReviewPeriodDays" type="number" id="reviewPeriodCustom"
                                    class="form-control mt-2 @(isCustom ? "" : "d-none")"
