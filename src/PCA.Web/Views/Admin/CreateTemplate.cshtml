@@ -50,10 +50,14 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Auto-Trigger</label>
-                            <select name="autoTriggerOn" class="form-select">
+                            <select name="autoTriggerOn" id="autoTriggerOn" class="form-select">
                                 <option value="None">None (manual)</option>
                                 <option value="OnSubmit">On Submit / Creation</option>
                                 <option value="OnStatusChange">On Status Change</option>
+                                <option value="OnNewVersion">On New Version Upload (Document)</option>
+                                <option value="OnReview">On Review Submitted (Document)</option>
+                                <option value="OnRetire">On Retire Request (Document)</option>
+                                <option value="OnPublish">On Publish / Activate (Document)</option>
                             </select>
                         </div>
                     </div>

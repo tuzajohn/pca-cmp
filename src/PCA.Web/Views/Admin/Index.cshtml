@@ -30,25 +30,36 @@ else
                             <span class="badge bg-info text-dark ms-1">@template.EntitySubType</span>
                         }
                     </div>
-                    <div class="card-body">
-                        <div class="d-flex gap-2 mb-2 flex-wrap">
+                    <div class="card-body p-0">
+                        <div class="d-flex gap-2 flex-wrap px-3 pt-3 pb-2">
                             <span class="badge bg-secondary" style="font-size:10px;">@template.ApprovalMode</span>
                             @if (template.AutoTriggerOn != PCA.Modules.Approvals.Models.AutoTriggerOn.None)
                             {
-                                <span class="badge bg-warning text-dark" style="font-size:10px;">Auto: @template.AutoTriggerOn</span>
+                                <span class="badge bg-warning text-dark" style="font-size:10px;">⚡ @template.AutoTriggerOn</span>
                             }
                             @if (!string.IsNullOrEmpty(template.ConditionField))
                             {
                                 <span class="badge bg-light text-dark border" style="font-size:10px;">If @template.ConditionField = @template.ConditionValue</span>
                             }
                         </div>
-                        <h6 class="mb-2">Approval Steps</h6>
-                        <ol class="mb-0">
-                            @foreach (var step in template.Steps.OrderBy(s => s.Order))
-                            {
-                                <li>@step.Approver?.FullName <small class="text-muted">(@step.RoleName)</small></li>
-                            }
-                        </ol>
+
+                        @{
+                            var previewSteps = template.Steps.OrderBy(s => s.Order)
+                                .Select(s => new PCA.Modules.Approvals.Models.ApprovalStep
+                                {
+                                    Order      = s.Order,
+                                    RoleName   = s.RoleName,
+                                    Approver   = s.Approver,
+                                    ApproverId = s.ApproverId,
+                                    Status     = PCA.Shared.Enums.ApprovalStatus.Pending
+                                }).ToList();
+                        }
+                        @await Html.PartialAsync("_ApprovalFlowChart", (object)null!, new ViewDataDictionary(ViewData)
+                        {
+                            ["Steps"]      = previewSteps,
+                            ["EntityType"] = template.EntityType,
+                            ["EntityId"]   = 0
+                        })
                     </div>
                     <div class="card-footer">
                         <a asp-action="EditTemplate" asp-route-id="@template.Id" class="btn btn-sm btn-outline-primary">Edit</a>

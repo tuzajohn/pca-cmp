@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using PCA.Modules.Approvals.Models;
 using PCA.Modules.Approvals.Services;
 using PCA.Modules.Documents.Models;
 using PCA.Modules.Documents.Services;
@@ -258,6 +259,9 @@ public class DocumentsController : Controller
             TempData["Error"] = ex.Message;
         }
 
+        // Auto-trigger on new version upload
+        await TriggerDocumentApprovalAsync(vm.DocumentId, AutoTriggerOn.OnNewVersion, user!.Id);
+
         return RedirectToAction(nameof(Details), new { id = vm.DocumentId });
     }
 
@@ -310,7 +314,20 @@ public class DocumentsController : Controller
         if (doc == null) return NotFound();
         await AssertCanManage(doc);
 
-        await _docService.RetireAsync(id, (await _userManager.GetUserAsync(User))!.Id);
+        var user = await _userManager.GetUserAsync(User);
+
+        // If an OnRetire template exists, initiate approval instead of retiring immediately
+        var retireTemplates = await _approvalService.GetAutoTriggerTemplatesAsync(AutoTriggerOn.OnRetire, "Document");
+        if (retireTemplates.Any())
+        {
+            await _approvalService.InitiateApprovalFlowAsync("Document", id, null);
+            var workflow = _workflowRegistry.Resolve("Document");
+            await workflow.OnFlowInitiatedAsync(id, user!.Id, HttpContext.RequestServices);
+            TempData["Success"] = "Retirement submitted for approval.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        await _docService.RetireAsync(id, user!.Id);
         TempData["Success"] = "Document retired.";
         return RedirectToAction(nameof(Details), new { id });
     }
@@ -532,8 +549,21 @@ public class DocumentsController : Controller
     {
         var user = await _userManager.GetUserAsync(User);
         await _docService.MarkReviewedAsync(id, user!.Id, notes);
-        TempData["Success"] = "Document marked as reviewed. Next review date advanced.";
+
+        // Auto-trigger approval for the review if a template is configured
+        await TriggerDocumentApprovalAsync(id, AutoTriggerOn.OnReview, user!.Id);
+
+        TempData["Success"] = "Review recorded. It will be reflected once approved.";
         return RedirectToAction(nameof(Details), new { id });
+    }
+
+    private async Task TriggerDocumentApprovalAsync(int documentId, AutoTriggerOn trigger, string userId)
+    {
+        var templates = await _approvalService.GetAutoTriggerTemplatesAsync(trigger, "Document");
+        if (!templates.Any()) return;
+        await _approvalService.InitiateApprovalFlowAsync("Document", documentId, null);
+        var workflow = _workflowRegistry.Resolve("Document");
+        await workflow.OnFlowInitiatedAsync(documentId, userId, HttpContext.RequestServices);
     }
 
     private static void FlattenFolderTree(IEnumerable<DocumentFolder> folders, int depth, List<FlatFolderItem> result)
