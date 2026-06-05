@@ -40,6 +40,13 @@ public class AdminController : Controller
         return View(templates);
     }
 
+    public async Task<IActionResult> TemplateDetails(int id)
+    {
+        var template = (await _approvalService.GetTemplatesAsync()).FirstOrDefault(t => t.Id == id);
+        if (template == null) return NotFound();
+        return View(template);
+    }
+
     public async Task<IActionResult> EditTemplate(int id)
     {
         var template = (await _approvalService.GetTemplatesAsync()).FirstOrDefault(t => t.Id == id);
