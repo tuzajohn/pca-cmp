@@ -291,37 +291,47 @@ else if (reviewState == ReviewDueState.DueSoon)
             <div class="form-section">
                 <div class="form-section-header"><i class="bi bi-check2-circle"></i> Approval</div>
                 <div class="form-section-body p-0">
-                    @if (activeFlow != null)
-                    {
-                        @await Html.PartialAsync("_ApprovalFlowChart", (object)null!, new ViewDataDictionary(ViewData)
-                        {
-                            ["Steps"]      = approvalSteps,
-                            ["EntityType"] = "Document",
-                            ["EntityId"]   = Model.Id
-                        })
-                    }
-                    else
-                    {
-                        <table class="table table-sm mb-0" style="font-size:13px;">
-                            <tbody>
-                                @foreach (var step in approvalSteps.OrderBy(s => s.Order))
-                                {
-                                    var badgeCls = step.Status switch {
-                                        ApprovalStatus.Approved        => "bg-success",
-                                        ApprovalStatus.Rejected        => "bg-danger",
-                                        ApprovalStatus.ReturnedForEdit => "bg-warning text-dark",
-                                        _                              => "bg-secondary"
-                                    };
-                                    <tr>
-                                        <td class="ps-3 text-muted" style="width:60px;">Step @step.Order</td>
-                                        <td>@(step.Approver?.FullName ?? "—")</td>
-                                        <td><span class="badge @badgeCls" style="font-size:10px;">@step.Status</span></td>
-                                        <td class="text-muted pe-3" style="font-size:11px;">@step.ActedAt?.ToString("dd MMM yyyy")</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
+                    <table class="table table-sm mb-0" style="font-size:13px;">
+                        <thead style="background:var(--bs-tertiary-bg);">
+                            <tr>
+                                <th class="ps-3">Step</th>
+                                <th>Approver</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th class="pe-3">Comment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var step in approvalSteps.OrderBy(s => s.Order))
+                            {
+                                var badgeCls = step.Status switch {
+                                    ApprovalStatus.Approved        => "bg-success",
+                                    ApprovalStatus.Rejected        => "bg-danger",
+                                    ApprovalStatus.ReturnedForEdit => "bg-warning text-dark",
+                                    _                              => "bg-secondary"
+                                };
+                                var isActive = step.Status == ApprovalStatus.Pending &&
+                                    approvalSteps.Where(x => x.Order < step.Order).All(x => x.Status == ApprovalStatus.Approved);
+                                <tr class="@(isActive ? "table-active" : "")">
+                                    <td class="ps-3 align-middle fw-semibold">@step.Order</td>
+                                    <td class="align-middle">@(step.Approver?.FullName ?? "—")</td>
+                                    <td class="align-middle text-muted">@(string.IsNullOrEmpty(step.RoleName) ? "—" : step.RoleName)</td>
+                                    <td class="align-middle">
+                                        <span class="badge @badgeCls" style="font-size:10px;">
+                                            @(isActive ? "Awaiting" : step.Status.ToString())
+                                        </span>
+                                    </td>
+                                    <td class="align-middle text-muted" style="white-space:nowrap;">
+                                        @(step.ActedAt.HasValue ? step.ActedAt.Value.ToString("dd MMM yyyy") : "—")
+                                    </td>
+                                    <td class="align-middle pe-3 text-muted fst-italic" style="font-size:12px;">
+                                        @(string.IsNullOrEmpty(step.Comment) ? "" : $"\"{step.Comment}\"")
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
             </div>
         }
@@ -504,41 +514,43 @@ else if (reviewState == ReviewDueState.DueSoon)
                     <i class="bi bi-clipboard2-check me-2"></i>Review History
                 </div>
                 <div class="card-body p-0">
-                    @foreach (var rev in reviewHistory)
-                    {
-                        var rBg  = rev.Status == ReviewStatus.Approved ? "#f0fdf4"
-                                 : rev.Status == ReviewStatus.Rejected  ? "#fef2f2"
-                                 : "#f8fafc";
-                        var rClr = rev.Status == ReviewStatus.Approved ? "#15803d"
-                                 : rev.Status == ReviewStatus.Rejected  ? "#b91c1c"
-                                 : "#6b7280";
-                        var rIcon = rev.Status == ReviewStatus.Approved ? "bi-check2"
-                                  : rev.Status == ReviewStatus.Rejected  ? "bi-x-lg"
-                                  : "bi-hourglass-split";
-                        var rLabel = rev.Status == ReviewStatus.Approved ? "Approved"
-                                   : rev.Status == ReviewStatus.Rejected  ? "Rejected"
-                                   : "Pending";
-                        <div class="px-3 py-2" style="border-bottom:1px solid var(--bs-border-color);font-size:12px;">
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <i class="bi @rIcon" style="color:@rClr;"></i>
-                                <span class="fw-semibold" style="font-size:13px;">@(rev.ReviewedBy?.FullName ?? "Unknown")</span>
-                                <span class="badge ms-auto" style="background:@rBg;color:@rClr;font-size:10px;">@rLabel</span>
-                            </div>
-                            <div class="text-muted">@rev.ReviewedAt.ToString("dd MMM yyyy HH:mm")</div>
-                            @if (!string.IsNullOrEmpty(rev.Notes))
+                    <table class="table table-sm mb-0" style="font-size:12px;">
+                        <thead style="background:var(--bs-tertiary-bg);">
+                            <tr>
+                                <th class="ps-3">Date</th>
+                                <th>Reviewed By</th>
+                                <th>Status</th>
+                                <th>Notes</th>
+                                <th class="pe-3">Next Review</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var rev in reviewHistory.OrderByDescending(r => r.ReviewedAt))
                             {
-                                <div class="mt-1 fst-italic text-muted">@rev.Notes</div>
+                                var rBadgeCls = rev.Status == ReviewStatus.Approved ? "bg-success"
+                                             : rev.Status == ReviewStatus.Rejected  ? "bg-danger"
+                                             : "bg-secondary";
+                                var rLabel = rev.Status == ReviewStatus.Approved ? "Approved"
+                                           : rev.Status == ReviewStatus.Rejected  ? "Rejected"
+                                           : "Pending";
+                                <tr>
+                                    <td class="ps-3 align-middle text-muted" style="white-space:nowrap;">
+                                        @rev.ReviewedAt.ToString("dd MMM yyyy")
+                                    </td>
+                                    <td class="align-middle">@(rev.ReviewedBy?.FullName ?? "—")</td>
+                                    <td class="align-middle">
+                                        <span class="badge @rBadgeCls" style="font-size:10px;">@rLabel</span>
+                                    </td>
+                                    <td class="align-middle text-muted fst-italic">
+                                        @(string.IsNullOrEmpty(rev.Notes) ? "—" : rev.Notes)
+                                    </td>
+                                    <td class="pe-3 align-middle text-muted" style="white-space:nowrap;">
+                                        @(rev.NextReviewDate.HasValue ? rev.NextReviewDate.Value.ToString("dd MMM yyyy") : "—")
+                                    </td>
+                                </tr>
                             }
-                            @if (rev.NextReviewDate.HasValue)
-                            {
-                                var nextLabel = rev.Status == ReviewStatus.Approved ? "Next:"
-                                             : "Proposed:";
-                                <div class="mt-1 text-muted">
-                                    <i class="bi bi-calendar-event me-1"></i>@nextLabel @rev.NextReviewDate.Value.ToString("dd MMM yyyy")
-                                </div>
-                            }
-                        </div>
-                    }
+                        </tbody>
+                    </table>
                 </div>
             </div>
         }
