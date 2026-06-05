@@ -57,15 +57,24 @@
                         <td class="align-middle">
                             @if (t.AutoTriggerOn != AutoTriggerOn.None)
                             {
-                                <span class="status-badge status-active">⚡ @t.AutoTriggerOn</span>
+                                <span class="status-badge status-underreview">⚡ @t.AutoTriggerOn</span>
                             }
                             else
                             {
                                 <span class="text-muted">Manual</span>
                             }
                         </td>
-                        <td class="align-middle text-muted">@t.ApprovalMode</td>
-                        <td class="align-middle text-muted">@t.Steps.Count</td>
+                        <td class="align-middle">
+                            @if (t.ApprovalMode == ApprovalMode.AllMustApprove)
+                            {
+                                <span class="status-badge status-approved">All Must Approve</span>
+                            }
+                            else
+                            {
+                                <span class="status-badge status-implemented">Any Can Approve</span>
+                            }
+                        </td>
+                        <td class="align-middle text-muted">@t.Steps.Count step@(t.Steps.Count == 1 ? "" : "s")</td>
                         <td class="align-middle">
                             @if (!string.IsNullOrEmpty(t.ConditionField))
                             {
