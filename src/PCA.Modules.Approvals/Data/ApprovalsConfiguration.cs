@@ -13,6 +13,12 @@ public class ApprovalTemplateConfiguration : IEntityTypeConfiguration<ApprovalTe
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
         builder.Property(x => x.EntityType).HasMaxLength(100).IsRequired();
         builder.Property(x => x.EntitySubType).HasMaxLength(100);
+        builder.Property(x => x.ApprovalMode).HasConversion<string>().HasMaxLength(30)
+            .HasDefaultValue(ApprovalMode.AllMustApprove);
+        builder.Property(x => x.AutoTriggerOn).HasConversion<string>().HasMaxLength(30)
+            .HasDefaultValue(AutoTriggerOn.None);
+        builder.Property(x => x.ConditionField).HasMaxLength(100);
+        builder.Property(x => x.ConditionValue).HasMaxLength(200);
         builder.HasMany(x => x.Steps)
             .WithOne(x => x.Template)
             .HasForeignKey(x => x.TemplateId)

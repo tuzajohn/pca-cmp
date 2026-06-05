@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using PCA.Modules.Approvals.Models;
 using PCA.Modules.Approvals.Services;
 using PCA.Modules.ChangeManagement.Models;
 using PCA.Modules.ChangeManagement.Services;
@@ -70,6 +71,13 @@ public class ChangeRequestsController : Controller
         };
 
         await _crService.CreateAsync(cr);
+
+        // Auto-trigger approval if a matching template is configured for OnSubmit
+        var autoTemplates = await _approvalService.GetAutoTriggerTemplatesAsync(AutoTriggerOn.OnSubmit, "ChangeRequest");
+        var matchingTemplate = autoTemplates.FirstOrDefault(t => t.EntitySubType == null || t.EntitySubType == cr.Type.ToString());
+        if (matchingTemplate != null)
+            await _approvalService.InitiateApprovalFlowAsync("ChangeRequest", cr.Id, cr.Type.ToString());
+
         TempData["Success"] = "Change request created successfully.";
         return RedirectToAction(nameof(Details), new { id = cr.Id });
     }

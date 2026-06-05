@@ -33,17 +33,26 @@
                                 {
                                     <option value="ChangeRequest">Change Request</option>
                                     <option value="Incident" selected>Incident</option>
+                                    <option value="Document">Document</option>
+                                }
+                                else if (Model.EntityType == "Document")
+                                {
+                                    <option value="ChangeRequest">Change Request</option>
+                                    <option value="Incident">Incident</option>
+                                    <option value="Document" selected>Document</option>
                                 }
                                 else
                                 {
                                     <option value="ChangeRequest" selected>Change Request</option>
                                     <option value="Incident">Incident</option>
+                                    <option value="Document">Document</option>
                                 }
                             </select>
                         </div>
-                        <div class="col-md-6" id="subTypeRow" style="@(Model.EntityType == "Incident" ? "display:none;" : "")">
+                        <div class="col-md-6" id="subTypeRow" style="@(Model.EntityType == "Incident" || Model.EntityType == "Document" ? "display:none;" : "")">
                             <label class="form-label fw-semibold">Change Type</label>
                             <select name="entitySubType" class="form-select">
+                                <option value="">— Any —</option>
                                 @foreach (var ct in new[] { "Standard", "Normal", "Emergency" })
                                 {
                                     if (Model.EntitySubType == ct)
@@ -56,6 +65,37 @@
                                     }
                                 }
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Approval Mode</label>
+                            <select name="approvalMode" class="form-select">
+                                <option value="AllMustApprove" @(Model.ApprovalMode == PCA.Modules.Approvals.Models.ApprovalMode.AllMustApprove ? "selected" : "")>All Must Approve</option>
+                                <option value="AnyCanApprove" @(Model.ApprovalMode == PCA.Modules.Approvals.Models.ApprovalMode.AnyCanApprove ? "selected" : "")>Any Can Approve</option>
+                            </select>
+                            <div class="form-text">AnyCanApprove: one approval from any step completes the flow.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Auto-Trigger</label>
+                            <select name="autoTriggerOn" class="form-select">
+                                <option value="None" @(Model.AutoTriggerOn == PCA.Modules.Approvals.Models.AutoTriggerOn.None ? "selected" : "")>None (manual)</option>
+                                <option value="OnSubmit" @(Model.AutoTriggerOn == PCA.Modules.Approvals.Models.AutoTriggerOn.OnSubmit ? "selected" : "")>On Submit / Creation</option>
+                                <option value="OnStatusChange" @(Model.AutoTriggerOn == PCA.Modules.Approvals.Models.AutoTriggerOn.OnStatusChange ? "selected" : "")>On Status Change</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3" id="conditionRow">
+                        <div class="col-md-6">
+                            <label class="form-label">Condition Field <small class="text-muted">(optional)</small></label>
+                            <input type="text" name="conditionField" value="@Model.ConditionField" class="form-control" placeholder="e.g. Priority" />
+                            <div class="form-text">Only trigger if this field equals the value below.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Condition Value</label>
+                            <input type="text" name="conditionValue" value="@Model.ConditionValue" class="form-control" placeholder="e.g. Critical" />
                         </div>
                     </div>
 
@@ -114,6 +154,8 @@ const userOptions = `@Html.Raw(string.Join("", users.Select(u => $"<option value
 document.getElementById('entityType').addEventListener('change', function() {
     document.getElementById('subTypeRow').style.display = this.value === 'ChangeRequest' ? '' : 'none';
 });
+// Initialise
+document.getElementById('subTypeRow').style.display = document.getElementById('entityType').value === 'ChangeRequest' ? '' : 'none';
 
 document.getElementById('addStep').addEventListener('click', () => {
     const container = document.getElementById('stepsContainer');

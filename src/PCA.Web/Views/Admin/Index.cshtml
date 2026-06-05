@@ -31,6 +31,17 @@ else
                         }
                     </div>
                     <div class="card-body">
+                        <div class="d-flex gap-2 mb-2 flex-wrap">
+                            <span class="badge bg-secondary" style="font-size:10px;">@template.ApprovalMode</span>
+                            @if (template.AutoTriggerOn != PCA.Modules.Approvals.Models.AutoTriggerOn.None)
+                            {
+                                <span class="badge bg-warning text-dark" style="font-size:10px;">Auto: @template.AutoTriggerOn</span>
+                            }
+                            @if (!string.IsNullOrEmpty(template.ConditionField))
+                            {
+                                <span class="badge bg-light text-dark border" style="font-size:10px;">If @template.ConditionField = @template.ConditionValue</span>
+                            }
+                        </div>
                         <h6 class="mb-2">Approval Steps</h6>
                         <ol class="mb-0">
                             @foreach (var step in template.Steps.OrderBy(s => s.Order))

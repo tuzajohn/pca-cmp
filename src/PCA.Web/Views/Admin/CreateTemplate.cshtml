@@ -25,15 +25,48 @@
                             <select name="entityType" id="entityType" class="form-select">
                                 <option value="ChangeRequest">Change Request</option>
                                 <option value="Incident">Incident</option>
+                                <option value="Document">Document</option>
                             </select>
                         </div>
                         <div class="col-md-6" id="subTypeRow">
                             <label class="form-label fw-semibold">Change Type</label>
                             <select name="entitySubType" class="form-select">
+                                <option value="">— Any —</option>
                                 <option value="Standard">Standard</option>
                                 <option value="Normal">Normal</option>
                                 <option value="Emergency">Emergency</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Approval Mode</label>
+                            <select name="approvalMode" class="form-select">
+                                <option value="AllMustApprove">All Must Approve</option>
+                                <option value="AnyCanApprove">Any Can Approve</option>
+                            </select>
+                            <div class="form-text">AnyCanApprove: one approval from any step completes the flow.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Auto-Trigger</label>
+                            <select name="autoTriggerOn" class="form-select">
+                                <option value="None">None (manual)</option>
+                                <option value="OnSubmit">On Submit / Creation</option>
+                                <option value="OnStatusChange">On Status Change</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Condition Field <small class="text-muted">(optional)</small></label>
+                            <input type="text" name="conditionField" class="form-control" placeholder="e.g. Priority" />
+                            <div class="form-text">Only trigger if this field equals the value below.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Condition Value</label>
+                            <input type="text" name="conditionValue" class="form-control" placeholder="e.g. Critical" />
                         </div>
                     </div>
 
