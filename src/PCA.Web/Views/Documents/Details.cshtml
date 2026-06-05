@@ -1,16 +1,61 @@
 @model PCA.Modules.Documents.Models.Document
 @using PCA.Shared.Enums
 @using PCA.Modules.Documents.Models
+@using PCA.Modules.Approvals.Models
 @using PCA.Web.Helpers
 @{
     ViewData["Title"] = Model.Title;
     var access = (AccessLevel)ViewBag.Access;
     var isOwner = (bool)ViewBag.IsOwner;
-    var canManage = User.IsInRole("Admin") || isOwner || access >= AccessLevel.Manager;
+    var isAdmin = (bool)ViewBag.IsAdmin;
+    var currentUserId = ViewBag.CurrentUserId as string;
+    var canManage = isAdmin || isOwner || access >= AccessLevel.Manager;
     var canContribute = canManage || access >= AccessLevel.Contributor;
     var allUsers = ViewBag.AllUsers as List<PCA.Modules.Identity.Models.ApplicationUser> ?? new();
     var folderPerms = ViewBag.FolderPermissions as List<FolderPermission> ?? new();
     var docPerms = ViewBag.DocumentPermissions as List<DocumentPermission> ?? new();
+    var approvalSteps = ViewBag.ApprovalSteps as List<ApprovalStep> ?? new();
+    var reviewState = Model.GetReviewDueState();
+    var daysUntilReview = Model.NextReviewDate.HasValue
+        ? (Model.NextReviewDate.Value.Date - DateTime.UtcNow.Date).TotalDays
+        : (double?)null;
+}
+
+@if (reviewState == ReviewDueState.Overdue)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
+        <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
+        <div>
+            <strong>Review Overdue</strong> — This document was due for review on
+            <strong>@Model.NextReviewDate!.Value.ToString("dd MMM yyyy")</strong>
+            (@((int)Math.Abs(daysUntilReview!.Value)) day@(Math.Abs(daysUntilReview!.Value) == 1 ? "" : "s") ago).
+            @if (canManage)
+            {
+                <form asp-action="MarkReviewed" asp-route-id="@Model.Id" method="post" class="d-inline ms-2">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-danger btn-sm py-0">Mark as Reviewed</button>
+                </form>
+            }
+        </div>
+    </div>
+}
+else if (reviewState == ReviewDueState.DueSoon)
+{
+    <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
+        <i class="bi bi-clock-history fs-5 flex-shrink-0"></i>
+        <div>
+            <strong>Review Due Soon</strong> — This document is due for review on
+            <strong>@Model.NextReviewDate!.Value.ToString("dd MMM yyyy")</strong>
+            (@((int)daysUntilReview!.Value == 0 ? "today" : $"in {(int)daysUntilReview.Value} day{((int)daysUntilReview.Value == 1 ? "" : "s")}")).
+            @if (canManage)
+            {
+                <form asp-action="MarkReviewed" asp-route-id="@Model.Id" method="post" class="d-inline ms-2">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-warning btn-sm py-0">Mark as Reviewed</button>
+                </form>
+            }
+        </div>
+    </div>
 }
 
 <div class="page-header">
@@ -268,6 +313,86 @@
                 </div>
             </div>
         }
+        @* Approval flow panel *@
+        @if (approvalSteps.Any())
+        {
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-check2-circle"></i> Approval Flow</div>
+                <div class="form-section-body p-0">
+                    <div class="approval-timeline px-3 py-2">
+                        @foreach (var step in approvalSteps.OrderBy(s => s.Order))
+                        {
+                            var dotCls = step.Status.ToString() switch {
+                                "Approved" => "step-dot approved",
+                                "Rejected" => "step-dot rejected",
+                                _ => "step-dot pending"
+                            };
+                            var icon = step.Status.ToString() switch {
+                                "Approved" => "bi-check-lg",
+                                "Rejected" => "bi-x-lg",
+                                _ => "bi-hourglass-split"
+                            };
+                            <div class="approval-step d-flex gap-3 align-items-start mb-3">
+                                <div class="@dotCls flex-shrink-0"><i class="bi @icon"></i></div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold" style="font-size:13px;">Step @step.Order — @step.RoleName</div>
+                                    <div class="text-muted" style="font-size:11px;">@(step.Approver?.FullName ?? "—")</div>
+                                    @if (!string.IsNullOrEmpty(step.Comment))
+                                    {
+                                        <div class="mt-1 p-2 rounded" style="background:#f8f9fa;font-size:12px;">@step.Comment</div>
+                                    }
+                                    @if (step.Status == PCA.Shared.Enums.ApprovalStatus.Pending && step.ApproverId == currentUserId)
+                                    {
+                                        <div class="d-flex gap-2 mt-2">
+                                            <form asp-controller="Approvals" asp-action="Approve" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="stepId" value="@step.Id" />
+                                                <input type="hidden" name="entityType" value="Document" />
+                                                <input type="hidden" name="entityId" value="@Model.Id" />
+                                                <button type="submit" class="btn btn-success btn-sm">Approve</button>
+                                            </form>
+                                            <form asp-controller="Approvals" asp-action="Reject" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="stepId" value="@step.Id" />
+                                                <input type="hidden" name="entityType" value="Document" />
+                                                <input type="hidden" name="entityId" value="@Model.Id" />
+                                                <input type="text" name="comment" class="form-control form-control-sm d-inline" style="width:140px;" placeholder="Rejection reason" required />
+                                                <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+                                            </form>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+        else if (canManage && Model.Status == PCA.Shared.Enums.DocumentStatus.Draft)
+        {
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-check2-circle"></i> Approval</div>
+                <div class="form-section-body">
+                    <p class="text-muted mb-3" style="font-size:13px;">This document has not been submitted for approval yet.</p>
+                    <form asp-action="SubmitForApproval" asp-route-id="@Model.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-send me-1"></i> Submit for Approval
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        @await Html.PartialAsync("_AttachmentsPanel", (object)null!, new ViewDataDictionary(ViewData)
+        {
+            ["Controller"] = "Documents",
+            ["EntityId"] = Model.Id,
+            ["Attachments"] = ViewBag.Attachments,
+            ["CurrentUserId"] = currentUserId,
+            ["IsAdmin"] = isAdmin
+        })
+
     </div>
 
     <!-- Right: sidebar card -->

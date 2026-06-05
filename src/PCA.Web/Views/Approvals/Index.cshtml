@@ -1,10 +1,11 @@
 @model List<PCA.Modules.Approvals.Models.ApprovalStep>
-@using PCA.Modules.Approvals.Models
-@using PCA.Modules.ChangeManagement.Models
 @{
     ViewData["Title"] = "Approvals";
-    var crs = ViewBag.ChangeRequests as List<ChangeRequest> ?? new();
-    ChangeRequest? GetCr(int id) => crs.FirstOrDefault(c => c.Id == id);
+    var labels = ViewBag.Labels as Dictionary<(string, int), string> ?? new();
+    string GetLabel(string entityType, int entityId)
+        => labels.TryGetValue((entityType, entityId), out var l) ? l : $"{entityType} #{entityId}";
+
+    var grouped = Model.GroupBy(s => s.EntityType).ToList();
 }
 
 <div class="page-header">
@@ -22,77 +23,39 @@
 }
 else
 {
-    var crSteps = Model.Where(s => s.EntityType == "ChangeRequest").ToList();
-    var incidentSteps = Model.Where(s => s.EntityType == "Incident").ToList();
-
-    if (crSteps.Any())
+    @foreach (var group in grouped)
     {
-        <h5 class="mb-2 mt-3" style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--color-primary);">Change Requests</h5>
+        <h5 class="mb-2 mt-3" style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--color-primary);">
+            @group.Key
+        </h5>
         <div class="card mb-4">
             <table class="table mb-0">
                 <thead>
                     <tr>
-                        <th>Serial #</th>
-                        <th>Title</th>
-                        <th>Type</th>
-                        <th>Requester</th>
+                        <th>Item</th>
                         <th>Step</th>
+                        <th>Role</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var step in crSteps)
-                    {
-                        var cr = GetCr(step.EntityId);
-                        <tr>
-                            <td>
-                                <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@step.EntityId"
-                                   class="fw-semibold" style="color:var(--color-primary);">
-                                    @(cr != null && !string.IsNullOrEmpty(cr.SerialNumber) ? cr.SerialNumber : $"#{step.EntityId}")
-                                </a>
-                            </td>
-                            <td>@(cr?.Title ?? "—")</td>
-                            <td><span class="status-badge status-submitted">@(cr?.Type.ToString() ?? "—")</span></td>
-                            <td class="text-muted">@(cr?.RequestedBy?.FullName ?? "—")</td>
-                            <td class="text-muted" style="font-size:12px;">Step @step.Order — @step.RoleName</td>
-                            <td>
-                                <a asp-controller="ChangeRequests" asp-action="Details" asp-route-id="@step.EntityId"
-                                   class="btn btn-sm btn-primary">
-                                    <i class="bi bi-eye me-1"></i> Review
-                                </a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
-
-    if (incidentSteps.Any())
-    {
-        <h5 class="mb-2" style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--color-primary);">Incidents</h5>
-        <div class="card mb-4">
-            <table class="table mb-0">
-                <thead>
-                    <tr>
-                        <th>Incident</th>
-                        <th>Step</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var step in incidentSteps)
+                    @foreach (var step in group)
                     {
                         <tr>
                             <td>
-                                <a asp-controller="Incidents" asp-action="Details" asp-route-id="@step.EntityId"
-                                   class="fw-semibold" style="color:var(--color-primary);">
-                                    #@step.EntityId
-                                </a>
+                                <span class="fw-semibold" style="font-size:13px;">@GetLabel(step.EntityType, step.EntityId)</span>
                             </td>
-                            <td class="text-muted" style="font-size:12px;">Step @step.Order — @step.RoleName</td>
+                            <td class="text-muted" style="font-size:12px;">Step @step.Order</td>
+                            <td class="text-muted" style="font-size:12px;">@step.RoleName</td>
                             <td>
-                                <a asp-controller="Incidents" asp-action="Details" asp-route-id="@step.EntityId"
+                                @{
+                                    var ctrl = group.Key switch {
+                                        "Incident" => "Incidents",
+                                        "Document" => "Documents",
+                                        _ => "ChangeRequests"
+                                    };
+                                }
+                                <a asp-controller="@ctrl" asp-action="Details" asp-route-id="@step.EntityId"
                                    class="btn btn-sm btn-primary">
                                     <i class="bi bi-eye me-1"></i> Review
                                 </a>

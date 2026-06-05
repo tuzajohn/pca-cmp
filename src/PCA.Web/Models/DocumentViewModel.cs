@@ -39,6 +39,10 @@ public class DocumentCreateViewModel
     public IFormFile? File { get; set; }
 
     public string? ChangeNotes { get; set; }
+
+    [Range(1, 3650)]
+    public int? ReviewPeriodDays { get; set; }
+    public DateTime? NextReviewDate { get; set; }
 }
 
 public class DocumentEditViewModel
@@ -58,6 +62,10 @@ public class DocumentEditViewModel
 
     public DocumentStatus Status { get; set; }
     public string OwnerId { get; set; } = string.Empty;
+
+    [Range(1, 3650)]
+    public int? ReviewPeriodDays { get; set; }
+    public DateTime? NextReviewDate { get; set; }
 }
 
 public class DocumentUploadVersionViewModel

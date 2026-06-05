@@ -400,6 +400,53 @@ public class DocumentService : IDocumentService
         }
     }
 
+    // ── Review schedule ───────────────────────────────────────────────────────
+
+    public async Task MarkReviewedAsync(int documentId, string reviewedById)
+    {
+        var doc = await _db.Documents.FindAsync(documentId);
+        if (doc == null) return;
+        doc.LastReviewedAt = DateTime.UtcNow;
+        doc.LastReviewedById = reviewedById;
+        doc.ReviewAlertFlags = 0;
+        if (doc.ReviewPeriodDays.HasValue)
+            doc.NextReviewDate = DateTime.UtcNow.AddDays(doc.ReviewPeriodDays.Value);
+        doc.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task<List<Document>> GetDocumentsDueForReviewAlertAsync(int daysAhead, int alertFlag)
+    {
+        var today = DateTime.UtcNow.Date;
+        return await _db.Documents
+            .Include(d => d.Owner)
+            .Where(d => d.NextReviewDate.HasValue
+                     && (daysAhead == 0
+                         ? d.NextReviewDate.Value.Date <= today          // overdue: on or before today
+                         : d.NextReviewDate.Value.Date == today.AddDays(daysAhead))
+                     && (d.ReviewAlertFlags & alertFlag) == 0
+                     && d.Status != DocumentStatus.Retired)
+            .ToListAsync();
+    }
+
+    public async Task SetReviewAlertFlagAsync(int documentId, int flag)
+    {
+        var doc = await _db.Documents.FindAsync(documentId);
+        if (doc == null) return;
+        doc.ReviewAlertFlags |= flag;
+        doc.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task UpdateStatusAsync(int documentId, DocumentStatus status)
+    {
+        var doc = await _db.Documents.FindAsync(documentId);
+        if (doc == null) return;
+        doc.Status = status;
+        doc.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private async Task<string> GenerateSerialNumberAsync()

@@ -34,5 +34,11 @@ public class DocumentConfiguration : IEntityTypeConfiguration<Document>
             .WithMany()
             .HasForeignKey(x => x.CreatedById)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.LastReviewedBy)
+            .WithMany()
+            .HasForeignKey(x => x.LastReviewedById)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
     }
 }

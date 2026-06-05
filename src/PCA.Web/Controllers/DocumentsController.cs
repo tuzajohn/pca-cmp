@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+using PCA.Modules.Approvals.Services;
 using PCA.Modules.Documents.Models;
 using PCA.Modules.Documents.Services;
 using PCA.Modules.Identity.Models;
@@ -16,11 +17,16 @@ public class DocumentsController : Controller
 {
     private readonly IDocumentService _docService;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IApprovalService _approvalService;
+    private readonly IApprovalWorkflowRegistry _workflowRegistry;
 
-    public DocumentsController(IDocumentService docService, UserManager<ApplicationUser> userManager)
+    public DocumentsController(IDocumentService docService, UserManager<ApplicationUser> userManager,
+        IApprovalService approvalService, IApprovalWorkflowRegistry workflowRegistry)
     {
         _docService = docService;
         _userManager = userManager;
+        _approvalService = approvalService;
+        _workflowRegistry = workflowRegistry;
     }
 
     // ── Index ─────────────────────────────────────────────────────────────────
@@ -99,11 +105,17 @@ public class DocumentsController : Controller
         }
 
         ViewBag.IsOwner = doc.OwnerId == user!.Id;
+        ViewBag.IsAdmin = isAdmin;
+        ViewBag.CurrentUserId = user!.Id;
         ViewBag.FolderPermissions = doc.FolderId.HasValue
             ? await _docService.GetFolderPermissionsAsync(doc.FolderId.Value)
             : new List<FolderPermission>();
         ViewBag.DocumentPermissions = await _docService.GetDocumentPermissionsAsync(doc.Id);
         ViewBag.AllUsers = await _userManager.Users.ToListAsync();
+        ViewBag.ApprovalSteps = await _approvalService.GetStepsForEntityAsync("Document", id);
+        ViewBag.Attachments = await HttpContext.RequestServices
+            .GetRequiredService<PCA.Web.Services.IAttachmentService>()
+            .GetForEntityAsync("Document", id);
 
         return View(doc);
     }
@@ -135,7 +147,9 @@ public class DocumentsController : Controller
             Tags = vm.Tags,
             OwnerId = user!.Id,
             CreatedById = user.Id,
-            Status = DocumentStatus.Draft
+            Status = DocumentStatus.Draft,
+            ReviewPeriodDays = vm.ReviewPeriodDays,
+            NextReviewDate = vm.NextReviewDate
         };
 
         await _docService.CreateAsync(doc, vm.File!, vm.ChangeNotes ?? "Initial version");
@@ -163,7 +177,9 @@ public class DocumentsController : Controller
             FolderId = doc.FolderId,
             Tags = doc.Tags,
             Status = doc.Status,
-            OwnerId = doc.OwnerId
+            OwnerId = doc.OwnerId,
+            ReviewPeriodDays = doc.ReviewPeriodDays,
+            NextReviewDate = doc.NextReviewDate
         });
     }
 
@@ -187,6 +203,8 @@ public class DocumentsController : Controller
         doc.Tags = vm.Tags;
         doc.Status = vm.Status;
         doc.OwnerId = vm.OwnerId;
+        doc.ReviewPeriodDays = vm.ReviewPeriodDays;
+        doc.NextReviewDate = vm.NextReviewDate;
 
         await _docService.UpdateMetadataAsync(doc);
         TempData["Success"] = "Document updated.";
@@ -452,6 +470,61 @@ public class DocumentsController : Controller
         var access = await _docService.GetEffectiveAccessAsync(null, folderId, user!.Id, roles);
         if (!access.HasValue || access < AccessLevel.Manager)
             throw new UnauthorizedAccessException();
+    }
+
+    // ── Approval actions ──────────────────────────────────────────────────────
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> SubmitForApproval(int id)
+    {
+        var doc = await _docService.GetByIdAsync(id);
+        if (doc == null) return NotFound();
+        var user = await _userManager.GetUserAsync(User);
+        var workflow = _workflowRegistry.Resolve("Document");
+        await _approvalService.InitiateApprovalFlowAsync("Document", id, null);
+        await workflow.OnFlowInitiatedAsync(id, user!.Id, HttpContext.RequestServices);
+        TempData["Success"] = "Document submitted for approval.";
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    // ── Attachment actions ────────────────────────────────────────────────────
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> UploadAttachment(int id, IFormFile file)
+    {
+        if (file == null || file.Length == 0) { TempData["Error"] = "Please select a file."; return RedirectToAction(nameof(Details), new { id }); }
+        var user = await _userManager.GetUserAsync(User);
+        try { await HttpContext.RequestServices.GetRequiredService<PCA.Web.Services.IAttachmentService>().UploadAsync("Document", id, file, user!.Id); TempData["Success"] = "Attachment uploaded."; }
+        catch (InvalidOperationException ex) { TempData["Error"] = ex.Message; }
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAttachment(int id, int attachmentId)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        try { await HttpContext.RequestServices.GetRequiredService<PCA.Web.Services.IAttachmentService>().DeleteAsync(attachmentId, user!.Id, User.IsInRole("Admin")); TempData["Success"] = "Attachment deleted."; }
+        catch (UnauthorizedAccessException) { TempData["Error"] = "You cannot delete this attachment."; }
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    public async Task<IActionResult> DownloadAttachment(int id, int attachmentId)
+    {
+        var result = await HttpContext.RequestServices.GetRequiredService<PCA.Web.Services.IAttachmentService>().GetFileAsync(attachmentId);
+        if (result == null) return NotFound();
+        var (filePath, contentType, fileName) = result.Value;
+        return PhysicalFile(filePath, contentType, fileName);
+    }
+
+    // ── Review actions ────────────────────────────────────────────────────────
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkReviewed(int id)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        await _docService.MarkReviewedAsync(id, user!.Id);
+        TempData["Success"] = "Document marked as reviewed. Next review date advanced.";
+        return RedirectToAction(nameof(Details), new { id });
     }
 
     private static void FlattenFolderTree(IEnumerable<DocumentFolder> folders, int depth, List<FlatFolderItem> result)
