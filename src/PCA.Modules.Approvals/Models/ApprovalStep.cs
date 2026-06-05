@@ -6,13 +6,18 @@ namespace PCA.Modules.Approvals.Models;
 
 public class ApprovalStep : BaseEntity
 {
+    // Denormalised for cheap querying without joining ApprovalFlow
     public string EntityType { get; set; } = string.Empty;
-    public int EntityId { get; set; }
-    public int Order { get; set; }
-    public string? RoleName { get; set; }
+    public int    EntityId   { get; set; }
+
+    public int          FlowId { get; set; }
+    public ApprovalFlow? Flow  { get; set; }
+
+    public int    Order      { get; set; }
+    public string? RoleName  { get; set; }
     public string ApproverId { get; set; } = string.Empty;
     public ApplicationUser? Approver { get; set; }
-    public ApprovalStatus Status { get; set; } = ApprovalStatus.Pending;
-    public string? Comment { get; set; }
-    public DateTime? ActedAt { get; set; }
+    public ApprovalStatus Status  { get; set; } = ApprovalStatus.Pending;
+    public string? Comment        { get; set; }
+    public DateTime? ActedAt      { get; set; }
 }

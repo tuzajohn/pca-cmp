@@ -40,6 +40,35 @@ public class ApprovalTemplateStepConfiguration : IEntityTypeConfiguration<Approv
     }
 }
 
+public class ApprovalFlowConfiguration : IEntityTypeConfiguration<ApprovalFlow>
+{
+    public void Configure(EntityTypeBuilder<ApprovalFlow> builder)
+    {
+        builder.ToTable("ApprovalFlows");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.EntityType).HasMaxLength(100).IsRequired();
+        builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+        builder.Property(x => x.ReturnComment).HasMaxLength(2000);
+        builder.HasIndex(x => new { x.EntityType, x.EntityId });
+        builder.HasOne(x => x.Template)
+            .WithMany()
+            .HasForeignKey(x => x.TemplateId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.InitiatedBy)
+            .WithMany()
+            .HasForeignKey(x => x.InitiatedById)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.ReturnedBy)
+            .WithMany()
+            .HasForeignKey(x => x.ReturnedById)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasMany(x => x.Steps)
+            .WithOne(x => x.Flow)
+            .HasForeignKey(x => x.FlowId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public class ApprovalStepConfiguration : IEntityTypeConfiguration<ApprovalStep>
 {
     public void Configure(EntityTypeBuilder<ApprovalStep> builder)

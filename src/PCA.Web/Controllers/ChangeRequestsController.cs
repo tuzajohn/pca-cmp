@@ -76,7 +76,7 @@ public class ChangeRequestsController : Controller
         var autoTemplates = await _approvalService.GetAutoTriggerTemplatesAsync(AutoTriggerOn.OnSubmit, "ChangeRequest");
         var matchingTemplate = autoTemplates.FirstOrDefault(t => t.EntitySubType == null || t.EntitySubType == cr.Type.ToString());
         if (matchingTemplate != null)
-            await _approvalService.InitiateApprovalFlowAsync("ChangeRequest", cr.Id, cr.Type.ToString());
+            await _approvalService.InitiateApprovalFlowAsync("ChangeRequest", cr.Id, cr.Type.ToString(), user!.Id);
 
         TempData["Success"] = "Change request created successfully.";
         return RedirectToAction(nameof(Details), new { id = cr.Id });
@@ -166,7 +166,7 @@ public class ChangeRequestsController : Controller
         var success = await _crService.SubmitAsync(id, user!.Id);
         if (success)
         {
-            await _approvalService.InitiateApprovalFlowAsync("ChangeRequest", id, cr.Type.ToString());
+            await _approvalService.InitiateApprovalFlowAsync("ChangeRequest", id, cr.Type.ToString(), user!.Id);
             TempData["Success"] = "Change request submitted for approval.";
         }
         else

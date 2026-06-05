@@ -33,6 +33,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     // Approvals
     public DbSet<ApprovalTemplate> ApprovalTemplates => Set<ApprovalTemplate>();
     public DbSet<ApprovalTemplateStep> ApprovalTemplateSteps => Set<ApprovalTemplateStep>();
+    public DbSet<ApprovalFlow> ApprovalFlows => Set<ApprovalFlow>();
     public DbSet<ApprovalStep> ApprovalSteps => Set<ApprovalStep>();
 
     // Documents
@@ -71,6 +72,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
         builder.ApplyConfiguration(new ChangeRequestSequenceConfiguration());
         builder.ApplyConfiguration(new ApprovalTemplateConfiguration());
         builder.ApplyConfiguration(new ApprovalTemplateStepConfiguration());
+        builder.ApplyConfiguration(new ApprovalFlowConfiguration());
         builder.ApplyConfiguration(new ApprovalStepConfiguration());
         builder.ApplyConfiguration(new DocumentReviewConfiguration());
         builder.ApplyConfiguration(new DocumentFolderConfiguration());

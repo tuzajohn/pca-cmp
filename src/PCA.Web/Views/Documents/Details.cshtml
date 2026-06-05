@@ -15,6 +15,7 @@
     var folderPerms = ViewBag.FolderPermissions as List<FolderPermission> ?? new();
     var docPerms = ViewBag.DocumentPermissions as List<DocumentPermission> ?? new();
     var approvalSteps  = ViewBag.ApprovalSteps  as List<ApprovalStep>   ?? new();
+    var activeFlow     = ViewBag.ActiveFlow     as PCA.Modules.Approvals.Models.ApprovalFlow;
     var reviewHistory  = ViewBag.ReviewHistory  as List<DocumentReview> ?? new();
     var reviewState    = Model.GetReviewDueState();
     var daysUntilReview = Model.NextReviewDate.HasValue
@@ -55,6 +56,31 @@ else if (reviewState == ReviewDueState.DueSoon)
                     data-bs-toggle="modal" data-bs-target="#markReviewedModal">
                 Mark as Reviewed
             </button>
+        }
+    </div>
+}
+
+@if (activeFlow?.Status == PCA.Modules.Approvals.Models.FlowStatus.ReturnedForEdit)
+{
+    <div class="alert d-flex align-items-start gap-3 mb-3"
+         style="background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;">
+        <i class="bi bi-arrow-return-left fs-5 flex-shrink-0 mt-1" style="color:#d97706;"></i>
+        <div class="flex-grow-1">
+            <div class="fw-semibold mb-1" style="color:#92400e;">Returned for Edit</div>
+            <div style="font-size:13px;color:#78350f;">
+                <strong>@(activeFlow.ReturnedBy?.FullName ?? "An approver")</strong>
+                returned this document on @activeFlow.ClosedAt?.ToString("dd MMM yyyy") with the following note:
+            </div>
+            <blockquote class="mt-2 mb-0 ps-3"
+                        style="border-left:3px solid #f59e0b;font-size:13px;color:#92400e;font-style:italic;">
+                @activeFlow.ReturnComment
+            </blockquote>
+        </div>
+        @if (canManage)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning btn-sm flex-shrink-0">
+                <i class="bi bi-pencil me-1"></i>Edit Document
+            </a>
         }
     </div>
 }
