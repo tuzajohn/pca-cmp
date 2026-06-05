@@ -80,8 +80,10 @@
             </div>
             <div class="d-flex gap-2">
                 <form asp-controller="Approvals" asp-action="Approve" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
                     <input type="hidden" name="stepId" value="@myPendingStep.Id" />
-                    <input type="hidden" name="changeRequestId" value="@Model.Id" />
+                    <input type="hidden" name="entityType" value="ChangeRequest" />
+                    <input type="hidden" name="entityId" value="@Model.Id" />
                     <input name="comment" class="form-control form-control-sm d-inline-block" style="width:200px;"
                            placeholder="Optional comment…" />
                     <button type="submit" class="btn btn-sm btn-success ms-1">
@@ -89,12 +91,25 @@
                     </button>
                 </form>
                 <form asp-controller="Approvals" asp-action="Reject" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
                     <input type="hidden" name="stepId" value="@myPendingStep.Id" />
-                    <input type="hidden" name="changeRequestId" value="@Model.Id" />
+                    <input type="hidden" name="entityType" value="ChangeRequest" />
+                    <input type="hidden" name="entityId" value="@Model.Id" />
                     <input name="comment" class="form-control form-control-sm d-inline-block" style="width:200px;"
                            placeholder="Reason for rejection…" required />
                     <button type="submit" class="btn btn-sm btn-danger ms-1">
                         <i class="bi bi-x-lg me-1"></i> Reject
+                    </button>
+                </form>
+                <form asp-controller="Approvals" asp-action="ReturnForEdit" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="stepId" value="@myPendingStep.Id" />
+                    <input type="hidden" name="entityType" value="ChangeRequest" />
+                    <input type="hidden" name="entityId" value="@Model.Id" />
+                    <input name="comment" class="form-control form-control-sm d-inline-block" style="width:200px;"
+                           placeholder="What needs to be corrected…" required />
+                    <button type="submit" class="btn btn-sm btn-warning ms-1">
+                        <i class="bi bi-arrow-return-left me-1"></i> Return for Edit
                     </button>
                 </form>
             </div>
@@ -271,13 +286,15 @@
                         @foreach (var step in steps.OrderBy(s => s.Order))
                         {
                             var dotCls = step.Status switch {
-                                ApprovalStatus.Approved => "approved",
-                                ApprovalStatus.Rejected => "rejected",
+                                ApprovalStatus.Approved        => "approved",
+                                ApprovalStatus.Rejected        => "rejected",
+                                ApprovalStatus.ReturnedForEdit => "returned",
                                 _ => "pending"
                             };
                             var icon = step.Status switch {
-                                ApprovalStatus.Approved => "bi-check-lg",
-                                ApprovalStatus.Rejected => "bi-x-lg",
+                                ApprovalStatus.Approved        => "bi-check-lg",
+                                ApprovalStatus.Rejected        => "bi-x-lg",
+                                ApprovalStatus.ReturnedForEdit => "bi-arrow-return-left",
                                 _ => "bi-hourglass-split"
                             };
                             <div class="approval-step">

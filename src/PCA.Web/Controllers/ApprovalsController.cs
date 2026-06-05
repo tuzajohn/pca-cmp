@@ -82,7 +82,27 @@ public class ApprovalsController : Controller
         var workflow = _registry.Resolve(entityType);
         await workflow.OnStepRejectedAsync(entityId, outcome, user.Id, HttpContext.RequestServices);
 
-        TempData["Success"] = "Step rejected.";
+        TempData["Error"] = "Step rejected.";
+        return RedirectToAction(workflow.RedirectAction, workflow.RedirectController, new { id = entityId });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReturnForEdit(int stepId, string entityType, int entityId, string comment)
+    {
+        if (string.IsNullOrWhiteSpace(comment))
+        {
+            TempData["Error"] = "A comment explaining what needs to be corrected is required.";
+            var wf = _registry.Resolve(entityType);
+            return RedirectToAction(wf.RedirectAction, wf.RedirectController, new { id = entityId });
+        }
+
+        var user = await _userManager.GetUserAsync(User);
+        await _approvalService.ReturnStepAsync(stepId, user!.Id, comment);
+
+        var workflow = _registry.Resolve(entityType);
+        await workflow.OnStepReturnedAsync(entityId, user.Id, comment, HttpContext.RequestServices);
+
+        TempData["Warning"] = "Returned for edit. The submitter has been notified.";
         return RedirectToAction(workflow.RedirectAction, workflow.RedirectController, new { id = entityId });
     }
 }

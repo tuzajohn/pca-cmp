@@ -16,4 +16,5 @@ public interface IApprovalService
     Task<List<ApprovalStep>> GetPendingStepsForApproverAsync(string approverId);
     Task<ApprovalOutcome> ApproveStepAsync(int stepId, string approverId, string? comment);
     Task<ApprovalOutcome> RejectStepAsync(int stepId, string approverId, string comment);
+    Task<ApprovalOutcome> ReturnStepAsync(int stepId, string approverId, string comment);
 }

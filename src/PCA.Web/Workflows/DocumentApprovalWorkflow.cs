@@ -43,7 +43,13 @@ public class DocumentApprovalWorkflow : IApprovalWorkflow
         {
             var svc = sp.GetRequiredService<IDocumentService>();
             await svc.UpdateStatusAsync(entityId, DocumentStatus.Draft);
-            await svc.RejectReviewAsync(entityId);   // mark pending review as rejected; old schedule stands
+            await svc.RejectReviewAsync(entityId);
         }
+    }
+
+    public async Task OnStepReturnedAsync(int entityId, string actorId, string comment, IServiceProvider sp)
+    {
+        var svc = sp.GetRequiredService<IDocumentService>();
+        await svc.UpdateStatusAsync(entityId, DocumentStatus.Draft);
     }
 }

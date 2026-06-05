@@ -44,4 +44,10 @@ public class IncidentApprovalWorkflow : IApprovalWorkflow
             await svc.UpdateStatusAsync(entityId, IncidentStatus.Open, actorId, "Approval rejected — returned to Open.");
         }
     }
+
+    public async Task OnStepReturnedAsync(int entityId, string actorId, string comment, IServiceProvider sp)
+    {
+        var svc = sp.GetRequiredService<IIncidentService>();
+        await svc.UpdateStatusAsync(entityId, IncidentStatus.Open, actorId, $"Returned for edit: {comment}");
+    }
 }
