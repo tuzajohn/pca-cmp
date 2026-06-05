@@ -519,9 +519,7 @@ else if (reviewState == ReviewDueState.DueSoon)
                             <tr>
                                 <th class="ps-3">Date</th>
                                 <th>Reviewed By</th>
-                                <th>Status</th>
-                                <th>Notes</th>
-                                <th class="pe-3">Next Review</th>
+                                <th class="pe-3">Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -534,18 +532,24 @@ else if (reviewState == ReviewDueState.DueSoon)
                                            : rev.Status == ReviewStatus.Rejected  ? "Rejected"
                                            : "Pending";
                                 <tr>
-                                    <td class="ps-3 align-middle text-muted" style="white-space:nowrap;">
+                                    <td class="ps-3 align-top" style="white-space:nowrap;color:var(--bs-secondary-color);">
                                         @rev.ReviewedAt.ToString("dd MMM yyyy")
                                     </td>
-                                    <td class="align-middle">@(rev.ReviewedBy?.FullName ?? "—")</td>
-                                    <td class="align-middle">
+                                    <td class="align-top">
+                                        <div>@(rev.ReviewedBy?.FullName ?? "—")</div>
+                                        @if (!string.IsNullOrEmpty(rev.Notes))
+                                        {
+                                            <div class="text-muted fst-italic mt-1" style="font-size:11px;">@rev.Notes</div>
+                                        }
+                                        @if (rev.NextReviewDate.HasValue)
+                                        {
+                                            <div class="text-muted mt-1" style="font-size:11px;">
+                                                <i class="bi bi-calendar-event me-1"></i>Next: @rev.NextReviewDate.Value.ToString("dd MMM yyyy")
+                                            </div>
+                                        }
+                                    </td>
+                                    <td class="pe-3 align-top">
                                         <span class="badge @rBadgeCls" style="font-size:10px;">@rLabel</span>
-                                    </td>
-                                    <td class="align-middle text-muted fst-italic">
-                                        @(string.IsNullOrEmpty(rev.Notes) ? "—" : rev.Notes)
-                                    </td>
-                                    <td class="pe-3 align-middle text-muted" style="white-space:nowrap;">
-                                        @(rev.NextReviewDate.HasValue ? rev.NextReviewDate.Value.ToString("dd MMM yyyy") : "—")
                                     </td>
                                 </tr>
                             }
