@@ -65,7 +65,8 @@ public class ApprovalFlowConfiguration : IEntityTypeConfiguration<ApprovalFlow>
         builder.HasMany(x => x.Steps)
             .WithOne(x => x.Flow)
             .HasForeignKey(x => x.FlowId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
 

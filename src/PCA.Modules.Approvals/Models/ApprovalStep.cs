@@ -10,8 +10,8 @@ public class ApprovalStep : BaseEntity
     public string EntityType { get; set; } = string.Empty;
     public int    EntityId   { get; set; }
 
-    public int          FlowId { get; set; }
-    public ApprovalFlow? Flow  { get; set; }
+    public int?          FlowId { get; set; }
+    public ApprovalFlow? Flow   { get; set; }
 
     public int    Order      { get; set; }
     public string? RoleName  { get; set; }
