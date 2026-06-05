@@ -61,8 +61,13 @@ else
                             ["EntityId"]   = 0
                         })
                     </div>
-                    <div class="card-footer">
-                        <a asp-action="EditTemplate" asp-route-id="@template.Id" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <div class="card-footer d-flex gap-2">
+                        <a asp-action="TemplateDetails" asp-route-id="@template.Id" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye me-1"></i>Details
+                        </a>
+                        <a asp-action="EditTemplate" asp-route-id="@template.Id" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil me-1"></i>Edit
+                        </a>
                     </div>
                 </div>
             </div>
