@@ -320,52 +320,37 @@ else if (reviewState == ReviewDueState.DueSoon)
             <div class="form-section">
                 <div class="form-section-header"><i class="bi bi-check2-circle"></i> Approval Flow</div>
                 <div class="form-section-body p-0">
-                    <div class="approval-timeline px-3 py-2">
-                        @foreach (var step in approvalSteps.OrderBy(s => s.Order))
-                        {
-                            var dotCls = step.Status.ToString() switch {
-                                "Approved" => "step-dot approved",
-                                "Rejected" => "step-dot rejected",
-                                _ => "step-dot pending"
-                            };
-                            var icon = step.Status.ToString() switch {
-                                "Approved" => "bi-check-lg",
-                                "Rejected" => "bi-x-lg",
-                                _ => "bi-hourglass-split"
-                            };
-                            <div class="approval-step d-flex gap-3 align-items-start mb-3">
-                                <div class="@dotCls flex-shrink-0"><i class="bi @icon"></i></div>
-                                <div class="flex-grow-1">
-                                    <div class="fw-semibold" style="font-size:13px;">Step @step.Order — @step.RoleName</div>
-                                    <div class="text-muted" style="font-size:11px;">@(step.Approver?.FullName ?? "—")</div>
-                                    @if (!string.IsNullOrEmpty(step.Comment))
-                                    {
-                                        <div class="mt-1 p-2 rounded" style="background:#f8f9fa;font-size:12px;">@step.Comment</div>
-                                    }
-                                    @if (step.Status == PCA.Shared.Enums.ApprovalStatus.Pending && step.ApproverId == currentUserId)
-                                    {
-                                        <div class="d-flex gap-2 mt-2">
-                                            <form asp-controller="Approvals" asp-action="Approve" method="post" class="d-inline">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="stepId" value="@step.Id" />
-                                                <input type="hidden" name="entityType" value="Document" />
-                                                <input type="hidden" name="entityId" value="@Model.Id" />
-                                                <button type="submit" class="btn btn-success btn-sm">Approve</button>
-                                            </form>
-                                            <form asp-controller="Approvals" asp-action="Reject" method="post" class="d-inline">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="stepId" value="@step.Id" />
-                                                <input type="hidden" name="entityType" value="Document" />
-                                                <input type="hidden" name="entityId" value="@Model.Id" />
-                                                <input type="text" name="comment" class="form-control form-control-sm d-inline" style="width:140px;" placeholder="Rejection reason" required />
-                                                <button type="submit" class="btn btn-danger btn-sm">Reject</button>
-                                            </form>
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
+                    @await Html.PartialAsync("_ApprovalFlowChart", (object)null!, new ViewDataDictionary(ViewData)
+                    {
+                        ["Steps"]      = approvalSteps,
+                        ["EntityType"] = "Document",
+                        ["EntityId"]   = Model.Id
+                    })
+
+                    @* Inline action for the current approver's active step *@
+                    @{ var myStep = approvalSteps.FirstOrDefault(s => s.Status == ApprovalStatus.Pending && s.ApproverId == currentUserId
+                            && approvalSteps.Where(x => x.Order < s.Order).All(x => x.Status == ApprovalStatus.Approved)); }
+                    @if (myStep != null)
+                    {
+                        <div class="px-3 pb-3 d-flex gap-2 align-items-center flex-wrap">
+                            <span class="text-muted" style="font-size:12px;"><i class="bi bi-arrow-return-right me-1"></i>Your turn — Step @myStep.Order:</span>
+                            <form asp-controller="Approvals" asp-action="Approve" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="stepId" value="@myStep.Id" />
+                                <input type="hidden" name="entityType" value="Document" />
+                                <input type="hidden" name="entityId" value="@Model.Id" />
+                                <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check2 me-1"></i>Approve</button>
+                            </form>
+                            <form asp-controller="Approvals" asp-action="Reject" method="post" class="d-inline d-flex gap-1">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="stepId" value="@myStep.Id" />
+                                <input type="hidden" name="entityType" value="Document" />
+                                <input type="hidden" name="entityId" value="@Model.Id" />
+                                <input type="text" name="comment" class="form-control form-control-sm" style="width:160px;" placeholder="Rejection reason…" required />
+                                <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-x-lg me-1"></i>Reject</button>
+                            </form>
+                        </div>
+                    }
                 </div>
             </div>
         }

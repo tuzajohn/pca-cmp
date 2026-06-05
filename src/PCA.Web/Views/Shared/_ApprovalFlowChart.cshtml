@@ -1,0 +1,75 @@
+@using PCA.Modules.Approvals.Models
+@using PCA.Shared.Enums
+@{
+    var steps      = ViewData["Steps"]      as List<ApprovalStep> ?? new();
+    var entityType = ViewData["EntityType"] as string ?? "";
+    var entityId   = (int)(ViewData["EntityId"] ?? 0);
+
+    // Determine overall outcome
+    bool anyRejected  = steps.Any(s => s.Status == ApprovalStatus.Rejected);
+    bool allApproved  = steps.Any() && steps.All(s => s.Status == ApprovalStatus.Approved);
+    bool hasPending   = steps.Any(s => s.Status == ApprovalStatus.Pending);
+
+    string endCls  = allApproved ? "afc-approved" : anyRejected ? "afc-rejected" : "";
+    string endText = allApproved ? "✓ Approved"   : anyRejected ? "✗ Rejected"  : "Pending";
+}
+
+<div class="approval-flow">
+    <div class="approval-flow-node">
+        <div class="afc-box afc-start">Submitted</div>
+    </div>
+
+    @foreach (var step in steps.OrderBy(s => s.Order))
+    {
+        var initials = step.Approver?.FullName is { Length: > 0 } n
+            ? string.Concat(n.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => p[0]))
+            : "?";
+
+        var boxCls = step.Status == ApprovalStatus.Approved ? "afc-approved"
+                   : step.Status == ApprovalStatus.Rejected  ? "afc-rejected"
+                   : steps.Where(s => s.Order < step.Order).All(s => s.Status == ApprovalStatus.Approved)
+                       ? "afc-active" : "";
+
+        var badgeCls  = step.Status == ApprovalStatus.Approved ? "bg-success"
+                      : step.Status == ApprovalStatus.Rejected  ? "bg-danger"
+                      : boxCls == "afc-active"                  ? "bg-warning text-dark"
+                      : "bg-secondary";
+        var badgeText = step.Status == ApprovalStatus.Approved ? "Approved"
+                      : step.Status == ApprovalStatus.Rejected  ? "Rejected"
+                      : boxCls == "afc-active"                  ? "Awaiting"
+                      : "Queued";
+
+        <div class="approval-flow-connector"><div class="arrow"></div></div>
+        <div class="approval-flow-node">
+            <div class="afc-box @boxCls">
+                <div class="afc-step-num">Step @step.Order</div>
+                <div class="afc-avatar">@initials</div>
+                <div class="afc-name">@(step.Approver?.FullName ?? "—")</div>
+                @if (!string.IsNullOrEmpty(step.RoleName))
+                {
+                    <div class="afc-role">@step.RoleName</div>
+                }
+                <div class="afc-badge">
+                    <span class="badge @badgeCls" style="font-size:9px;">@badgeText</span>
+                </div>
+                @if (step.ActedAt.HasValue)
+                {
+                    <div style="font-size:9px;color:var(--bs-secondary-color);margin-top:3px;">
+                        @step.ActedAt.Value.ToString("dd MMM yyyy")
+                    </div>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(step.Comment))
+            {
+                <div class="mt-1 px-1" style="max-width:130px;font-size:10px;color:var(--bs-secondary-color);text-align:center;font-style:italic;">
+                    "@step.Comment"
+                </div>
+            }
+        </div>
+    }
+
+    <div class="approval-flow-connector"><div class="arrow"></div></div>
+    <div class="approval-flow-node">
+        <div class="afc-box afc-end @endCls">@endText</div>
+    </div>
+</div>

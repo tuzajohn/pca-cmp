@@ -620,3 +620,86 @@ a:hover { color: var(--color-primary-hover); }
 .dot-primary { background: color-mix(in srgb, var(--color-primary) 15%, transparent); color: var(--color-primary); }
 .dot-warning { background: #fef9c3; color: #b45309; }
 .dot-muted   { background: #f3f4f6; color: #6b7280; }
+
+/* ── Approval flowchart ── */
+.approval-flow {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    overflow-x: auto;
+    padding: 12px 4px 16px;
+}
+.approval-flow-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+}
+.approval-flow-connector {
+    display: flex;
+    align-items: center;
+    padding-top: 28px; /* align with centre of box */
+    flex-shrink: 0;
+}
+.approval-flow-connector::before {
+    content: '';
+    display: block;
+    width: 32px;
+    height: 2px;
+    background: var(--bs-border-color);
+}
+.approval-flow-connector .arrow {
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 7px solid var(--bs-border-color);
+}
+.afc-box {
+    width: 130px;
+    border: 2px solid var(--bs-border-color);
+    border-radius: 10px;
+    padding: 10px 10px 8px;
+    text-align: center;
+    background: var(--color-card-bg);
+    position: relative;
+    transition: border-color .15s;
+}
+.afc-box.afc-start, .afc-box.afc-end {
+    width: 90px;
+    border-radius: 40px;
+    background: var(--bs-tertiary-bg);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 10px 6px;
+    color: var(--bs-secondary-color);
+}
+.afc-box.afc-approved  { border-color: #22c55e; background: #f0fdf4; }
+.afc-box.afc-rejected  { border-color: #ef4444; background: #fef2f2; }
+.afc-box.afc-active    { border-color: var(--color-primary); background: color-mix(in srgb,var(--color-primary) 5%,transparent); }
+.afc-box.afc-end.afc-approved { background: #dcfce7; color: #15803d; border-color: #22c55e; }
+.afc-box.afc-end.afc-rejected { background: #fee2e2; color: #b91c1c; border-color: #ef4444; }
+.afc-step-num {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--bs-secondary-color);
+    margin-bottom: 4px;
+}
+.afc-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: color-mix(in srgb,var(--color-primary) 12%,transparent);
+    color: var(--color-primary);
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 4px;
+}
+.afc-name  { font-size: 11px; font-weight: 600; line-height: 1.2; word-break: break-word; }
+.afc-role  { font-size: 10px; color: var(--bs-secondary-color); margin-top: 2px; }
+.afc-badge { margin-top: 6px; }

@@ -88,23 +88,22 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Auto-Trigger</label>
                             <select name="autoTriggerOn" class="form-select">
-                                @if (Model.AutoTriggerOn.ToString() == "None")
-                                {
-                                    <option value="None" selected>None (manual)</option>
-                                    <option value="OnSubmit">On Submit / Creation</option>
-                                    <option value="OnStatusChange">On Status Change</option>
+                                @{
+                                    var triggers = new[]
+                                    {
+                                        ("None",           "None (manual)"),
+                                        ("OnSubmit",       "On Submit / Creation"),
+                                        ("OnStatusChange", "On Status Change"),
+                                        ("OnNewVersion",   "On New Version Upload (Document)"),
+                                        ("OnReview",       "On Review Submitted (Document)"),
+                                        ("OnRetire",       "On Retire Request (Document)"),
+                                        ("OnPublish",      "On Publish / Activate (Document)"),
+                                    };
                                 }
-                                else if (Model.AutoTriggerOn.ToString() == "OnSubmit")
+                                @foreach (var (val, label) in triggers)
                                 {
-                                    <option value="None">None (manual)</option>
-                                    <option value="OnSubmit" selected>On Submit / Creation</option>
-                                    <option value="OnStatusChange">On Status Change</option>
-                                }
-                                else
-                                {
-                                    <option value="None">None (manual)</option>
-                                    <option value="OnSubmit">On Submit / Creation</option>
-                                    <option value="OnStatusChange" selected>On Status Change</option>
+                                    if (Model.AutoTriggerOn.ToString() == val) { <option value="@val" selected>@label</option> }
+                                    else                                        { <option value="@val">@label</option> }
                                 }
                             </select>
                         </div>
