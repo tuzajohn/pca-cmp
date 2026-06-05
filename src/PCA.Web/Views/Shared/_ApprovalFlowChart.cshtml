@@ -11,7 +11,7 @@
     bool hasPending   = steps.Any(s => s.Status == ApprovalStatus.Pending);
 
     string endCls  = allApproved ? "afc-approved" : anyRejected ? "afc-rejected" : "";
-    string endText = allApproved ? "✓ Approved"   : anyRejected ? "✗ Rejected"  : "Pending";
+    string endText = allApproved ? "✓ Approved"   : anyRejected ? "✗ Rejected"  : "Closed";
 }
 
 <div class="approval-flow">
