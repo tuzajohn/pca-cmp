@@ -50,6 +50,7 @@ public class AdminController : Controller
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> EditTemplate(int id, string name, string entityType, string? entitySubType,
+        string approvalMode, string autoTriggerOn, string? conditionField, string? conditionValue,
         List<string> approverIds, List<string> roleNames)
     {
         var template = (await _approvalService.GetTemplatesAsync()).FirstOrDefault(t => t.Id == id);
@@ -58,6 +59,10 @@ public class AdminController : Controller
         template.Name = name;
         template.EntityType = entityType;
         template.EntitySubType = string.IsNullOrWhiteSpace(entitySubType) ? null : entitySubType;
+        template.ApprovalMode = Enum.TryParse<ApprovalMode>(approvalMode, out var mode) ? mode : ApprovalMode.AllMustApprove;
+        template.AutoTriggerOn = Enum.TryParse<AutoTriggerOn>(autoTriggerOn, out var trigger) ? trigger : AutoTriggerOn.None;
+        template.ConditionField = string.IsNullOrWhiteSpace(conditionField) ? null : conditionField;
+        template.ConditionValue = string.IsNullOrWhiteSpace(conditionValue) ? null : conditionValue;
         template.Steps = approverIds.Select((aid, i) => new ApprovalTemplateStep
         {
             TemplateId = id,
@@ -79,6 +84,7 @@ public class AdminController : Controller
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateTemplate(string name, string entityType, string? entitySubType,
+        string approvalMode, string autoTriggerOn, string? conditionField, string? conditionValue,
         List<string> approverIds, List<string> roleNames)
     {
         var steps = approverIds.Select((id, i) => new ApprovalTemplateStep
@@ -93,6 +99,10 @@ public class AdminController : Controller
             Name = name,
             EntityType = entityType,
             EntitySubType = string.IsNullOrWhiteSpace(entitySubType) ? null : entitySubType,
+            ApprovalMode = Enum.TryParse<ApprovalMode>(approvalMode, out var mode) ? mode : ApprovalMode.AllMustApprove,
+            AutoTriggerOn = Enum.TryParse<AutoTriggerOn>(autoTriggerOn, out var trigger) ? trigger : AutoTriggerOn.None,
+            ConditionField = string.IsNullOrWhiteSpace(conditionField) ? null : conditionField,
+            ConditionValue = string.IsNullOrWhiteSpace(conditionValue) ? null : conditionValue,
             Steps = steps
         });
         TempData["Success"] = "Approval template created.";

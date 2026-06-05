@@ -31,7 +31,7 @@ public class DocumentsController : Controller
 
     // ── Index ─────────────────────────────────────────────────────────────────
 
-    public async Task<IActionResult> Index(int? folderId, string? q, string? status)
+    public async Task<IActionResult> Index(int? folderId, string? q, string? status, string? dueForReview)
     {
         var user = await _userManager.GetUserAsync(User);
         var roles = (await _userManager.GetRolesAsync(user!)).ToList();
@@ -47,6 +47,13 @@ public class DocumentsController : Controller
 
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<DocumentStatus>(status, out var statusEnum))
             docs = docs.Where(d => d.Status == statusEnum).ToList();
+
+        var dueForReviewFilter = dueForReview == "true";
+        if (dueForReviewFilter)
+        {
+            var cutoff = DateTime.UtcNow.AddDays(7);
+            docs = docs.Where(d => d.NextReviewDate.HasValue && d.NextReviewDate.Value <= cutoff).ToList();
+        }
 
         // Filter by IAM — admins see all, others need at least Viewer
         if (!isAdmin)
@@ -76,6 +83,7 @@ public class DocumentsController : Controller
             ActiveFolderId = folderId,
             SearchQuery = q,
             StatusFilter = status,
+            DueForReviewFilter = dueForReviewFilter,
             EffectiveAccess = isAdmin ? AccessLevel.Manager : folderAccess
         };
 

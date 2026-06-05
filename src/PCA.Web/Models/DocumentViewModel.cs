@@ -19,6 +19,7 @@ public class DocumentIndexViewModel
     public int? ActiveFolderId { get; set; }
     public string? SearchQuery { get; set; }
     public string? StatusFilter { get; set; }
+    public bool DueForReviewFilter { get; set; }
     public AccessLevel? EffectiveAccess { get; set; }
 }
 

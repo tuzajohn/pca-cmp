@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using PCA.Modules.Approvals.Models;
 using PCA.Shared.Enums;
 
+
+
 namespace PCA.Modules.Approvals.Services;
 
 public interface IApplicationDbContextForApprovals
@@ -85,6 +87,14 @@ public class ApprovalService : IApprovalService
         await _db.SaveChangesAsync();
     }
 
+    public async Task<List<ApprovalTemplate>> GetAutoTriggerTemplatesAsync(AutoTriggerOn trigger, string entityType)
+    {
+        return await _db.ApprovalTemplates
+            .Include(t => t.Steps).ThenInclude(s => s.Approver)
+            .Where(t => t.AutoTriggerOn == trigger && t.EntityType == entityType)
+            .ToListAsync();
+    }
+
     public async Task<List<ApprovalStep>> GetStepsForEntityAsync(string entityType, int entityId)
     {
         return await _db.ApprovalSteps
@@ -140,6 +150,15 @@ public class ApprovalService : IApprovalService
 
         if (!steps.Any()) return ApprovalOutcome.StillPending;
         if (steps.Any(s => s.Status == ApprovalStatus.Rejected)) return ApprovalOutcome.AnyRejected;
+
+        // Resolve approval mode from template
+        var template = await _db.ApprovalTemplates
+            .FirstOrDefaultAsync(t => t.EntityType == entityType);
+        var mode = template?.ApprovalMode ?? ApprovalMode.AllMustApprove;
+
+        if (mode == ApprovalMode.AnyCanApprove && steps.Any(s => s.Status == ApprovalStatus.Approved))
+            return ApprovalOutcome.AllApproved;
+
         if (steps.All(s => s.Status == ApprovalStatus.Approved)) return ApprovalOutcome.AllApproved;
         return ApprovalOutcome.StillPending;
     }

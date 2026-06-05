@@ -226,6 +226,26 @@ namespace PCA.Web.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<string>("ApprovalMode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("AllMustApprove");
+
+                    b.Property<string>("AutoTriggerOn")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("None");
+
+                    b.Property<string>("ConditionField")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("ConditionValue")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
