@@ -73,8 +73,14 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 // Theme
 builder.Services.AddScoped<IThemeService, ThemeService>();
 
-// MVC
+// Logging
+builder.Services.AddScoped<ILogService, LogService>();
+builder.Logging.AddProvider(new DbLoggerProvider(
+    builder.Services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>()));
+
+// MVC + API controllers
 builder.Services.AddControllersWithViews();
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
@@ -90,6 +96,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapControllers(); // API routes (api/logs, etc.)
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
