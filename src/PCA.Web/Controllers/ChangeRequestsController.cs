@@ -87,6 +87,7 @@ public class ChangeRequestsController : Controller
         var cr = await _crService.GetByIdAsync(id);
         if (cr == null) return NotFound();
         ViewBag.ApprovalSteps = await _approvalService.GetStepsForEntityAsync("ChangeRequest", id);
+        ViewBag.ActiveFlow    = await _approvalService.GetActiveFlowAsync("ChangeRequest", id);
         var user = await _userManager.GetUserAsync(User);
         ViewBag.CurrentUserId = user?.Id;
         ViewBag.Attachments = await _attachmentService.GetForEntityAsync("ChangeRequest", id);

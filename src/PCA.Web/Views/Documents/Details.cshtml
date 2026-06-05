@@ -346,12 +346,40 @@ else if (reviewState == ReviewDueState.DueSoon)
             <div class="form-section">
                 <div class="form-section-header"><i class="bi bi-check2-circle"></i> Approval Flow</div>
                 <div class="form-section-body p-0">
-                    @await Html.PartialAsync("_ApprovalFlowChart", (object)null!, new ViewDataDictionary(ViewData)
+
+                    @* Flowchart only when a flow is active *@
+                    @if (activeFlow != null)
                     {
-                        ["Steps"]      = approvalSteps,
-                        ["EntityType"] = "Document",
-                        ["EntityId"]   = Model.Id
-                    })
+                        @await Html.PartialAsync("_ApprovalFlowChart", (object)null!, new ViewDataDictionary(ViewData)
+                        {
+                            ["Steps"]      = approvalSteps,
+                            ["EntityType"] = "Document",
+                            ["EntityId"]   = Model.Id
+                        })
+                    }
+                    else
+                    {
+                        @* Compact step list when no active flow *@
+                        <table class="table table-sm mb-0" style="font-size:13px;">
+                            <tbody>
+                                @foreach (var step in approvalSteps.OrderBy(s => s.Order))
+                                {
+                                    var badgeCls = step.Status switch {
+                                        ApprovalStatus.Approved        => "bg-success",
+                                        ApprovalStatus.Rejected        => "bg-danger",
+                                        ApprovalStatus.ReturnedForEdit => "bg-warning text-dark",
+                                        _                              => "bg-secondary"
+                                    };
+                                    <tr>
+                                        <td class="ps-3 text-muted" style="width:60px;">Step @step.Order</td>
+                                        <td>@(step.Approver?.FullName ?? "—")</td>
+                                        <td><span class="badge @badgeCls" style="font-size:10px;">@step.Status</span></td>
+                                        <td class="text-muted pe-3" style="font-size:11px;">@step.ActedAt?.ToString("dd MMM yyyy")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
 
                     @* Action button for the current approver's active step *@
                     @{ var myStep = approvalSteps.FirstOrDefault(s => s.Status == ApprovalStatus.Pending && s.ApproverId == currentUserId
