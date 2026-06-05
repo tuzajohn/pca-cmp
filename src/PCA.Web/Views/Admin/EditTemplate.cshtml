@@ -72,17 +72,40 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Approval Mode</label>
                             <select name="approvalMode" class="form-select">
-                                <option value="AllMustApprove" @(Model.ApprovalMode == PCA.Modules.Approvals.Models.ApprovalMode.AllMustApprove ? "selected" : "")>All Must Approve</option>
-                                <option value="AnyCanApprove" @(Model.ApprovalMode == PCA.Modules.Approvals.Models.ApprovalMode.AnyCanApprove ? "selected" : "")>Any Can Approve</option>
+                                @if (Model.ApprovalMode.ToString() == "AllMustApprove")
+                                {
+                                    <option value="AllMustApprove" selected>All Must Approve</option>
+                                    <option value="AnyCanApprove">Any Can Approve</option>
+                                }
+                                else
+                                {
+                                    <option value="AllMustApprove">All Must Approve</option>
+                                    <option value="AnyCanApprove" selected>Any Can Approve</option>
+                                }
                             </select>
                             <div class="form-text">AnyCanApprove: one approval from any step completes the flow.</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Auto-Trigger</label>
                             <select name="autoTriggerOn" class="form-select">
-                                <option value="None" @(Model.AutoTriggerOn == PCA.Modules.Approvals.Models.AutoTriggerOn.None ? "selected" : "")>None (manual)</option>
-                                <option value="OnSubmit" @(Model.AutoTriggerOn == PCA.Modules.Approvals.Models.AutoTriggerOn.OnSubmit ? "selected" : "")>On Submit / Creation</option>
-                                <option value="OnStatusChange" @(Model.AutoTriggerOn == PCA.Modules.Approvals.Models.AutoTriggerOn.OnStatusChange ? "selected" : "")>On Status Change</option>
+                                @if (Model.AutoTriggerOn.ToString() == "None")
+                                {
+                                    <option value="None" selected>None (manual)</option>
+                                    <option value="OnSubmit">On Submit / Creation</option>
+                                    <option value="OnStatusChange">On Status Change</option>
+                                }
+                                else if (Model.AutoTriggerOn.ToString() == "OnSubmit")
+                                {
+                                    <option value="None">None (manual)</option>
+                                    <option value="OnSubmit" selected>On Submit / Creation</option>
+                                    <option value="OnStatusChange">On Status Change</option>
+                                }
+                                else
+                                {
+                                    <option value="None">None (manual)</option>
+                                    <option value="OnSubmit">On Submit / Creation</option>
+                                    <option value="OnStatusChange" selected>On Status Change</option>
+                                }
                             </select>
                         </div>
                     </div>
