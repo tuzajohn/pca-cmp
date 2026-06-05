@@ -4,6 +4,7 @@
 @{
     ViewData["Title"] = Model.SerialNumber.Length > 0 ? Model.SerialNumber : $"CR #{Model.Id}";
     var steps = ViewBag.ApprovalSteps as List<ApprovalStep> ?? new();
+    var activeFlow = ViewBag.ActiveFlow as ApprovalFlow;
     var currentUserId = ViewBag.CurrentUserId as string;
     var myPendingStep = steps.FirstOrDefault(s => s.ApproverId == currentUserId && s.Status == ApprovalStatus.Pending);
 
@@ -272,54 +273,57 @@
     <div class="col-lg-4">
         <div class="card mb-3">
             <div class="card-header"><i class="bi bi-check2-circle me-2"></i>Approval Flow</div>
-            <div class="card-body">
-                @if (!steps.Any())
-                {
+            @if (!steps.Any())
+            {
+                <div class="card-body">
                     <p class="text-muted small mb-0">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Approval steps will appear after submission.
+                        <i class="bi bi-info-circle me-1"></i>Approval steps will appear after submission.
                     </p>
-                }
-                else
-                {
-                    <div class="approval-timeline">
-                        @foreach (var step in steps.OrderBy(s => s.Order))
-                        {
-                            var dotCls = step.Status switch {
-                                ApprovalStatus.Approved        => "approved",
-                                ApprovalStatus.Rejected        => "rejected",
-                                ApprovalStatus.ReturnedForEdit => "returned",
-                                _ => "pending"
-                            };
-                            var icon = step.Status switch {
-                                ApprovalStatus.Approved        => "bi-check-lg",
-                                ApprovalStatus.Rejected        => "bi-x-lg",
-                                ApprovalStatus.ReturnedForEdit => "bi-arrow-return-left",
-                                _ => "bi-hourglass-split"
-                            };
-                            <div class="approval-step">
-                                <div class="step-dot @dotCls"><i class="bi @icon"></i></div>
-                                <div class="step-content">
-                                    <div class="step-title">Step @step.Order</div>
-                                    <div class="step-meta">
-                                        @step.Status
-                                        @if (step.ActedAt.HasValue)
-                                        {
-                                            <span>· @step.ActedAt.Value.ToString("dd MMM yyyy")</span>
-                                        }
-                                    </div>
-                                    @if (!string.IsNullOrEmpty(step.Comment))
-                                    {
-                                        <div class="mt-1 p-2 rounded" style="background:#f9fafb;font-size:12px;color:#374151;">
-                                            "@step.Comment"
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
+                </div>
+            }
+            else if (activeFlow != null)
+            {
+                <div class="card-body p-0">
+                    @await Html.PartialAsync("_ApprovalFlowChart", (object)null!, new ViewDataDictionary(ViewData)
+                    {
+                        ["Steps"]      = steps,
+                        ["EntityType"] = "ChangeRequest",
+                        ["EntityId"]   = Model.Id
+                    })
+                </div>
+            }
+            else
+            {
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0" style="font-size:13px;">
+                        <tbody>
+                            @foreach (var step in steps.OrderBy(s => s.Order))
+                            {
+                                var badgeCls = step.Status switch {
+                                    ApprovalStatus.Approved        => "bg-success",
+                                    ApprovalStatus.Rejected        => "bg-danger",
+                                    ApprovalStatus.ReturnedForEdit => "bg-warning text-dark",
+                                    _                              => "bg-secondary"
+                                };
+                                <tr>
+                                    <td class="ps-3 text-muted" style="width:60px;">Step @step.Order</td>
+                                    <td>@(step.Approver?.FullName ?? "—")</td>
+                                    <td><span class="badge @badgeCls" style="font-size:10px;">@step.Status</span></td>
+                                    <td class="text-muted pe-3" style="font-size:11px;">@step.ActedAt?.ToString("dd MMM yyyy")</td>
+                                </tr>
+                                @if (!string.IsNullOrEmpty(step.Comment))
+                                {
+                                    <tr>
+                                        <td colspan="4" class="ps-3 pe-3 pb-2">
+                                            <span class="text-muted fst-italic" style="font-size:12px;">"@step.Comment"</span>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
         </div>
 
         <div class="card">
