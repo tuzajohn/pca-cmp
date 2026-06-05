@@ -28,7 +28,8 @@ public interface IDocumentService
     Task<(Stream stream, string contentType, string fileName)?> DownloadAsync(int versionId, string userId);
 
     // Review schedule
-    Task MarkReviewedAsync(int documentId, string reviewedById);
+    Task MarkReviewedAsync(int documentId, string reviewedById, string? notes = null);
+    Task<List<DocumentReview>> GetReviewHistoryAsync(int documentId);
     Task<List<Document>> GetDocumentsDueForReviewAlertAsync(int daysAhead, int alertFlag);
     Task SetReviewAlertFlagAsync(int documentId, int flag);
     Task UpdateStatusAsync(int documentId, DocumentStatus status);

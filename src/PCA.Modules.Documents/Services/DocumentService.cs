@@ -402,17 +402,41 @@ public class DocumentService : IDocumentService
 
     // ── Review schedule ───────────────────────────────────────────────────────
 
-    public async Task MarkReviewedAsync(int documentId, string reviewedById)
+    public async Task MarkReviewedAsync(int documentId, string reviewedById, string? notes = null)
     {
         var doc = await _db.Documents.FindAsync(documentId);
         if (doc == null) return;
-        doc.LastReviewedAt = DateTime.UtcNow;
+
+        var now = DateTime.UtcNow;
+        var nextDate = doc.ReviewPeriodDays.HasValue
+            ? now.AddDays(doc.ReviewPeriodDays.Value)
+            : doc.NextReviewDate;
+
+        _db.DocumentReviews.Add(new DocumentReview
+        {
+            DocumentId     = documentId,
+            ReviewedById   = reviewedById,
+            ReviewedAt     = now,
+            Notes          = notes,
+            NextReviewDate = nextDate,
+            CreatedAt      = now,
+            UpdatedAt      = now
+        });
+
+        doc.LastReviewedAt   = now;
         doc.LastReviewedById = reviewedById;
         doc.ReviewAlertFlags = 0;
-        if (doc.ReviewPeriodDays.HasValue)
-            doc.NextReviewDate = DateTime.UtcNow.AddDays(doc.ReviewPeriodDays.Value);
-        doc.UpdatedAt = DateTime.UtcNow;
+        doc.NextReviewDate   = nextDate;
         await _db.SaveChangesAsync();
+    }
+
+    public async Task<List<DocumentReview>> GetReviewHistoryAsync(int documentId)
+    {
+        return await _db.DocumentReviews
+            .Include(r => r.ReviewedBy)
+            .Where(r => r.DocumentId == documentId)
+            .OrderByDescending(r => r.ReviewedAt)
+            .ToListAsync();
     }
 
     public async Task<List<Document>> GetDocumentsDueForReviewAlertAsync(int daysAhead, int alertFlag)

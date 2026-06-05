@@ -42,6 +42,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     public DbSet<FolderPermission> FolderPermissions => Set<FolderPermission>();
     public DbSet<DocumentPermission> DocumentPermissions => Set<DocumentPermission>();
     public DbSet<DocumentSequence> DocumentSequences => Set<DocumentSequence>();
+    public DbSet<DocumentReview> DocumentReviews => Set<DocumentReview>();
 
     // Incidents
     public DbSet<Incident> Incidents => Set<Incident>();
@@ -68,6 +69,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
         builder.ApplyConfiguration(new ApprovalTemplateConfiguration());
         builder.ApplyConfiguration(new ApprovalTemplateStepConfiguration());
         builder.ApplyConfiguration(new ApprovalStepConfiguration());
+        builder.ApplyConfiguration(new DocumentReviewConfiguration());
         builder.ApplyConfiguration(new DocumentFolderConfiguration());
         builder.ApplyConfiguration(new DocumentConfiguration());
         builder.ApplyConfiguration(new DocumentVersionConfiguration());

@@ -11,5 +11,6 @@ public interface IApplicationDbContextForDocuments
     DbSet<FolderPermission> FolderPermissions { get; }
     DbSet<DocumentPermission> DocumentPermissions { get; }
     DbSet<DocumentSequence> DocumentSequences { get; }
+    DbSet<DocumentReview> DocumentReviews { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

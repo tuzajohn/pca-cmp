@@ -14,8 +14,9 @@
     var allUsers = ViewBag.AllUsers as List<PCA.Modules.Identity.Models.ApplicationUser> ?? new();
     var folderPerms = ViewBag.FolderPermissions as List<FolderPermission> ?? new();
     var docPerms = ViewBag.DocumentPermissions as List<DocumentPermission> ?? new();
-    var approvalSteps = ViewBag.ApprovalSteps as List<ApprovalStep> ?? new();
-    var reviewState = Model.GetReviewDueState();
+    var approvalSteps  = ViewBag.ApprovalSteps  as List<ApprovalStep>   ?? new();
+    var reviewHistory  = ViewBag.ReviewHistory  as List<DocumentReview> ?? new();
+    var reviewState    = Model.GetReviewDueState();
     var daysUntilReview = Model.NextReviewDate.HasValue
         ? (Model.NextReviewDate.Value.Date - DateTime.UtcNow.Date).TotalDays
         : (double?)null;
@@ -25,36 +26,36 @@
 {
     <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
         <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
-        <div>
+        <div class="flex-grow-1">
             <strong>Review Overdue</strong> — This document was due for review on
             <strong>@Model.NextReviewDate!.Value.ToString("dd MMM yyyy")</strong>
             (@((int)Math.Abs(daysUntilReview!.Value)) day@(Math.Abs(daysUntilReview!.Value) == 1 ? "" : "s") ago).
-            @if (canManage)
-            {
-                <form asp-action="MarkReviewed" asp-route-id="@Model.Id" method="post" class="d-inline ms-2">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="btn btn-danger btn-sm py-0">Mark as Reviewed</button>
-                </form>
-            }
         </div>
+        @if (canManage)
+        {
+            <button type="button" class="btn btn-danger btn-sm flex-shrink-0"
+                    data-bs-toggle="modal" data-bs-target="#markReviewedModal">
+                Mark as Reviewed
+            </button>
+        }
     </div>
 }
 else if (reviewState == ReviewDueState.DueSoon)
 {
     <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
         <i class="bi bi-clock-history fs-5 flex-shrink-0"></i>
-        <div>
+        <div class="flex-grow-1">
             <strong>Review Due Soon</strong> — This document is due for review on
             <strong>@Model.NextReviewDate!.Value.ToString("dd MMM yyyy")</strong>
             (@((int)daysUntilReview!.Value == 0 ? "today" : $"in {(int)daysUntilReview.Value} day{((int)daysUntilReview.Value == 1 ? "" : "s")}")).
-            @if (canManage)
-            {
-                <form asp-action="MarkReviewed" asp-route-id="@Model.Id" method="post" class="d-inline ms-2">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="btn btn-warning btn-sm py-0">Mark as Reviewed</button>
-                </form>
-            }
         </div>
+        @if (canManage)
+        {
+            <button type="button" class="btn btn-warning btn-sm flex-shrink-0"
+                    data-bs-toggle="modal" data-bs-target="#markReviewedModal">
+                Mark as Reviewed
+            </button>
+        }
     </div>
 }
 
@@ -384,6 +385,45 @@ else if (reviewState == ReviewDueState.DueSoon)
             </div>
         }
 
+        @* Review history *@
+        @if (reviewHistory.Any())
+        {
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-clock-history"></i> Review History</div>
+                <div class="form-section-body p-0">
+                    <div class="px-3 py-2">
+                        @foreach (var rev in reviewHistory)
+                        {
+                            <div class="d-flex gap-3 align-items-start mb-3">
+                                <div class="flex-shrink-0 rounded-circle d-flex align-items-center justify-content-center"
+                                     style="width:32px;height:32px;background:color-mix(in srgb,var(--color-primary) 12%,transparent);">
+                                    <i class="bi bi-check2" style="color:var(--color-primary);font-size:14px;"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold" style="font-size:13px;">
+                                        @(rev.ReviewedBy?.FullName ?? "Unknown")
+                                        <span class="text-muted fw-normal ms-1" style="font-size:11px;">
+                                            @rev.ReviewedAt.ToString("dd MMM yyyy HH:mm")
+                                        </span>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(rev.Notes))
+                                    {
+                                        <div class="mt-1 p-2 rounded" style="background:#f8f9fa;font-size:12px;">@rev.Notes</div>
+                                    }
+                                    @if (rev.NextReviewDate.HasValue)
+                                    {
+                                        <div class="text-muted mt-1" style="font-size:11px;">
+                                            <i class="bi bi-calendar-event me-1"></i>Next review set to @rev.NextReviewDate.Value.ToString("dd MMM yyyy")
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
         @await Html.PartialAsync("_AttachmentsPanel", (object)null!, new ViewDataDictionary(ViewData)
         {
             ["Controller"] = "Documents",
@@ -423,6 +463,15 @@ else if (reviewState == ReviewDueState.DueSoon)
                     </a>
                 }
 
+                @if (canManage && Model.NextReviewDate.HasValue && Model.Status != DocumentStatus.Retired
+                     && reviewState != ReviewDueState.Overdue && reviewState != ReviewDueState.DueSoon)
+                {
+                    <button type="button" class="btn btn-outline-secondary w-100 mb-2"
+                            data-bs-toggle="modal" data-bs-target="#markReviewedModal">
+                        <i class="bi bi-clipboard2-check me-1"></i> Mark as Reviewed
+                    </button>
+                }
+
                 @if (canManage && Model.Status != DocumentStatus.Retired)
                 {
                     <form asp-action="Retire" asp-route-id="@Model.Id" method="post"
@@ -444,6 +493,41 @@ else if (reviewState == ReviewDueState.DueSoon)
         </div>
     </div>
 </div>
+
+@if (canManage && Model.NextReviewDate.HasValue)
+{
+    <div class="modal fade" id="markReviewedModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-clipboard2-check me-2"></i>Mark as Reviewed</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form asp-action="MarkReviewed" asp-route-id="@Model.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="modal-body">
+                        <p class="text-muted" style="font-size:13px;">
+                            Recording a review will advance the next review date by
+                            <strong>@(Model.ReviewPeriodDays.HasValue ? $"{Model.ReviewPeriodDays} days" : "the configured period")</strong>
+                            and log this entry in the review history.
+                        </p>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Review Notes <small class="text-muted">(optional)</small></label>
+                            <textarea name="notes" class="form-control" rows="3"
+                                      placeholder="Summary of what was reviewed, any changes made or observations…"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check2 me-1"></i> Confirm Review
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
 
 @section Scripts {
 <script>

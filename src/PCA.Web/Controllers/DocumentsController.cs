@@ -121,6 +121,7 @@ public class DocumentsController : Controller
         ViewBag.DocumentPermissions = await _docService.GetDocumentPermissionsAsync(doc.Id);
         ViewBag.AllUsers = await _userManager.Users.ToListAsync();
         ViewBag.ApprovalSteps = await _approvalService.GetStepsForEntityAsync("Document", id);
+        ViewBag.ReviewHistory = await _docService.GetReviewHistoryAsync(id);
         ViewBag.Attachments = await HttpContext.RequestServices
             .GetRequiredService<PCA.Web.Services.IAttachmentService>()
             .GetForEntityAsync("Document", id);
@@ -527,10 +528,10 @@ public class DocumentsController : Controller
     // ── Review actions ────────────────────────────────────────────────────────
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> MarkReviewed(int id)
+    public async Task<IActionResult> MarkReviewed(int id, string? notes)
     {
         var user = await _userManager.GetUserAsync(User);
-        await _docService.MarkReviewedAsync(id, user!.Id);
+        await _docService.MarkReviewedAsync(id, user!.Id, notes);
         TempData["Success"] = "Document marked as reviewed. Next review date advanced.";
         return RedirectToAction(nameof(Details), new { id });
     }
