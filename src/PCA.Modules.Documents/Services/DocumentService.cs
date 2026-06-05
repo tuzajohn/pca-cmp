@@ -408,25 +408,65 @@ public class DocumentService : IDocumentService
         if (doc == null) return;
 
         var now = DateTime.UtcNow;
-        var nextDate = doc.ReviewPeriodDays.HasValue
+        var proposedNext = doc.ReviewPeriodDays.HasValue
             ? now.AddDays(doc.ReviewPeriodDays.Value)
             : doc.NextReviewDate;
 
+        // Record as Pending — document's NextReviewDate stays unchanged until approved
         _db.DocumentReviews.Add(new DocumentReview
         {
             DocumentId     = documentId,
             ReviewedById   = reviewedById,
             ReviewedAt     = now,
             Notes          = notes,
-            NextReviewDate = nextDate,
+            NextReviewDate = proposedNext,
+            Status         = ReviewStatus.Pending,
             CreatedAt      = now,
             UpdatedAt      = now
         });
 
         doc.LastReviewedAt   = now;
         doc.LastReviewedById = reviewedById;
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task ApproveReviewAsync(int documentId)
+    {
+        var review = await _db.DocumentReviews
+            .Where(r => r.DocumentId == documentId && r.Status == ReviewStatus.Pending)
+            .OrderByDescending(r => r.ReviewedAt)
+            .FirstOrDefaultAsync();
+
+        if (review == null) return;
+
+        var doc = await _db.Documents.FindAsync(documentId);
+        if (doc == null) return;
+
+        var now = DateTime.UtcNow;
+        review.Status    = ReviewStatus.Approved;
+        review.UpdatedAt = now;
+
+        // Advance the schedule now that the review is approved
+        doc.NextReviewDate   = review.NextReviewDate;
         doc.ReviewAlertFlags = 0;
-        doc.NextReviewDate   = nextDate;
+        doc.UpdatedAt        = now;
+
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task RejectReviewAsync(int documentId)
+    {
+        var review = await _db.DocumentReviews
+            .Where(r => r.DocumentId == documentId && r.Status == ReviewStatus.Pending)
+            .OrderByDescending(r => r.ReviewedAt)
+            .FirstOrDefaultAsync();
+
+        if (review == null) return;
+
+        review.Status    = ReviewStatus.Rejected;
+        review.UpdatedAt = DateTime.UtcNow;
+
+        // Document's NextReviewDate is unchanged — previous schedule stands
         await _db.SaveChangesAsync();
     }
 

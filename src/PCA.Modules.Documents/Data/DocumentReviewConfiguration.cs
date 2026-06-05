@@ -11,6 +11,7 @@ public class DocumentReviewConfiguration : IEntityTypeConfiguration<DocumentRevi
         builder.ToTable("DocumentReviews");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Notes).HasMaxLength(2000);
+        builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
 
         builder.HasIndex(x => x.DocumentId);
 

@@ -33,7 +33,7 @@ public class DocumentApprovalWorkflow : IApprovalWorkflow
         {
             var svc = sp.GetRequiredService<IDocumentService>();
             await svc.UpdateStatusAsync(entityId, DocumentStatus.Active);
-            await svc.MarkReviewedAsync(entityId, actorId);
+            await svc.ApproveReviewAsync(entityId);  // advance NextReviewDate now that review is approved
         }
     }
 
@@ -43,6 +43,7 @@ public class DocumentApprovalWorkflow : IApprovalWorkflow
         {
             var svc = sp.GetRequiredService<IDocumentService>();
             await svc.UpdateStatusAsync(entityId, DocumentStatus.Draft);
+            await svc.RejectReviewAsync(entityId);   // mark pending review as rejected; old schedule stands
         }
     }
 }

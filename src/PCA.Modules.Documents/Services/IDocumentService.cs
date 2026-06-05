@@ -29,6 +29,8 @@ public interface IDocumentService
 
     // Review schedule
     Task MarkReviewedAsync(int documentId, string reviewedById, string? notes = null);
+    Task ApproveReviewAsync(int documentId);
+    Task RejectReviewAsync(int documentId);
     Task<List<DocumentReview>> GetReviewHistoryAsync(int documentId);
     Task<List<Document>> GetDocumentsDueForReviewAlertAsync(int daysAhead, int alertFlag);
     Task SetReviewAlertFlagAsync(int documentId, int flag);

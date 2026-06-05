@@ -394,17 +394,30 @@ else if (reviewState == ReviewDueState.DueSoon)
                     <div class="px-3 py-2">
                         @foreach (var rev in reviewHistory)
                         {
+                            var dotBg   = rev.Status == ReviewStatus.Approved ? "color-mix(in srgb,#22c55e 15%,transparent)"
+                                        : rev.Status == ReviewStatus.Rejected  ? "color-mix(in srgb,#ef4444 15%,transparent)"
+                                        : "color-mix(in srgb,var(--color-primary) 12%,transparent)";
+                            var dotIcon = rev.Status == ReviewStatus.Approved ? "bi-check2"
+                                        : rev.Status == ReviewStatus.Rejected  ? "bi-x-lg"
+                                        : "bi-hourglass-split";
+                            var dotClr  = rev.Status == ReviewStatus.Approved ? "#22c55e"
+                                        : rev.Status == ReviewStatus.Rejected  ? "#ef4444"
+                                        : "var(--color-primary)";
+                            var badge   = rev.Status == ReviewStatus.Approved
+                                            ? "<span class=\"badge bg-success\" style=\"font-size:10px;\">Approved</span>"
+                                        : rev.Status == ReviewStatus.Rejected
+                                            ? "<span class=\"badge bg-danger\" style=\"font-size:10px;\">Rejected</span>"
+                                        : "<span class=\"badge bg-warning text-dark\" style=\"font-size:10px;\">Pending approval</span>";
                             <div class="d-flex gap-3 align-items-start mb-3">
                                 <div class="flex-shrink-0 rounded-circle d-flex align-items-center justify-content-center"
-                                     style="width:32px;height:32px;background:color-mix(in srgb,var(--color-primary) 12%,transparent);">
-                                    <i class="bi bi-check2" style="color:var(--color-primary);font-size:14px;"></i>
+                                     style="width:32px;height:32px;background:@dotBg;">
+                                    <i class="bi @dotIcon" style="color:@dotClr;font-size:14px;"></i>
                                 </div>
                                 <div class="flex-grow-1">
-                                    <div class="fw-semibold" style="font-size:13px;">
-                                        @(rev.ReviewedBy?.FullName ?? "Unknown")
-                                        <span class="text-muted fw-normal ms-1" style="font-size:11px;">
-                                            @rev.ReviewedAt.ToString("dd MMM yyyy HH:mm")
-                                        </span>
+                                    <div class="d-flex align-items-center gap-2 flex-wrap" style="font-size:13px;">
+                                        <span class="fw-semibold">@(rev.ReviewedBy?.FullName ?? "Unknown")</span>
+                                        @Html.Raw(badge)
+                                        <span class="text-muted" style="font-size:11px;">@rev.ReviewedAt.ToString("dd MMM yyyy HH:mm")</span>
                                     </div>
                                     @if (!string.IsNullOrEmpty(rev.Notes))
                                     {
@@ -412,8 +425,11 @@ else if (reviewState == ReviewDueState.DueSoon)
                                     }
                                     @if (rev.NextReviewDate.HasValue)
                                     {
+                                        var nextLabel = rev.Status == ReviewStatus.Approved ? "Next review set to"
+                                                      : rev.Status == ReviewStatus.Pending  ? "Proposed next review"
+                                                      : "Proposed next review (not applied)";
                                         <div class="text-muted mt-1" style="font-size:11px;">
-                                            <i class="bi bi-calendar-event me-1"></i>Next review set to @rev.NextReviewDate.Value.ToString("dd MMM yyyy")
+                                            <i class="bi bi-calendar-event me-1"></i>@nextLabel @rev.NextReviewDate.Value.ToString("dd MMM yyyy")
                                         </div>
                                     }
                                 </div>
