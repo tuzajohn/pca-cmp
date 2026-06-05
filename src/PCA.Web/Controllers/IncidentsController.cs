@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using PCA.Modules.Approvals.Models;
+using PCA.Modules.Approvals.Services;
 using PCA.Modules.Identity.Models;
 using PCA.Modules.Incidents.Models;
 using PCA.Modules.Incidents.Services;
@@ -17,13 +19,15 @@ public class IncidentsController : Controller
     private readonly IIncidentService _incidentService;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IAttachmentService _attachmentService;
+    private readonly IApprovalService _approvalService;
 
     public IncidentsController(IIncidentService incidentService, UserManager<ApplicationUser> userManager,
-        IAttachmentService attachmentService)
+        IAttachmentService attachmentService, IApprovalService approvalService)
     {
         _incidentService = incidentService;
         _userManager = userManager;
         _attachmentService = attachmentService;
+        _approvalService = approvalService;
     }
 
     public async Task<IActionResult> Index(string? status, string? severity, string? category)
@@ -73,6 +77,11 @@ public class IncidentsController : Controller
         };
 
         await _incidentService.CreateAsync(incident);
+
+        var autoTemplates = await _approvalService.GetAutoTriggerTemplatesAsync(AutoTriggerOn.OnSubmit, "Incident");
+        if (autoTemplates.Any())
+            await _approvalService.InitiateApprovalFlowAsync("Incident", incident.Id, null);
+
         TempData["Success"] = $"Incident {incident.SerialNumber} created.";
         return RedirectToAction(nameof(Details), new { id = incident.Id });
     }

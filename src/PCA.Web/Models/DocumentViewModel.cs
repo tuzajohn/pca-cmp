@@ -19,6 +19,7 @@ public class DocumentIndexViewModel
     public int? ActiveFolderId { get; set; }
     public string? SearchQuery { get; set; }
     public string? StatusFilter { get; set; }
+    public bool DueForReviewFilter { get; set; }
     public AccessLevel? EffectiveAccess { get; set; }
 }
 
@@ -39,6 +40,10 @@ public class DocumentCreateViewModel
     public IFormFile? File { get; set; }
 
     public string? ChangeNotes { get; set; }
+
+    [Range(1, 3650)]
+    public int? ReviewPeriodDays { get; set; }
+    public DateTime? NextReviewDate { get; set; }
 }
 
 public class DocumentEditViewModel
@@ -58,6 +63,10 @@ public class DocumentEditViewModel
 
     public DocumentStatus Status { get; set; }
     public string OwnerId { get; set; } = string.Empty;
+
+    [Range(1, 3650)]
+    public int? ReviewPeriodDays { get; set; }
+    public DateTime? NextReviewDate { get; set; }
 }
 
 public class DocumentUploadVersionViewModel

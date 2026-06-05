@@ -19,6 +19,9 @@ bld/
 [Oo]ut/
 [Ll]og/
 [Ll]ogs/
+# Exception: Razor views folder named Logs is source code, not a log directory
+!**/Views/Logs/
+!**/Views/Logs/**
 
 # Visual Studio
 .vs/

@@ -27,6 +27,15 @@ public interface IDocumentService
     Task<bool> DeleteVersionAsync(int versionId, string userId);
     Task<(Stream stream, string contentType, string fileName)?> DownloadAsync(int versionId, string userId);
 
+    // Review schedule
+    Task MarkReviewedAsync(int documentId, string reviewedById, string? notes = null);
+    Task ApproveReviewAsync(int documentId);
+    Task RejectReviewAsync(int documentId);
+    Task<List<DocumentReview>> GetReviewHistoryAsync(int documentId);
+    Task<List<Document>> GetDocumentsDueForReviewAlertAsync(int daysAhead, int alertFlag);
+    Task SetReviewAlertFlagAsync(int documentId, int flag);
+    Task UpdateStatusAsync(int documentId, DocumentStatus status);
+
     // Permissions
     Task<AccessLevel?> GetEffectiveAccessAsync(int? documentId, int? folderId, string userId, IList<string> userRoles);
     Task<bool> HasAccessAsync(int? documentId, int? folderId, string userId, IList<string> userRoles, AccessLevel minimum);

@@ -11,8 +11,10 @@ public interface IApprovalService
     Task<ApprovalTemplate> UpdateTemplateAsync(ApprovalTemplate template);
 
     Task InitiateApprovalFlowAsync(string entityType, int entityId, string? entitySubType);
+    Task<List<ApprovalTemplate>> GetAutoTriggerTemplatesAsync(AutoTriggerOn trigger, string entityType);
     Task<List<ApprovalStep>> GetStepsForEntityAsync(string entityType, int entityId);
     Task<List<ApprovalStep>> GetPendingStepsForApproverAsync(string approverId);
     Task<ApprovalOutcome> ApproveStepAsync(int stepId, string approverId, string? comment);
     Task<ApprovalOutcome> RejectStepAsync(int stepId, string approverId, string comment);
+    Task<ApprovalOutcome> ReturnStepAsync(int stepId, string approverId, string comment);
 }

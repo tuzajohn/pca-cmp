@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using PCA.Modules.Approvals.Models;
 using PCA.Shared.Enums;
 
+
+
 namespace PCA.Modules.Approvals.Services;
 
 public interface IApplicationDbContextForApprovals
@@ -85,6 +87,14 @@ public class ApprovalService : IApprovalService
         await _db.SaveChangesAsync();
     }
 
+    public async Task<List<ApprovalTemplate>> GetAutoTriggerTemplatesAsync(AutoTriggerOn trigger, string entityType)
+    {
+        return await _db.ApprovalTemplates
+            .Include(t => t.Steps).ThenInclude(s => s.Approver)
+            .Where(t => t.AutoTriggerOn == trigger && t.EntityType == entityType)
+            .ToListAsync();
+    }
+
     public async Task<List<ApprovalStep>> GetStepsForEntityAsync(string entityType, int entityId)
     {
         return await _db.ApprovalSteps
@@ -132,6 +142,21 @@ public class ApprovalService : IApprovalService
         return await EvaluateOutcomeAsync(step.EntityType, step.EntityId);
     }
 
+    public async Task<ApprovalOutcome> ReturnStepAsync(int stepId, string approverId, string comment)
+    {
+        var step = await _db.ApprovalSteps.FindAsync(stepId);
+        if (step == null || step.ApproverId != approverId || step.Status != ApprovalStatus.Pending)
+            return ApprovalOutcome.StillPending;
+
+        step.Status = ApprovalStatus.ReturnedForEdit;
+        step.Comment = comment;
+        step.ActedAt = DateTime.UtcNow;
+        step.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return ApprovalOutcome.ReturnedForEdit;
+    }
+
     private async Task<ApprovalOutcome> EvaluateOutcomeAsync(string entityType, int entityId)
     {
         var steps = await _db.ApprovalSteps
@@ -139,7 +164,16 @@ public class ApprovalService : IApprovalService
             .ToListAsync();
 
         if (!steps.Any()) return ApprovalOutcome.StillPending;
+        if (steps.Any(s => s.Status == ApprovalStatus.ReturnedForEdit)) return ApprovalOutcome.ReturnedForEdit;
         if (steps.Any(s => s.Status == ApprovalStatus.Rejected)) return ApprovalOutcome.AnyRejected;
+
+        var template = await _db.ApprovalTemplates
+            .FirstOrDefaultAsync(t => t.EntityType == entityType);
+        var mode = template?.ApprovalMode ?? ApprovalMode.AllMustApprove;
+
+        if (mode == ApprovalMode.AnyCanApprove && steps.Any(s => s.Status == ApprovalStatus.Approved))
+            return ApprovalOutcome.AllApproved;
+
         if (steps.All(s => s.Status == ApprovalStatus.Approved)) return ApprovalOutcome.AllApproved;
         return ApprovalOutcome.StillPending;
     }

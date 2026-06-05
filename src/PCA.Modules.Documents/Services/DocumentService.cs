@@ -400,6 +400,117 @@ public class DocumentService : IDocumentService
         }
     }
 
+    // ── Review schedule ───────────────────────────────────────────────────────
+
+    public async Task MarkReviewedAsync(int documentId, string reviewedById, string? notes = null)
+    {
+        var doc = await _db.Documents.FindAsync(documentId);
+        if (doc == null) return;
+
+        var now = DateTime.UtcNow;
+        var proposedNext = doc.ReviewPeriodDays.HasValue
+            ? now.AddDays(doc.ReviewPeriodDays.Value)
+            : doc.NextReviewDate;
+
+        // Record as Pending — document's NextReviewDate stays unchanged until approved
+        _db.DocumentReviews.Add(new DocumentReview
+        {
+            DocumentId     = documentId,
+            ReviewedById   = reviewedById,
+            ReviewedAt     = now,
+            Notes          = notes,
+            NextReviewDate = proposedNext,
+            Status         = ReviewStatus.Pending,
+            CreatedAt      = now,
+            UpdatedAt      = now
+        });
+
+        doc.LastReviewedAt   = now;
+        doc.LastReviewedById = reviewedById;
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task ApproveReviewAsync(int documentId)
+    {
+        var review = await _db.DocumentReviews
+            .Where(r => r.DocumentId == documentId && r.Status == ReviewStatus.Pending)
+            .OrderByDescending(r => r.ReviewedAt)
+            .FirstOrDefaultAsync();
+
+        if (review == null) return;
+
+        var doc = await _db.Documents.FindAsync(documentId);
+        if (doc == null) return;
+
+        var now = DateTime.UtcNow;
+        review.Status    = ReviewStatus.Approved;
+        review.UpdatedAt = now;
+
+        // Advance the schedule now that the review is approved
+        doc.NextReviewDate   = review.NextReviewDate;
+        doc.ReviewAlertFlags = 0;
+        doc.UpdatedAt        = now;
+
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task RejectReviewAsync(int documentId)
+    {
+        var review = await _db.DocumentReviews
+            .Where(r => r.DocumentId == documentId && r.Status == ReviewStatus.Pending)
+            .OrderByDescending(r => r.ReviewedAt)
+            .FirstOrDefaultAsync();
+
+        if (review == null) return;
+
+        review.Status    = ReviewStatus.Rejected;
+        review.UpdatedAt = DateTime.UtcNow;
+
+        // Document's NextReviewDate is unchanged — previous schedule stands
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task<List<DocumentReview>> GetReviewHistoryAsync(int documentId)
+    {
+        return await _db.DocumentReviews
+            .Include(r => r.ReviewedBy)
+            .Where(r => r.DocumentId == documentId)
+            .OrderByDescending(r => r.ReviewedAt)
+            .ToListAsync();
+    }
+
+    public async Task<List<Document>> GetDocumentsDueForReviewAlertAsync(int daysAhead, int alertFlag)
+    {
+        var today = DateTime.UtcNow.Date;
+        return await _db.Documents
+            .Include(d => d.Owner)
+            .Where(d => d.NextReviewDate.HasValue
+                     && (daysAhead == 0
+                         ? d.NextReviewDate.Value.Date <= today          // overdue: on or before today
+                         : d.NextReviewDate.Value.Date == today.AddDays(daysAhead))
+                     && (d.ReviewAlertFlags & alertFlag) == 0
+                     && d.Status != DocumentStatus.Retired)
+            .ToListAsync();
+    }
+
+    public async Task SetReviewAlertFlagAsync(int documentId, int flag)
+    {
+        var doc = await _db.Documents.FindAsync(documentId);
+        if (doc == null) return;
+        doc.ReviewAlertFlags |= flag;
+        doc.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task UpdateStatusAsync(int documentId, DocumentStatus status)
+    {
+        var doc = await _db.Documents.FindAsync(documentId);
+        if (doc == null) return;
+        doc.Status = status;
+        doc.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+    }
+
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private async Task<string> GenerateSerialNumberAsync()

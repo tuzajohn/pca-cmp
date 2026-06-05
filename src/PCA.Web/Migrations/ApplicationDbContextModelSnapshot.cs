@@ -214,6 +214,28 @@ namespace PCA.Web.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("ApprovalMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("AllMustApprove");
+
+                    b.Property<string>("AutoTriggerOn")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)")
+                        .HasDefaultValue("None");
+
+                    b.Property<string>("ConditionField")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("ConditionValue")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -473,9 +495,24 @@ namespace PCA.Web.Migrations
                     b.Property<int?>("FolderId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("LastReviewedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("LastReviewedById")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("NextReviewDate")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("OwnerId")
                         .IsRequired()
                         .HasColumnType("varchar(255)");
+
+                    b.Property<int>("ReviewAlertFlags")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ReviewPeriodDays")
+                        .HasColumnType("int");
 
                     b.Property<string>("SerialNumber")
                         .IsRequired()
@@ -504,6 +541,8 @@ namespace PCA.Web.Migrations
                     b.HasIndex("CreatedById");
 
                     b.HasIndex("FolderId");
+
+                    b.HasIndex("LastReviewedById");
 
                     b.HasIndex("OwnerId");
 
@@ -589,6 +628,51 @@ namespace PCA.Web.Migrations
                     b.HasIndex("DocumentId");
 
                     b.ToTable("DocumentPermissions", (string)null);
+                });
+
+            modelBuilder.Entity("PCA.Modules.Documents.Models.DocumentReview", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("NextReviewDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime>("ReviewedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ReviewedById")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
+
+                    b.HasIndex("ReviewedById");
+
+                    b.ToTable("DocumentReviews", (string)null);
                 });
 
             modelBuilder.Entity("PCA.Modules.Documents.Models.DocumentSequence", b =>
@@ -980,6 +1064,77 @@ namespace PCA.Web.Migrations
                     b.ToTable("IncidentUpdates", (string)null);
                 });
 
+            modelBuilder.Entity("PCA.Web.Models.AppLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("EntityId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EntityType")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("varchar(45)");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UserEmail")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Timestamp");
+
+                    b.HasIndex("Source", "Level");
+
+                    b.ToTable("AppLogs", (string)null);
+                });
+
             modelBuilder.Entity("PCA.Web.Models.Attachment", b =>
                 {
                     b.Property<int>("Id")
@@ -1218,6 +1373,11 @@ namespace PCA.Web.Migrations
                         .HasForeignKey("FolderId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "LastReviewedBy")
+                        .WithMany()
+                        .HasForeignKey("LastReviewedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "Owner")
                         .WithMany()
                         .HasForeignKey("OwnerId")
@@ -1227,6 +1387,8 @@ namespace PCA.Web.Migrations
                     b.Navigation("CreatedBy");
 
                     b.Navigation("Folder");
+
+                    b.Navigation("LastReviewedBy");
 
                     b.Navigation("Owner");
                 });
@@ -1258,6 +1420,25 @@ namespace PCA.Web.Migrations
                         .IsRequired();
 
                     b.Navigation("Document");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Documents.Models.DocumentReview", b =>
+                {
+                    b.HasOne("PCA.Modules.Documents.Models.Document", "Document")
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "ReviewedBy")
+                        .WithMany()
+                        .HasForeignKey("ReviewedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Document");
+
+                    b.Navigation("ReviewedBy");
                 });
 
             modelBuilder.Entity("PCA.Modules.Documents.Models.DocumentVersion", b =>

@@ -42,6 +42,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     public DbSet<FolderPermission> FolderPermissions => Set<FolderPermission>();
     public DbSet<DocumentPermission> DocumentPermissions => Set<DocumentPermission>();
     public DbSet<DocumentSequence> DocumentSequences => Set<DocumentSequence>();
+    public DbSet<DocumentReview> DocumentReviews => Set<DocumentReview>();
 
     // Incidents
     public DbSet<Incident> Incidents => Set<Incident>();
@@ -51,6 +52,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
 
     // Attachments
     public DbSet<Attachment> Attachments => Set<Attachment>();
+
+    // Logs
+    public DbSet<AppLog> AppLogs => Set<AppLog>();
 
     // Theme
     public DbSet<ThemeSettings> ThemeSettings => Set<ThemeSettings>();
@@ -65,6 +69,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
         builder.ApplyConfiguration(new ApprovalTemplateConfiguration());
         builder.ApplyConfiguration(new ApprovalTemplateStepConfiguration());
         builder.ApplyConfiguration(new ApprovalStepConfiguration());
+        builder.ApplyConfiguration(new DocumentReviewConfiguration());
         builder.ApplyConfiguration(new DocumentFolderConfiguration());
         builder.ApplyConfiguration(new DocumentConfiguration());
         builder.ApplyConfiguration(new DocumentVersionConfiguration());
@@ -77,6 +82,23 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
         builder.Entity<DocumentSequence>().ToTable("DocumentSequences").HasKey(x => x.Id);
         builder.Entity<IncidentSequence>().ToTable("IncidentSequences").HasKey(x => x.Id);
         builder.Entity<ThemeSettings>().ToTable("ThemeSettings").HasKey(x => x.Id);
+
+        builder.Entity<AppLog>(b =>
+        {
+            b.ToTable("AppLogs");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Level).HasMaxLength(20).IsRequired();
+            b.Property(x => x.Category).HasMaxLength(50).IsRequired();
+            b.Property(x => x.Source).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Message).HasMaxLength(2000).IsRequired();
+            b.Property(x => x.Details).HasColumnType("text");
+            b.Property(x => x.Action).HasMaxLength(200);
+            b.Property(x => x.EntityType).HasMaxLength(100);
+            b.Property(x => x.UserEmail).HasMaxLength(300);
+            b.Property(x => x.IpAddress).HasMaxLength(45);
+            b.HasIndex(x => x.Timestamp);
+            b.HasIndex(x => new { x.Source, x.Level });
+        });
 
         builder.Entity<Attachment>(b =>
         {

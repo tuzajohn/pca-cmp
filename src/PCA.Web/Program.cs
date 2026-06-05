@@ -11,6 +11,7 @@ using PCA.Modules.Incidents;
 using PCA.Modules.Incidents.Services;
 using PCA.Web.Data;
 using PCA.Web.Services;
+using PCA.Web.Workflows;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,8 +74,27 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 // Theme
 builder.Services.AddScoped<IThemeService, ThemeService>();
 
-// MVC
+// Approval workflow registry
+builder.Services.AddSingleton<IApprovalWorkflowRegistry>(_ =>
+{
+    var registry = new ApprovalWorkflowRegistry();
+    registry.Register(new ChangeRequestApprovalWorkflow());
+    registry.Register(new IncidentApprovalWorkflow());
+    registry.Register(new DocumentApprovalWorkflow());
+    return registry;
+});
+
+// Document review alert background worker
+builder.Services.AddHostedService<DocumentReviewAlertWorker>();
+
+// Logging
+builder.Services.AddScoped<ILogService, LogService>();
+builder.Logging.AddProvider(new DbLoggerProvider(
+    builder.Services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>()));
+
+// MVC + API controllers
 builder.Services.AddControllersWithViews();
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
@@ -90,6 +110,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapControllers(); // API routes (api/logs, etc.)
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");

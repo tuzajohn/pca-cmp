@@ -1,0 +1,242 @@
+@model PCA.Modules.Approvals.Models.ApprovalTemplate
+@using PCA.Modules.Approvals.Models
+@using PCA.Shared.Enums
+@{
+    ViewData["Title"] = $"Template — {Model.Name}";
+
+    var triggerDescriptions = new Dictionary<string, (string icon, string label, string description)>
+    {
+        ["None"]           = ("bi-hand-index",          "Manual",              "An authorised user must click Submit for Approval."),
+        ["OnSubmit"]       = ("bi-send",                "On Submit / Create",  "Triggered automatically when the entity is first submitted or created."),
+        ["OnStatusChange"] = ("bi-arrow-left-right",    "On Status Change",    "Triggered automatically when the entity's status changes."),
+        ["OnNewVersion"]   = ("bi-file-earmark-arrow-up","On New Version",     "Triggered when a new file version is uploaded to the document."),
+        ["OnReview"]       = ("bi-clipboard2-check",    "On Review Submitted", "Triggered when a reviewer marks the document as reviewed."),
+        ["OnRetire"]       = ("bi-archive",             "On Retire Request",   "Triggered when retirement is requested; approval required before retiring."),
+        ["OnPublish"]      = ("bi-globe",               "On Publish",          "Triggered when the document is moved from Draft to Active."),
+    };
+
+    var triggerKey = Model.AutoTriggerOn.ToString();
+    var (triggerIcon, triggerLabel, triggerDesc) = triggerDescriptions.TryGetValue(triggerKey, out var td)
+        ? td : ("bi-question", triggerKey, "");
+
+    var previewSteps = Model.Steps.OrderBy(s => s.Order)
+        .Select(s => new ApprovalStep
+        {
+            Order      = s.Order,
+            RoleName   = s.RoleName,
+            Approver   = s.Approver,
+            ApproverId = s.ApproverId,
+            Status     = ApprovalStatus.Pending
+        }).ToList();
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">@Model.Name</h1>
+        <p class="page-header-sub mb-0">
+            <span class="badge bg-primary me-1">@Model.EntityType</span>
+            @if (!string.IsNullOrEmpty(Model.EntitySubType))
+            {
+                <span class="badge bg-info text-dark me-1">@Model.EntitySubType</span>
+            }
+            Approval Template
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="EditTemplate" asp-route-id="@Model.Id" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i> Edit Template
+        </a>
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Back
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+
+    <!-- Left: config summary -->
+    <div class="col-lg-4">
+
+        <div class="card mb-3">
+            <div class="card-header" style="font-size:13px;font-weight:600;">
+                <i class="bi bi-sliders me-2"></i>Configuration
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0" style="font-size:13px;">
+                    <tbody>
+                        <tr>
+                            <td class="text-muted ps-3" style="width:120px;">Module</td>
+                            <td><span class="badge bg-primary">@Model.EntityType</span>
+                                @if (!string.IsNullOrEmpty(Model.EntitySubType))
+                                {
+                                    <span class="badge bg-info text-dark ms-1">@Model.EntitySubType</span>
+                                }
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted ps-3">Mode</td>
+                            <td>
+                                @if (Model.ApprovalMode == ApprovalMode.AllMustApprove)
+                                {
+                                    <span><i class="bi bi-people me-1 text-primary"></i>All Must Approve</span>
+                                }
+                                else
+                                {
+                                    <span><i class="bi bi-person-check me-1 text-success"></i>Any Can Approve</span>
+                                }
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted ps-3">Trigger</td>
+                            <td>
+                                <i class="bi @triggerIcon me-1"></i>@triggerLabel
+                            </td>
+                        </tr>
+                        @if (!string.IsNullOrEmpty(Model.ConditionField))
+                        {
+                            <tr>
+                                <td class="text-muted ps-3">Condition</td>
+                                <td>
+                                    <code style="font-size:12px;">@Model.ConditionField = @Model.ConditionValue</code>
+                                </td>
+                            </tr>
+                        }
+                        <tr>
+                            <td class="text-muted ps-3">Steps</td>
+                            <td>@Model.Steps.Count</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header" style="font-size:13px;font-weight:600;">
+                <i class="bi @triggerIcon me-2"></i>How This Template Fires
+            </div>
+            <div class="card-body" style="font-size:13px;">
+                <p class="mb-2">@triggerDesc</p>
+                @if (Model.ApprovalMode == ApprovalMode.AllMustApprove)
+                {
+                    <p class="mb-0 text-muted">All <strong>@Model.Steps.Count</strong> step@(Model.Steps.Count == 1 ? "" : "s") must approve in sequence before the flow completes.</p>
+                }
+                else
+                {
+                    <p class="mb-0 text-muted">The flow completes as soon as <strong>any one</strong> approver approves their step.</p>
+                }
+                @if (!string.IsNullOrEmpty(Model.ConditionField))
+                {
+                    <div class="mt-2 p-2 rounded" style="background:var(--bs-tertiary-bg);font-size:12px;">
+                        <i class="bi bi-funnel me-1"></i>Only applies when <strong>@Model.ConditionField</strong> equals <strong>@Model.ConditionValue</strong>.
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header" style="font-size:13px;font-weight:600;">
+                <i class="bi bi-people me-2"></i>Approvers
+            </div>
+            <div class="card-body p-0">
+                @foreach (var step in Model.Steps.OrderBy(s => s.Order))
+                {
+                    var initials = step.Approver?.FullName is { Length: > 0 } n
+                        ? string.Concat(n.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => p[0]))
+                        : "?";
+                    <div class="d-flex align-items-center gap-3 px-3 py-2"
+                         style="border-bottom:1px solid var(--bs-border-color);">
+                        <div class="afc-avatar flex-shrink-0" style="width:36px;height:36px;font-size:13px;">@initials</div>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold" style="font-size:13px;">@(step.Approver?.FullName ?? "—")</div>
+                            <div class="text-muted" style="font-size:11px;">@step.Approver?.Email</div>
+                        </div>
+                        <div class="text-end flex-shrink-0">
+                            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--bs-secondary-color);">Step @step.Order</div>
+                            @if (!string.IsNullOrEmpty(step.RoleName))
+                            {
+                                <span class="badge bg-secondary" style="font-size:10px;">@step.RoleName</span>
+                            }
+                        </div>
+                    </div>
+                }
+                @if (!Model.Steps.Any())
+                {
+                    <div class="px-3 py-3 text-muted" style="font-size:13px;">No steps defined.</div>
+                }
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Right: flowchart -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header" style="font-size:13px;font-weight:600;">
+                <i class="bi bi-diagram-3 me-2"></i>Approval Flow
+            </div>
+            <div class="card-body">
+
+                @if (!Model.Steps.Any())
+                {
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-diagram-3 opacity-25" style="font-size:40px;"></i>
+                        <p class="mt-2 mb-0">No steps defined yet. <a asp-action="EditTemplate" asp-route-id="@Model.Id">Add steps</a> to see the flow.</p>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted mb-3" style="font-size:12px;">
+                        This is a preview of the approval flow as it would appear on a live entity.
+                        All steps show as <span class="badge bg-warning text-dark" style="font-size:10px;">Awaiting</span> in preview mode.
+                    </p>
+
+                    @await Html.PartialAsync("_ApprovalFlowChart", (object)null!, new ViewDataDictionary(ViewData)
+                    {
+                        ["Steps"]      = previewSteps,
+                        ["EntityType"] = Model.EntityType,
+                        ["EntityId"]   = 0
+                    })
+
+                    <!-- Step detail cards below the chart -->
+                    <div class="row g-2 mt-3">
+                        @foreach (var step in Model.Steps.OrderBy(s => s.Order))
+                        {
+                            var initials = step.Approver?.FullName is { Length: > 0 } fn
+                                ? string.Concat(fn.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => p[0]))
+                                : "?";
+                            <div class="col-md-6">
+                                <div class="p-3 rounded" style="background:var(--bs-tertiary-bg);border:1px solid var(--bs-border-color);">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <span class="badge bg-secondary" style="font-size:10px;">Step @step.Order</span>
+                                        @if (!string.IsNullOrEmpty(step.RoleName))
+                                        {
+                                            <span class="badge bg-primary" style="font-size:10px;">@step.RoleName</span>
+                                        }
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="afc-avatar flex-shrink-0" style="width:32px;height:32px;font-size:12px;">@initials</div>
+                                        <div>
+                                            <div class="fw-semibold" style="font-size:13px;">@(step.Approver?.FullName ?? "—")</div>
+                                            <div class="text-muted" style="font-size:11px;">@step.Approver?.Email</div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 text-muted" style="font-size:11px;">
+                                        @if (Model.ApprovalMode == ApprovalMode.AllMustApprove && step.Order > 1)
+                                        {
+                                            <span><i class="bi bi-lock me-1"></i>Unlocks after Step @(step.Order - 1) approves</span>
+                                        }
+                                        else if (step.Order == 1)
+                                        {
+                                            <span><i class="bi bi-play-circle me-1"></i>First to act when flow is initiated</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+</div>

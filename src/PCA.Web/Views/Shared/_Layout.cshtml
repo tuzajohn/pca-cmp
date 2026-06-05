@@ -128,6 +128,12 @@ else
                     <i class="bi bi-palette"></i>
                     <span>Theme &amp; Branding</span>
                 </a>
+
+                <a asp-controller="Logs" asp-action="Index"
+                   class="sidebar-link @ActiveIf("Logs")">
+                    <i class="bi bi-journal-text"></i>
+                    <span>Log Viewer</span>
+                </a>
             }
         </nav>
 

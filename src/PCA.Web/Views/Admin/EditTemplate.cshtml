@@ -33,17 +33,26 @@
                                 {
                                     <option value="ChangeRequest">Change Request</option>
                                     <option value="Incident" selected>Incident</option>
+                                    <option value="Document">Document</option>
+                                }
+                                else if (Model.EntityType == "Document")
+                                {
+                                    <option value="ChangeRequest">Change Request</option>
+                                    <option value="Incident">Incident</option>
+                                    <option value="Document" selected>Document</option>
                                 }
                                 else
                                 {
                                     <option value="ChangeRequest" selected>Change Request</option>
                                     <option value="Incident">Incident</option>
+                                    <option value="Document">Document</option>
                                 }
                             </select>
                         </div>
-                        <div class="col-md-6" id="subTypeRow" style="@(Model.EntityType == "Incident" ? "display:none;" : "")">
+                        <div class="col-md-6" id="subTypeRow" style="@(Model.EntityType == "Incident" || Model.EntityType == "Document" ? "display:none;" : "")">
                             <label class="form-label fw-semibold">Change Type</label>
                             <select name="entitySubType" class="form-select">
+                                <option value="">— Any —</option>
                                 @foreach (var ct in new[] { "Standard", "Normal", "Emergency" })
                                 {
                                     if (Model.EntitySubType == ct)
@@ -55,6 +64,63 @@
                                         <option value="@ct">@ct</option>
                                     }
                                 }
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Approval Mode</label>
+                            <select name="approvalMode" class="form-select">
+                                @if (Model.ApprovalMode.ToString() == "AllMustApprove")
+                                {
+                                    <option value="AllMustApprove" selected>All Must Approve</option>
+                                    <option value="AnyCanApprove">Any Can Approve</option>
+                                }
+                                else
+                                {
+                                    <option value="AllMustApprove">All Must Approve</option>
+                                    <option value="AnyCanApprove" selected>Any Can Approve</option>
+                                }
+                            </select>
+                            <div class="form-text">AnyCanApprove: one approval from any step completes the flow.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Auto-Trigger</label>
+                            <select name="autoTriggerOn" class="form-select">
+                                @{
+                                    var triggers = new[]
+                                    {
+                                        ("None",           "None (manual)"),
+                                        ("OnSubmit",       "On Submit / Creation"),
+                                        ("OnStatusChange", "On Status Change"),
+                                        ("OnNewVersion",   "On New Version Upload (Document)"),
+                                        ("OnReview",       "On Review Submitted (Document)"),
+                                        ("OnRetire",       "On Retire Request (Document)"),
+                                        ("OnPublish",      "On Publish / Activate (Document)"),
+                                    };
+                                }
+                                @foreach (var (val, label) in triggers)
+                                {
+                                    if (Model.AutoTriggerOn.ToString() == val) { <option value="@val" selected>@label</option> }
+                                    else                                        { <option value="@val">@label</option> }
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Condition Field <small class="text-muted">(optional)</small></label>
+                            <select name="conditionField" id="conditionField" class="form-select">
+                                <option value="">— None —</option>
+                            </select>
+                            <div class="form-text">Only trigger when this field matches the value on the right.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Condition Value</label>
+                            <select name="conditionValue" id="conditionValue" class="form-select">
+                                <option value="">— Select a field first —</option>
                             </select>
                         </div>
                     </div>
@@ -111,9 +177,60 @@
 <script>
 const userOptions = `@Html.Raw(string.Join("", users.Select(u => $"<option value='{u.Id}'>{System.Net.WebUtility.HtmlEncode(u.FullName)} ({System.Net.WebUtility.HtmlEncode(u.Email ?? "")})</option>")))`;
 
+const conditionOptions = {
+    ChangeRequest: {
+        Type:     ['Standard', 'Normal', 'Emergency'],
+        Priority: ['Low', 'Medium', 'High', 'Critical'],
+        Status:   ['Draft', 'Submitted', 'UnderReview', 'Approved', 'Rejected', 'Implemented', 'Closed'],
+    },
+    Incident: {
+        Severity: ['Low', 'Medium', 'High', 'Critical'],
+        Priority: ['Low', 'Medium', 'High', 'Critical'],
+        Category: ['Infrastructure', 'Application', 'Security', 'Network', 'Hardware', 'Other'],
+        Status:   ['Open', 'InProgress', 'Resolved', 'Closed'],
+    },
+    Document: {
+        Status: ['Draft', 'UnderReview', 'Active', 'Retired'],
+    },
+};
+
+function refreshConditionDropdowns(entityType, selectedField, selectedValue) {
+    const fieldSel = document.getElementById('conditionField');
+    const fields   = conditionOptions[entityType] || {};
+    fieldSel.innerHTML = '<option value="">— None —</option>';
+    Object.keys(fields).forEach(f => {
+        fieldSel.innerHTML += `<option value="${f}"${f === selectedField ? ' selected' : ''}>${f}</option>`;
+    });
+    refreshValueDropdown(fields, selectedField || fieldSel.value, selectedValue);
+}
+
+function refreshValueDropdown(fields, field, selectedValue) {
+    const valueSel = document.getElementById('conditionValue');
+    const values   = (fields && fields[field]) || [];
+    if (!values.length) { valueSel.innerHTML = '<option value="">— Select a field first —</option>'; return; }
+    valueSel.innerHTML = '<option value="">— Any —</option>';
+    values.forEach(v => {
+        valueSel.innerHTML += `<option value="${v}"${v === selectedValue ? ' selected' : ''}>${v}</option>`;
+    });
+}
+
+const _savedField = '@Model.ConditionField';
+const _savedValue = '@Model.ConditionValue';
+
 document.getElementById('entityType').addEventListener('change', function() {
     document.getElementById('subTypeRow').style.display = this.value === 'ChangeRequest' ? '' : 'none';
+    refreshConditionDropdowns(this.value, '', '');
 });
+
+document.getElementById('conditionField').addEventListener('change', function() {
+    const entityType = document.getElementById('entityType').value;
+    refreshValueDropdown(conditionOptions[entityType] || {}, this.value, '');
+});
+
+// Initialise with saved values
+const _initEntityType = document.getElementById('entityType').value;
+document.getElementById('subTypeRow').style.display = _initEntityType === 'ChangeRequest' ? '' : 'none';
+refreshConditionDropdowns(_initEntityType, _savedField, _savedValue);
 
 document.getElementById('addStep').addEventListener('click', () => {
     const container = document.getElementById('stepsContainer');

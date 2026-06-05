@@ -76,6 +76,35 @@
                 </div>
             </div>
 
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-calendar-check"></i> Review Schedule</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Review Period</label>
+                            <select id="reviewPeriodSelect" class="form-select">
+                                <option value="">— No scheduled review —</option>
+                                <option value="30">Monthly (30 days)</option>
+                                <option value="60">Every 2 months (60 days)</option>
+                                <option value="90">Quarterly (90 days)</option>
+                                <option value="180">Semi-annually (180 days)</option>
+                                <option value="365">Annually (365 days)</option>
+                                <option value="730">Every 2 years (730 days)</option>
+                                <option value="custom">Custom…</option>
+                            </select>
+                            <input asp-for="ReviewPeriodDays" type="number" id="reviewPeriodCustom"
+                                   class="form-control mt-2 d-none" placeholder="Enter days (1–3650)" min="1" max="3650" />
+                            <div class="form-text">Sets how often this document must be reviewed.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="NextReviewDate" class="form-label fw-semibold">Period Start Date</label>
+                            <input asp-for="NextReviewDate" type="date" id="nextReviewDate" class="form-control" />
+                            <div class="form-text" id="nextReviewHint">The first review will fall due one period after this date.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-check2 me-1"></i> Create Document
@@ -106,5 +135,50 @@ dropzone.addEventListener('drop', e => {
 fileInput.addEventListener('change', () => {
     fileLabel.textContent = fileInput.files[0]?.name ?? '';
 });
+
+// ── Review schedule ──────────────────────────────────────────────────────────
+const periodSelect  = document.getElementById('reviewPeriodSelect');
+const periodCustom  = document.getElementById('reviewPeriodCustom');
+const periodHidden  = document.getElementById('ReviewPeriodDays');
+const startDate     = document.getElementById('nextReviewDate');
+const reviewHint    = document.getElementById('nextReviewHint');
+
+function addDays(dateStr, days) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+}
+
+function updateHint() {
+    const days = parseInt(periodHidden.value);
+    const start = startDate.value;
+    if (!isNaN(days) && start) {
+        reviewHint.textContent = `First review due: ${addDays(start, days)}`;
+    } else {
+        reviewHint.textContent = 'The first review will fall due one period after this date.';
+    }
+}
+
+periodSelect.addEventListener('change', function () {
+    if (this.value === 'custom') {
+        periodCustom.classList.remove('d-none');
+        periodHidden.value = '';
+    } else {
+        periodCustom.classList.add('d-none');
+        periodHidden.value = this.value;
+        if (this.value && !startDate.value)
+            startDate.value = new Date().toISOString().slice(0, 10);
+        if (!this.value) startDate.value = '';
+    }
+    updateHint();
+});
+
+periodCustom.addEventListener('input', function () {
+    periodHidden.value = this.value;
+    updateHint();
+});
+
+startDate.addEventListener('change', updateHint);
 </script>
 }

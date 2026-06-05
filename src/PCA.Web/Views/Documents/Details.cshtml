@@ -1,16 +1,62 @@
 @model PCA.Modules.Documents.Models.Document
 @using PCA.Shared.Enums
 @using PCA.Modules.Documents.Models
+@using PCA.Modules.Approvals.Models
 @using PCA.Web.Helpers
 @{
     ViewData["Title"] = Model.Title;
     var access = (AccessLevel)ViewBag.Access;
     var isOwner = (bool)ViewBag.IsOwner;
-    var canManage = User.IsInRole("Admin") || isOwner || access >= AccessLevel.Manager;
+    var isAdmin = (bool)ViewBag.IsAdmin;
+    var currentUserId = ViewBag.CurrentUserId as string;
+    var canManage = isAdmin || isOwner || access >= AccessLevel.Manager;
     var canContribute = canManage || access >= AccessLevel.Contributor;
     var allUsers = ViewBag.AllUsers as List<PCA.Modules.Identity.Models.ApplicationUser> ?? new();
     var folderPerms = ViewBag.FolderPermissions as List<FolderPermission> ?? new();
     var docPerms = ViewBag.DocumentPermissions as List<DocumentPermission> ?? new();
+    var approvalSteps  = ViewBag.ApprovalSteps  as List<ApprovalStep>   ?? new();
+    var reviewHistory  = ViewBag.ReviewHistory  as List<DocumentReview> ?? new();
+    var reviewState    = Model.GetReviewDueState();
+    var daysUntilReview = Model.NextReviewDate.HasValue
+        ? (Model.NextReviewDate.Value.Date - DateTime.UtcNow.Date).TotalDays
+        : (double?)null;
+}
+
+@if (reviewState == ReviewDueState.Overdue)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
+        <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
+        <div class="flex-grow-1">
+            <strong>Review Overdue</strong> — This document was due for review on
+            <strong>@Model.NextReviewDate!.Value.ToString("dd MMM yyyy")</strong>
+            (@((int)Math.Abs(daysUntilReview!.Value)) day@(Math.Abs(daysUntilReview!.Value) == 1 ? "" : "s") ago).
+        </div>
+        @if (canManage)
+        {
+            <button type="button" class="btn btn-danger btn-sm flex-shrink-0"
+                    data-bs-toggle="modal" data-bs-target="#markReviewedModal">
+                Mark as Reviewed
+            </button>
+        }
+    </div>
+}
+else if (reviewState == ReviewDueState.DueSoon)
+{
+    <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
+        <i class="bi bi-clock-history fs-5 flex-shrink-0"></i>
+        <div class="flex-grow-1">
+            <strong>Review Due Soon</strong> — This document is due for review on
+            <strong>@Model.NextReviewDate!.Value.ToString("dd MMM yyyy")</strong>
+            (@((int)daysUntilReview!.Value == 0 ? "today" : $"in {(int)daysUntilReview.Value} day{((int)daysUntilReview.Value == 1 ? "" : "s")}")).
+        </div>
+        @if (canManage)
+        {
+            <button type="button" class="btn btn-warning btn-sm flex-shrink-0"
+                    data-bs-toggle="modal" data-bs-target="#markReviewedModal">
+                Mark as Reviewed
+            </button>
+        }
+    </div>
 }
 
 <div class="page-header">
@@ -268,6 +314,134 @@
                 </div>
             </div>
         }
+        @* Approval flow panel *@
+        @if (approvalSteps.Any())
+        {
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-check2-circle"></i> Approval Flow</div>
+                <div class="form-section-body p-0">
+                    @await Html.PartialAsync("_ApprovalFlowChart", (object)null!, new ViewDataDictionary(ViewData)
+                    {
+                        ["Steps"]      = approvalSteps,
+                        ["EntityType"] = "Document",
+                        ["EntityId"]   = Model.Id
+                    })
+
+                    @* Inline action for the current approver's active step *@
+                    @{ var myStep = approvalSteps.FirstOrDefault(s => s.Status == ApprovalStatus.Pending && s.ApproverId == currentUserId
+                            && approvalSteps.Where(x => x.Order < s.Order).All(x => x.Status == ApprovalStatus.Approved)); }
+                    @if (myStep != null)
+                    {
+                        <div class="px-3 pb-3 d-flex gap-2 align-items-center flex-wrap">
+                            <span class="text-muted" style="font-size:12px;"><i class="bi bi-arrow-return-right me-1"></i>Your turn — Step @myStep.Order:</span>
+                            <form asp-controller="Approvals" asp-action="Approve" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="stepId" value="@myStep.Id" />
+                                <input type="hidden" name="entityType" value="Document" />
+                                <input type="hidden" name="entityId" value="@Model.Id" />
+                                <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check2 me-1"></i>Approve</button>
+                            </form>
+                            <form asp-controller="Approvals" asp-action="Reject" method="post" class="d-inline d-flex gap-1">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="stepId" value="@myStep.Id" />
+                                <input type="hidden" name="entityType" value="Document" />
+                                <input type="hidden" name="entityId" value="@Model.Id" />
+                                <input type="text" name="comment" class="form-control form-control-sm" style="width:160px;" placeholder="Rejection reason…" required />
+                                <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-x-lg me-1"></i>Reject</button>
+                            </form>
+                            <form asp-controller="Approvals" asp-action="ReturnForEdit" method="post" class="d-inline d-flex gap-1">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="stepId" value="@myStep.Id" />
+                                <input type="hidden" name="entityType" value="Document" />
+                                <input type="hidden" name="entityId" value="@Model.Id" />
+                                <input type="text" name="comment" class="form-control form-control-sm" style="width:200px;" placeholder="What needs to be corrected…" required />
+                                <button type="submit" class="btn btn-warning btn-sm"><i class="bi bi-arrow-return-left me-1"></i>Return for Edit</button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        else if (canManage && Model.Status == PCA.Shared.Enums.DocumentStatus.Draft)
+        {
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-check2-circle"></i> Approval</div>
+                <div class="form-section-body">
+                    <p class="text-muted mb-3" style="font-size:13px;">This document has not been submitted for approval yet.</p>
+                    <form asp-action="SubmitForApproval" asp-route-id="@Model.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-send me-1"></i> Submit for Approval
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        @* Review history *@
+        @if (reviewHistory.Any())
+        {
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-clock-history"></i> Review History</div>
+                <div class="form-section-body p-0">
+                    <div class="px-3 py-2">
+                        @foreach (var rev in reviewHistory)
+                        {
+                            var dotBg   = rev.Status == ReviewStatus.Approved ? "color-mix(in srgb,#22c55e 15%,transparent)"
+                                        : rev.Status == ReviewStatus.Rejected  ? "color-mix(in srgb,#ef4444 15%,transparent)"
+                                        : "color-mix(in srgb,var(--color-primary) 12%,transparent)";
+                            var dotIcon = rev.Status == ReviewStatus.Approved ? "bi-check2"
+                                        : rev.Status == ReviewStatus.Rejected  ? "bi-x-lg"
+                                        : "bi-hourglass-split";
+                            var dotClr  = rev.Status == ReviewStatus.Approved ? "#22c55e"
+                                        : rev.Status == ReviewStatus.Rejected  ? "#ef4444"
+                                        : "var(--color-primary)";
+                            var badge   = rev.Status == ReviewStatus.Approved
+                                            ? "<span class=\"badge bg-success\" style=\"font-size:10px;\">Approved</span>"
+                                        : rev.Status == ReviewStatus.Rejected
+                                            ? "<span class=\"badge bg-danger\" style=\"font-size:10px;\">Rejected</span>"
+                                        : "<span class=\"badge bg-warning text-dark\" style=\"font-size:10px;\">Pending approval</span>";
+                            <div class="d-flex gap-3 align-items-start mb-3">
+                                <div class="flex-shrink-0 rounded-circle d-flex align-items-center justify-content-center"
+                                     style="width:32px;height:32px;background:@dotBg;">
+                                    <i class="bi @dotIcon" style="color:@dotClr;font-size:14px;"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center gap-2 flex-wrap" style="font-size:13px;">
+                                        <span class="fw-semibold">@(rev.ReviewedBy?.FullName ?? "Unknown")</span>
+                                        @Html.Raw(badge)
+                                        <span class="text-muted" style="font-size:11px;">@rev.ReviewedAt.ToString("dd MMM yyyy HH:mm")</span>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(rev.Notes))
+                                    {
+                                        <div class="mt-1 p-2 rounded" style="background:#f8f9fa;font-size:12px;">@rev.Notes</div>
+                                    }
+                                    @if (rev.NextReviewDate.HasValue)
+                                    {
+                                        var nextLabel = rev.Status == ReviewStatus.Approved ? "Next review set to"
+                                                      : rev.Status == ReviewStatus.Pending  ? "Proposed next review"
+                                                      : "Proposed next review (not applied)";
+                                        <div class="text-muted mt-1" style="font-size:11px;">
+                                            <i class="bi bi-calendar-event me-1"></i>@nextLabel @rev.NextReviewDate.Value.ToString("dd MMM yyyy")
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        @await Html.PartialAsync("_AttachmentsPanel", (object)null!, new ViewDataDictionary(ViewData)
+        {
+            ["Controller"] = "Documents",
+            ["EntityId"] = Model.Id,
+            ["Attachments"] = ViewBag.Attachments,
+            ["CurrentUserId"] = currentUserId,
+            ["IsAdmin"] = isAdmin
+        })
+
     </div>
 
     <!-- Right: sidebar card -->
@@ -284,7 +458,7 @@
                     <div class="mb-3 p-3 rounded text-center" style="background:var(--bs-tertiary-bg);">
                         <i class="bi @DocumentViewHelpers.FileIcon(ext)" style="font-size:36px;color:var(--color-primary);"></i>
                         <div class="fw-semibold mt-1" style="font-size:13px;">@cv.OriginalFileName</div>
-                        <div class="text-muted" style="font-size:11px;">v@cv.VersionNumber · @DocumentViewHelpers.FormatSize(cv.FileSizeBytes)</div>
+                        <div class="text-muted" style="font-size:11px;">v@(cv.VersionNumber) · @DocumentViewHelpers.FormatSize(cv.FileSizeBytes)</div>
                     </div>
                     <a asp-action="Download" asp-route-versionId="@cv.Id" class="btn btn-primary w-100 mb-2">
                         <i class="bi bi-download me-1"></i> Download Current Version
@@ -296,6 +470,15 @@
                     <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-secondary w-100 mb-2">
                         <i class="bi bi-pencil me-1"></i> Edit Metadata
                     </a>
+                }
+
+                @if (canManage && Model.NextReviewDate.HasValue && Model.Status != DocumentStatus.Retired
+                     && reviewState != ReviewDueState.Overdue && reviewState != ReviewDueState.DueSoon)
+                {
+                    <button type="button" class="btn btn-outline-secondary w-100 mb-2"
+                            data-bs-toggle="modal" data-bs-target="#markReviewedModal">
+                        <i class="bi bi-clipboard2-check me-1"></i> Mark as Reviewed
+                    </button>
                 }
 
                 @if (canManage && Model.Status != DocumentStatus.Retired)
@@ -319,6 +502,41 @@
         </div>
     </div>
 </div>
+
+@if (canManage && Model.NextReviewDate.HasValue)
+{
+    <div class="modal fade" id="markReviewedModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-clipboard2-check me-2"></i>Mark as Reviewed</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form asp-action="MarkReviewed" asp-route-id="@Model.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="modal-body">
+                        <p class="text-muted" style="font-size:13px;">
+                            Recording a review will advance the next review date by
+                            <strong>@(Model.ReviewPeriodDays.HasValue ? $"{Model.ReviewPeriodDays} days" : "the configured period")</strong>
+                            and log this entry in the review history.
+                        </p>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Review Notes <small class="text-muted">(optional)</small></label>
+                            <textarea name="notes" class="form-control" rows="3"
+                                      placeholder="Summary of what was reviewed, any changes made or observations…"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check2 me-1"></i> Confirm Review
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
 
 @section Scripts {
 <script>
