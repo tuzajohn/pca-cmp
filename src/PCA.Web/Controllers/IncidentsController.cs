@@ -80,7 +80,7 @@ public class IncidentsController : Controller
 
         var autoTemplates = await _approvalService.GetAutoTriggerTemplatesAsync(AutoTriggerOn.OnSubmit, "Incident");
         if (autoTemplates.Any())
-            await _approvalService.InitiateApprovalFlowAsync("Incident", incident.Id, null);
+            await _approvalService.InitiateApprovalFlowAsync("Incident", incident.Id, null, user!.Id);
 
         TempData["Success"] = $"Incident {incident.SerialNumber} created.";
         return RedirectToAction(nameof(Details), new { id = incident.Id });

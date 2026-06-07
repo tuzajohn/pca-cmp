@@ -1,76 +1,101 @@
 @model List<PCA.Modules.Approvals.Models.ApprovalTemplate>
+@using PCA.Modules.Approvals.Models
 @{
-    ViewData["Title"] = "Admin - Approval Templates";
+    ViewData["Title"] = "Approval Templates";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2><i class="bi bi-gear"></i> Approval Templates</h2>
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Approval Templates</h1>
+        <p class="page-header-sub mb-0">@Model.Count template@(Model.Count == 1 ? "" : "s") defined</p>
+    </div>
     <div class="d-flex gap-2">
-        <a asp-action="Users" class="btn btn-outline-secondary"><i class="bi bi-people"></i> Users</a>
-        <a asp-action="CreateTemplate" class="btn btn-primary"><i class="bi bi-plus-lg"></i> New Template</a>
+        <a asp-action="Users" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-people me-1"></i> Users
+        </a>
+        <a asp-action="CreateTemplate" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i> New Template
+        </a>
     </div>
 </div>
 
-@if (!Model.Any())
-{
-    <div class="alert alert-info">No templates defined yet.</div>
-}
-else
-{
-    <div class="row g-3">
-        @foreach (var template in Model)
-        {
-            <div class="col-md-6 col-xl-4">
-                <div class="card h-100">
-                    <div class="card-header d-flex justify-content-between">
-                        <strong>@template.Name</strong>
-                        <span class="badge bg-primary">@template.EntityType</span>
-                        @if (!string.IsNullOrEmpty(template.EntitySubType))
-                        {
-                            <span class="badge bg-info text-dark ms-1">@template.EntitySubType</span>
-                        }
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="d-flex gap-2 flex-wrap px-3 pt-3 pb-2">
-                            <span class="badge bg-secondary" style="font-size:10px;">@template.ApprovalMode</span>
-                            @if (template.AutoTriggerOn != PCA.Modules.Approvals.Models.AutoTriggerOn.None)
+<div class="card">
+    @if (!Model.Any())
+    {
+        <div class="card-body text-center py-5 text-muted">
+            <i class="bi bi-layout-text-window-reverse fs-1 d-block mb-2 opacity-25"></i>
+            No templates defined yet.
+            <a asp-action="CreateTemplate" class="d-block mt-2"><i class="bi bi-plus-circle me-1"></i>Create your first template</a>
+        </div>
+    }
+    else
+    {
+        <table class="table mb-0" style="font-size:13px;">
+            <thead>
+                <tr>
+                    <th class="ps-3">Name</th>
+                    <th>Module</th>
+                    <th>Trigger</th>
+                    <th>Mode</th>
+                    <th>Steps</th>
+                    <th>Condition</th>
+                    <th class="pe-3"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in Model)
+                {
+                    <tr>
+                        <td class="ps-3 fw-semibold align-middle">@t.Name</td>
+                        <td class="align-middle">
+                            <span class="status-badge status-submitted">@t.EntityType</span>
+                            @if (!string.IsNullOrEmpty(t.EntitySubType))
                             {
-                                <span class="badge bg-warning text-dark" style="font-size:10px;">⚡ @template.AutoTriggerOn</span>
+                                <span class="status-badge status-draft ms-1">@t.EntitySubType</span>
                             }
-                            @if (!string.IsNullOrEmpty(template.ConditionField))
+                        </td>
+                        <td class="align-middle">
+                            @if (t.AutoTriggerOn != AutoTriggerOn.None)
                             {
-                                <span class="badge bg-light text-dark border" style="font-size:10px;">If @template.ConditionField = @template.ConditionValue</span>
+                                <span class="status-badge status-underreview">⚡ @t.AutoTriggerOn</span>
                             }
-                        </div>
-
-                        @{
-                            var previewSteps = template.Steps.OrderBy(s => s.Order)
-                                .Select(s => new PCA.Modules.Approvals.Models.ApprovalStep
-                                {
-                                    Order      = s.Order,
-                                    RoleName   = s.RoleName,
-                                    Approver   = s.Approver,
-                                    ApproverId = s.ApproverId,
-                                    Status     = PCA.Shared.Enums.ApprovalStatus.Pending
-                                }).ToList();
-                        }
-                        @await Html.PartialAsync("_ApprovalFlowChart", (object)null!, new ViewDataDictionary(ViewData)
-                        {
-                            ["Steps"]      = previewSteps,
-                            ["EntityType"] = template.EntityType,
-                            ["EntityId"]   = 0
-                        })
-                    </div>
-                    <div class="card-footer d-flex gap-2">
-                        <a asp-action="TemplateDetails" asp-route-id="@template.Id" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-eye me-1"></i>Details
-                        </a>
-                        <a asp-action="EditTemplate" asp-route-id="@template.Id" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-pencil me-1"></i>Edit
-                        </a>
-                    </div>
-                </div>
-            </div>
-        }
-    </div>
-}
+                            else
+                            {
+                                <span class="text-muted">Manual</span>
+                            }
+                        </td>
+                        <td class="align-middle">
+                            @if (t.ApprovalMode == ApprovalMode.AllMustApprove)
+                            {
+                                <span class="status-badge status-approved">All Must Approve</span>
+                            }
+                            else
+                            {
+                                <span class="status-badge status-implemented">Any Can Approve</span>
+                            }
+                        </td>
+                        <td class="align-middle text-muted">@t.Steps.Count step@(t.Steps.Count == 1 ? "" : "s")</td>
+                        <td class="align-middle">
+                            @if (!string.IsNullOrEmpty(t.ConditionField))
+                            {
+                                <code style="font-size:11px;">@t.ConditionField = @t.ConditionValue</code>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </td>
+                        <td class="pe-3 align-middle text-end">
+                            <a asp-action="TemplateDetails" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-eye me-1"></i>Details
+                            </a>
+                            <a asp-action="EditTemplate" asp-route-id="@t.Id" class="btn btn-sm btn-outline-primary ms-1">
+                                <i class="bi bi-pencil me-1"></i>Edit
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>

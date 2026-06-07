@@ -10,6 +10,7 @@ public interface IApplicationDbContextForApprovals
 {
     DbSet<ApprovalTemplate> ApprovalTemplates { get; }
     DbSet<ApprovalTemplateStep> ApprovalTemplateSteps { get; }
+    DbSet<ApprovalFlow> ApprovalFlows { get; }
     DbSet<ApprovalStep> ApprovalSteps { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
@@ -60,31 +61,64 @@ public class ApprovalService : IApprovalService
         return template;
     }
 
-    public async Task InitiateApprovalFlowAsync(string entityType, int entityId, string? entitySubType)
+    public async Task InitiateApprovalFlowAsync(string entityType, int entityId, string? entitySubType, string? initiatedById = null)
     {
-        var existing = await _db.ApprovalSteps
-            .Where(s => s.EntityType == entityType && s.EntityId == entityId)
+        // Cancel any in-progress flow for this entity
+        var existing = await _db.ApprovalFlows
+            .Where(f => f.EntityType == entityType && f.EntityId == entityId && f.Status == FlowStatus.InProgress)
             .ToListAsync();
-        foreach (var s in existing) _db.ApprovalSteps.Remove(s);
+        foreach (var f in existing)
+        {
+            f.Status   = FlowStatus.Cancelled;
+            f.ClosedAt = DateTime.UtcNow;
+        }
 
         var template = await GetTemplateForEntityAsync(entityType, entitySubType);
-        if (template == null) return;
+        if (template == null) { await _db.SaveChangesAsync(); return; }
+
+        var flow = new ApprovalFlow
+        {
+            EntityType      = entityType,
+            EntityId        = entityId,
+            TemplateId      = template.Id,
+            Status          = FlowStatus.InProgress,
+            CurrentStepOrder = 1,
+            InitiatedById   = initiatedById ?? string.Empty,
+            InitiatedAt     = DateTime.UtcNow,
+            CreatedAt       = DateTime.UtcNow,
+            UpdatedAt       = DateTime.UtcNow
+        };
+        _db.ApprovalFlows.Add(flow);
+        await _db.SaveChangesAsync(); // get flow.Id
 
         foreach (var ts in template.Steps.OrderBy(s => s.Order))
         {
             _db.ApprovalSteps.Add(new ApprovalStep
             {
+                FlowId     = flow.Id,
                 EntityType = entityType,
-                EntityId = entityId,
-                Order = ts.Order,
+                EntityId   = entityId,
+                Order      = ts.Order,
+                RoleName   = ts.RoleName,
                 ApproverId = ts.ApproverId,
-                Status = ApprovalStatus.Pending,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                Status     = ApprovalStatus.Pending,
+                CreatedAt  = DateTime.UtcNow,
+                UpdatedAt  = DateTime.UtcNow
             });
         }
 
         await _db.SaveChangesAsync();
+    }
+
+    public async Task<ApprovalFlow?> GetActiveFlowAsync(string entityType, int entityId)
+    {
+        return await _db.ApprovalFlows
+            .Include(f => f.InitiatedBy)
+            .Include(f => f.ReturnedBy)
+            .Include(f => f.Steps).ThenInclude(s => s.Approver)
+            .Where(f => f.EntityType == entityType && f.EntityId == entityId)
+            .OrderByDescending(f => f.InitiatedAt)
+            .FirstOrDefaultAsync();
     }
 
     public async Task<List<ApprovalTemplate>> GetAutoTriggerTemplatesAsync(AutoTriggerOn trigger, string entityType)
@@ -118,13 +152,32 @@ public class ApprovalService : IApprovalService
         if (step == null || step.ApproverId != approverId || step.Status != ApprovalStatus.Pending)
             return ApprovalOutcome.StillPending;
 
-        step.Status = ApprovalStatus.Approved;
-        step.Comment = comment;
-        step.ActedAt = DateTime.UtcNow;
+        step.Status    = ApprovalStatus.Approved;
+        step.Comment   = comment;
+        step.ActedAt   = DateTime.UtcNow;
         step.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
-        return await EvaluateOutcomeAsync(step.EntityType, step.EntityId);
+        var outcome = await EvaluateOutcomeAsync(step.EntityType, step.EntityId);
+
+        var flow = await _db.ApprovalFlows.FirstOrDefaultAsync(
+            f => f.EntityType == step.EntityType && f.EntityId == step.EntityId && f.Status == FlowStatus.InProgress);
+        if (flow != null)
+        {
+            if (outcome == ApprovalOutcome.AllApproved)
+            {
+                flow.Status   = FlowStatus.Approved;
+                flow.ClosedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                flow.CurrentStepOrder = step.Order + 1;
+            }
+            flow.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+
+        return outcome;
     }
 
     public async Task<ApprovalOutcome> RejectStepAsync(int stepId, string approverId, string comment)
@@ -133,11 +186,21 @@ public class ApprovalService : IApprovalService
         if (step == null || step.ApproverId != approverId || step.Status != ApprovalStatus.Pending)
             return ApprovalOutcome.StillPending;
 
-        step.Status = ApprovalStatus.Rejected;
-        step.Comment = comment;
-        step.ActedAt = DateTime.UtcNow;
+        step.Status    = ApprovalStatus.Rejected;
+        step.Comment   = comment;
+        step.ActedAt   = DateTime.UtcNow;
         step.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        var flow = await _db.ApprovalFlows.FirstOrDefaultAsync(
+            f => f.EntityType == step.EntityType && f.EntityId == step.EntityId && f.Status == FlowStatus.InProgress);
+        if (flow != null)
+        {
+            flow.Status    = FlowStatus.Rejected;
+            flow.ClosedAt  = DateTime.UtcNow;
+            flow.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
 
         return await EvaluateOutcomeAsync(step.EntityType, step.EntityId);
     }
@@ -148,11 +211,23 @@ public class ApprovalService : IApprovalService
         if (step == null || step.ApproverId != approverId || step.Status != ApprovalStatus.Pending)
             return ApprovalOutcome.StillPending;
 
-        step.Status = ApprovalStatus.ReturnedForEdit;
-        step.Comment = comment;
-        step.ActedAt = DateTime.UtcNow;
+        step.Status    = ApprovalStatus.ReturnedForEdit;
+        step.Comment   = comment;
+        step.ActedAt   = DateTime.UtcNow;
         step.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        var flow = await _db.ApprovalFlows.FirstOrDefaultAsync(
+            f => f.EntityType == step.EntityType && f.EntityId == step.EntityId && f.Status == FlowStatus.InProgress);
+        if (flow != null)
+        {
+            flow.Status        = FlowStatus.ReturnedForEdit;
+            flow.ReturnComment = comment;
+            flow.ReturnedById  = approverId;
+            flow.ClosedAt      = DateTime.UtcNow;
+            flow.UpdatedAt     = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
 
         return ApprovalOutcome.ReturnedForEdit;
     }

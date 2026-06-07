@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PCA.Web.Data;
 
@@ -11,9 +12,11 @@ using PCA.Web.Data;
 namespace PCA.Web.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260605152944_AddAuthManagment")]
+    partial class AddAuthManagment
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -154,69 +157,6 @@ namespace PCA.Web.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("PCA.Modules.Approvals.Models.ApprovalFlow", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("ClosedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("CurrentStepOrder")
-                        .HasColumnType("int");
-
-                    b.Property<int>("EntityId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<DateTime>("InitiatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("InitiatedById")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("ReturnComment")
-                        .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
-
-                    b.Property<string>("ReturnedById")
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("varchar(30)");
-
-                    b.Property<int>("TemplateId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("InitiatedById");
-
-                    b.HasIndex("ReturnedById");
-
-                    b.HasIndex("TemplateId");
-
-                    b.HasIndex("EntityType", "EntityId");
-
-                    b.ToTable("ApprovalFlows", (string)null);
-                });
-
             modelBuilder.Entity("PCA.Modules.Approvals.Models.ApprovalStep", b =>
                 {
                     b.Property<int>("Id")
@@ -247,9 +187,6 @@ namespace PCA.Web.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
-                    b.Property<int?>("FlowId")
-                        .HasColumnType("int");
-
                     b.Property<int>("Order")
                         .HasColumnType("int");
 
@@ -266,8 +203,6 @@ namespace PCA.Web.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ApproverId");
-
-                    b.HasIndex("FlowId");
 
                     b.HasIndex("EntityType", "EntityId");
 
@@ -1408,32 +1343,6 @@ namespace PCA.Web.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("PCA.Modules.Approvals.Models.ApprovalFlow", b =>
-                {
-                    b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "InitiatedBy")
-                        .WithMany()
-                        .HasForeignKey("InitiatedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "ReturnedBy")
-                        .WithMany()
-                        .HasForeignKey("ReturnedById")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("PCA.Modules.Approvals.Models.ApprovalTemplate", "Template")
-                        .WithMany()
-                        .HasForeignKey("TemplateId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("InitiatedBy");
-
-                    b.Navigation("ReturnedBy");
-
-                    b.Navigation("Template");
-                });
-
             modelBuilder.Entity("PCA.Modules.Approvals.Models.ApprovalStep", b =>
                 {
                     b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "Approver")
@@ -1442,14 +1351,7 @@ namespace PCA.Web.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("PCA.Modules.Approvals.Models.ApprovalFlow", "Flow")
-                        .WithMany("Steps")
-                        .HasForeignKey("FlowId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("Approver");
-
-                    b.Navigation("Flow");
                 });
 
             modelBuilder.Entity("PCA.Modules.Approvals.Models.ApprovalTemplateStep", b =>
@@ -1684,11 +1586,6 @@ namespace PCA.Web.Migrations
                         .IsRequired();
 
                     b.Navigation("UploadedBy");
-                });
-
-            modelBuilder.Entity("PCA.Modules.Approvals.Models.ApprovalFlow", b =>
-                {
-                    b.Navigation("Steps");
                 });
 
             modelBuilder.Entity("PCA.Modules.Approvals.Models.ApprovalTemplate", b =>

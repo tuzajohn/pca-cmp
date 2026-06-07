@@ -33,6 +33,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     // Approvals
     public DbSet<ApprovalTemplate> ApprovalTemplates => Set<ApprovalTemplate>();
     public DbSet<ApprovalTemplateStep> ApprovalTemplateSteps => Set<ApprovalTemplateStep>();
+    public DbSet<ApprovalFlow> ApprovalFlows => Set<ApprovalFlow>();
     public DbSet<ApprovalStep> ApprovalSteps => Set<ApprovalStep>();
 
     // Documents
@@ -59,6 +60,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     // Theme
     public DbSet<ThemeSettings> ThemeSettings => Set<ThemeSettings>();
 
+    // API Keys
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -68,6 +72,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
         builder.ApplyConfiguration(new ChangeRequestSequenceConfiguration());
         builder.ApplyConfiguration(new ApprovalTemplateConfiguration());
         builder.ApplyConfiguration(new ApprovalTemplateStepConfiguration());
+        builder.ApplyConfiguration(new ApprovalFlowConfiguration());
         builder.ApplyConfiguration(new ApprovalStepConfiguration());
         builder.ApplyConfiguration(new DocumentReviewConfiguration());
         builder.ApplyConfiguration(new DocumentFolderConfiguration());
@@ -98,6 +103,16 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
             b.Property(x => x.IpAddress).HasMaxLength(45);
             b.HasIndex(x => x.Timestamp);
             b.HasIndex(x => new { x.Source, x.Level });
+        });
+
+        builder.Entity<ApiKey>(b =>
+        {
+            b.ToTable("ApiKeys");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.AppName).HasMaxLength(200).IsRequired();
+            b.Property(x => x.KeyHash).HasMaxLength(64).IsRequired();
+            b.Property(x => x.KeyPrefix).HasMaxLength(16).IsRequired();
+            b.HasIndex(x => x.KeyHash).IsUnique();
         });
 
         builder.Entity<Attachment>(b =>

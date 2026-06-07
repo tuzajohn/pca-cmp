@@ -5,38 +5,41 @@
 @using PCA.Web.Helpers
 @{
     ViewData["Title"] = Model.Title;
-    var access = (AccessLevel)ViewBag.Access;
-    var isOwner = (bool)ViewBag.IsOwner;
-    var isAdmin = (bool)ViewBag.IsAdmin;
+    var access        = (AccessLevel)ViewBag.Access;
+    var isOwner       = (bool)ViewBag.IsOwner;
+    var isAdmin       = (bool)ViewBag.IsAdmin;
     var currentUserId = ViewBag.CurrentUserId as string;
-    var canManage = isAdmin || isOwner || access >= AccessLevel.Manager;
+    var canManage     = isAdmin || isOwner || access >= AccessLevel.Manager;
     var canContribute = canManage || access >= AccessLevel.Contributor;
-    var allUsers = ViewBag.AllUsers as List<PCA.Modules.Identity.Models.ApplicationUser> ?? new();
-    var folderPerms = ViewBag.FolderPermissions as List<FolderPermission> ?? new();
-    var docPerms = ViewBag.DocumentPermissions as List<DocumentPermission> ?? new();
-    var approvalSteps  = ViewBag.ApprovalSteps  as List<ApprovalStep>   ?? new();
-    var reviewHistory  = ViewBag.ReviewHistory  as List<DocumentReview> ?? new();
-    var reviewState    = Model.GetReviewDueState();
+    var allUsers      = ViewBag.AllUsers as List<PCA.Modules.Identity.Models.ApplicationUser> ?? new();
+    var folderPerms   = ViewBag.FolderPermissions as List<FolderPermission> ?? new();
+    var docPerms      = ViewBag.DocumentPermissions as List<DocumentPermission> ?? new();
+    var approvalSteps = ViewBag.ApprovalSteps as List<ApprovalStep> ?? new();
+    var activeFlow    = ViewBag.ActiveFlow as ApprovalFlow;
+    var reviewHistory = ViewBag.ReviewHistory as List<DocumentReview> ?? new();
+    var reviewState   = Model.GetReviewDueState();
     var daysUntilReview = Model.NextReviewDate.HasValue
         ? (Model.NextReviewDate.Value.Date - DateTime.UtcNow.Date).TotalDays
         : (double?)null;
+
+    var myStep = approvalSteps.FirstOrDefault(s =>
+        s.Status == ApprovalStatus.Pending && s.ApproverId == currentUserId &&
+        approvalSteps.Where(x => x.Order < s.Order).All(x => x.Status == ApprovalStatus.Approved));
 }
 
+@* Review / returned banners *@
 @if (reviewState == ReviewDueState.Overdue)
 {
     <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
         <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
         <div class="flex-grow-1">
-            <strong>Review Overdue</strong> — This document was due for review on
-            <strong>@Model.NextReviewDate!.Value.ToString("dd MMM yyyy")</strong>
+            <strong>Review Overdue</strong> — due <strong>@Model.NextReviewDate!.Value.ToString("dd MMM yyyy")</strong>
             (@((int)Math.Abs(daysUntilReview!.Value)) day@(Math.Abs(daysUntilReview!.Value) == 1 ? "" : "s") ago).
         </div>
         @if (canManage)
         {
             <button type="button" class="btn btn-danger btn-sm flex-shrink-0"
-                    data-bs-toggle="modal" data-bs-target="#markReviewedModal">
-                Mark as Reviewed
-            </button>
+                    data-bs-toggle="modal" data-bs-target="#markReviewedModal">Mark as Reviewed</button>
         }
     </div>
 }
@@ -45,17 +48,55 @@ else if (reviewState == ReviewDueState.DueSoon)
     <div class="alert alert-warning d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
         <i class="bi bi-clock-history fs-5 flex-shrink-0"></i>
         <div class="flex-grow-1">
-            <strong>Review Due Soon</strong> — This document is due for review on
-            <strong>@Model.NextReviewDate!.Value.ToString("dd MMM yyyy")</strong>
+            <strong>Review Due Soon</strong> — due <strong>@Model.NextReviewDate!.Value.ToString("dd MMM yyyy")</strong>
             (@((int)daysUntilReview!.Value == 0 ? "today" : $"in {(int)daysUntilReview.Value} day{((int)daysUntilReview.Value == 1 ? "" : "s")}")).
         </div>
         @if (canManage)
         {
             <button type="button" class="btn btn-warning btn-sm flex-shrink-0"
-                    data-bs-toggle="modal" data-bs-target="#markReviewedModal">
-                Mark as Reviewed
-            </button>
+                    data-bs-toggle="modal" data-bs-target="#markReviewedModal">Mark as Reviewed</button>
         }
+    </div>
+}
+
+@if (activeFlow?.Status == FlowStatus.ReturnedForEdit)
+{
+    <div class="alert d-flex align-items-start gap-3 mb-3"
+         style="background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;">
+        <i class="bi bi-arrow-return-left fs-5 flex-shrink-0 mt-1" style="color:#d97706;"></i>
+        <div class="flex-grow-1">
+            <div class="fw-semibold mb-1" style="color:#92400e;">Returned for Edit</div>
+            <div style="font-size:13px;color:#78350f;">
+                <strong>@(activeFlow.ReturnedBy?.FullName ?? "An approver")</strong>
+                returned this document on @activeFlow.ClosedAt?.ToString("dd MMM yyyy"):
+            </div>
+            <blockquote class="mt-2 mb-0 ps-3"
+                        style="border-left:3px solid #f59e0b;font-size:13px;color:#92400e;font-style:italic;">
+                @activeFlow.ReturnComment
+            </blockquote>
+        </div>
+        @if (canManage)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning btn-sm flex-shrink-0">
+                <i class="bi bi-pencil me-1"></i>Edit
+            </a>
+        }
+    </div>
+}
+
+@* "Your approval is required" banner — shown at top so approver sees it immediately *@
+@if (myStep != null)
+{
+    <div class="alert d-flex align-items-center justify-content-between gap-3 mb-3"
+         style="background:color-mix(in srgb,var(--color-primary) 6%,transparent);border:1px solid color-mix(in srgb,var(--color-primary) 20%,transparent);border-radius:10px;">
+        <div style="font-size:13px;">
+            <i class="bi bi-bell-fill me-2" style="color:var(--color-primary);"></i>
+            <strong>Your approval is required</strong> — Step @myStep.Order
+        </div>
+        <button type="button" class="btn btn-primary btn-sm flex-shrink-0"
+                data-bs-toggle="modal" data-bs-target="#approvalActionModal">
+            <i class="bi bi-check2-square me-1"></i> Take Action
+        </button>
     </div>
 }
 
@@ -80,10 +121,11 @@ else if (reviewState == ReviewDueState.DueSoon)
 </div>
 
 <div class="row g-3">
-    <!-- Left: main content -->
+
+    @* Left column *@
     <div class="col-lg-8">
 
-        <!-- Metadata -->
+        @* Document info *@
         <div class="form-section">
             <div class="form-section-header"><i class="bi bi-info-circle"></i> Document Information</div>
             <div class="form-section-body">
@@ -121,9 +163,50 @@ else if (reviewState == ReviewDueState.DueSoon)
             </div>
         </div>
 
-        <!-- Version History -->
+        @* Versions + upload *@
         <div class="form-section">
-            <div class="form-section-header"><i class="bi bi-clock-history"></i> Version History</div>
+            <div class="form-section-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock-history me-2"></i>Versions</span>
+                @if (canContribute && Model.Status != DocumentStatus.Retired)
+                {
+                    <button class="btn btn-outline-primary btn-sm" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#uploadVersionPanel">
+                        <i class="bi bi-cloud-upload me-1"></i>Upload New
+                    </button>
+                }
+            </div>
+
+            @if (canContribute && Model.Status != DocumentStatus.Retired)
+            {
+                <div class="collapse" id="uploadVersionPanel">
+                    <div class="form-section-body border-bottom">
+                        <form asp-action="UploadVersion" method="post" enctype="multipart/form-data">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="DocumentId" value="@Model.Id" />
+                            <div class="mb-3">
+                                <div class="upload-zone" id="uploadZone">
+                                    <i class="bi bi-cloud-upload" style="font-size:28px;color:var(--color-primary);opacity:.7;"></i>
+                                    <p class="mb-1 mt-2" style="font-size:13px;font-weight:600;">Drag and drop or click to choose file</p>
+                                    <p class="text-muted mb-2" style="font-size:11px;">PDF, DOCX, XLSX, PPTX, TXT, CSV, PNG, JPG, ZIP — max 50 MB</p>
+                                    <input type="file" name="File" id="fileInput" class="d-none" />
+                                    <button type="button" class="btn btn-outline-primary btn-sm"
+                                            onclick="document.getElementById('fileInput').click()">Browse</button>
+                                    <div id="fileLabel" class="mt-2 text-muted" style="font-size:12px;"></div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Change Notes</label>
+                                <input type="text" name="ChangeNotes" class="form-control"
+                                       placeholder="What changed in this version?" />
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-cloud-upload me-1"></i> Upload Version
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            }
+
             <div class="form-section-body p-0">
                 @if (!Model.Versions.Any())
                 {
@@ -175,7 +258,8 @@ else if (reviewState == ReviewDueState.DueSoon)
                                                     @Html.AntiForgeryToken()
                                                     <input type="hidden" name="versionId" value="@v.Id" />
                                                     <input type="hidden" name="documentId" value="@Model.Id" />
-                                                    <button class="btn btn-outline-primary btn-sm" title="Make current" style="padding:2px 7px;"
+                                                    <button class="btn btn-outline-primary btn-sm" title="Make current"
+                                                            style="padding:2px 7px;"
                                                             onclick="return confirm('Make this the current version?')">
                                                         <i class="bi bi-arrow-up-circle"></i>
                                                     </button>
@@ -184,7 +268,8 @@ else if (reviewState == ReviewDueState.DueSoon)
                                                     @Html.AntiForgeryToken()
                                                     <input type="hidden" name="versionId" value="@v.Id" />
                                                     <input type="hidden" name="documentId" value="@Model.Id" />
-                                                    <button class="btn btn-outline-danger btn-sm" title="Delete version" style="padding:2px 7px;"
+                                                    <button class="btn btn-outline-danger btn-sm" title="Delete version"
+                                                            style="padding:2px 7px;"
                                                             onclick="return confirm('Delete this version permanently?')">
                                                         <i class="bi bi-trash"></i>
                                                     </button>
@@ -200,174 +285,64 @@ else if (reviewState == ReviewDueState.DueSoon)
             </div>
         </div>
 
-        <!-- Upload new version -->
-        @if (canContribute && Model.Status != DocumentStatus.Retired)
-        {
-            <div class="form-section">
-                <div class="form-section-header"><i class="bi bi-cloud-upload"></i> Upload New Version</div>
-                <div class="form-section-body">
-                    <form asp-action="UploadVersion" method="post" enctype="multipart/form-data">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="DocumentId" value="@Model.Id" />
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">File <span class="text-danger">*</span></label>
-                            <div class="upload-zone" id="uploadZone">
-                                <i class="bi bi-cloud-upload" style="font-size:28px;color:var(--color-primary);opacity:.7;"></i>
-                                <p class="mb-1 mt-2" style="font-size:13px;font-weight:600;">Drag and drop or click to choose file</p>
-                                <p class="text-muted mb-2" style="font-size:11px;">PDF, DOCX, XLSX, PPTX, TXT, CSV, PNG, JPG, ZIP — max 50 MB</p>
-                                <input type="file" name="File" id="fileInput" class="d-none" />
-                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('fileInput').click()">
-                                    Browse
-                                </button>
-                                <div id="fileLabel" class="mt-2 text-muted" style="font-size:12px;"></div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Change Notes</label>
-                            <input type="text" name="ChangeNotes" class="form-control" placeholder="What changed in this version?" />
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-sm">
-                            <i class="bi bi-cloud-upload me-1"></i> Upload Version
-                        </button>
-                    </form>
-                </div>
-            </div>
-        }
-
-        <!-- Permissions -->
-        @if (canManage)
-        {
-            <div class="form-section">
-                <div class="form-section-header"><i class="bi bi-shield-lock"></i> Document Permissions</div>
-                <div class="form-section-body">
-                    <p class="text-muted small mb-3">These override folder-level permissions for this specific document.</p>
-
-                    @if (folderPerms.Any())
-                    {
-                        <div class="mb-3 p-2 rounded" style="background:var(--bs-tertiary-bg);font-size:12px;">
-                            <strong>Inherited from folder:</strong>
-                            @foreach (var p in folderPerms)
-                            {
-                                <span class="badge ms-1" style="background:color-mix(in srgb,var(--color-primary) 15%,transparent);color:var(--color-primary);">
-                                    @p.SubjectType: @p.SubjectId — @p.AccessLevel
-                                </span>
-                            }
-                        </div>
-                    }
-
-                    @if (docPerms.Any())
-                    {
-                        <table class="table table-sm mb-3" style="font-size:13px;">
-                            <thead><tr><th>Type</th><th>Subject</th><th>Level</th><th></th></tr></thead>
-                            <tbody>
-                                @foreach (var p in docPerms)
-                                {
-                                    <tr>
-                                        <td>@p.SubjectType</td>
-                                        <td>@p.SubjectId</td>
-                                        <td><span class="status-badge status-approved" style="font-size:10px;">@p.AccessLevel</span></td>
-                                        <td>
-                                            <form asp-action="RemoveDocumentPermission" method="post" class="d-inline">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="permissionId" value="@p.Id" />
-                                                <input type="hidden" name="documentId" value="@Model.Id" />
-                                                <button class="btn btn-outline-danger btn-sm" style="padding:1px 6px;font-size:11px;">Remove</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-
-                    <form asp-action="GrantDocumentPermission" method="post" class="row g-2 align-items-end">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="DocumentId" value="@Model.Id" />
-                        <div class="col-md-3">
-                            <label class="form-label small">Type</label>
-                            <select name="SubjectType" class="form-select form-select-sm">
-                                <option value="User">User</option>
-                                <option value="Role">Role</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small">User / Role</label>
-                            <select name="SubjectId" id="docPermSubject" class="form-select form-select-sm">
-                                @foreach (var u in allUsers)
-                                {
-                                    <option value="@u.Id">@u.FullName (@u.Email)</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small">Access Level</label>
-                            <select name="AccessLevel" class="form-select form-select-sm">
-                                <option value="Viewer">Viewer</option>
-                                <option value="Contributor">Contributor</option>
-                                <option value="Manager">Manager</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary btn-sm w-100">Grant</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        }
-        @* Approval flow panel *@
+        @* Approval *@
         @if (approvalSteps.Any())
         {
             <div class="form-section">
-                <div class="form-section-header"><i class="bi bi-check2-circle"></i> Approval Flow</div>
+                <div class="form-section-header"><i class="bi bi-check2-circle"></i> Approval</div>
                 <div class="form-section-body p-0">
-                    @await Html.PartialAsync("_ApprovalFlowChart", (object)null!, new ViewDataDictionary(ViewData)
-                    {
-                        ["Steps"]      = approvalSteps,
-                        ["EntityType"] = "Document",
-                        ["EntityId"]   = Model.Id
-                    })
-
-                    @* Inline action for the current approver's active step *@
-                    @{ var myStep = approvalSteps.FirstOrDefault(s => s.Status == ApprovalStatus.Pending && s.ApproverId == currentUserId
-                            && approvalSteps.Where(x => x.Order < s.Order).All(x => x.Status == ApprovalStatus.Approved)); }
-                    @if (myStep != null)
-                    {
-                        <div class="px-3 pb-3 d-flex gap-2 align-items-center flex-wrap">
-                            <span class="text-muted" style="font-size:12px;"><i class="bi bi-arrow-return-right me-1"></i>Your turn — Step @myStep.Order:</span>
-                            <form asp-controller="Approvals" asp-action="Approve" method="post" class="d-inline">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="stepId" value="@myStep.Id" />
-                                <input type="hidden" name="entityType" value="Document" />
-                                <input type="hidden" name="entityId" value="@Model.Id" />
-                                <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check2 me-1"></i>Approve</button>
-                            </form>
-                            <form asp-controller="Approvals" asp-action="Reject" method="post" class="d-inline d-flex gap-1">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="stepId" value="@myStep.Id" />
-                                <input type="hidden" name="entityType" value="Document" />
-                                <input type="hidden" name="entityId" value="@Model.Id" />
-                                <input type="text" name="comment" class="form-control form-control-sm" style="width:160px;" placeholder="Rejection reason…" required />
-                                <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-x-lg me-1"></i>Reject</button>
-                            </form>
-                            <form asp-controller="Approvals" asp-action="ReturnForEdit" method="post" class="d-inline d-flex gap-1">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="stepId" value="@myStep.Id" />
-                                <input type="hidden" name="entityType" value="Document" />
-                                <input type="hidden" name="entityId" value="@Model.Id" />
-                                <input type="text" name="comment" class="form-control form-control-sm" style="width:200px;" placeholder="What needs to be corrected…" required />
-                                <button type="submit" class="btn btn-warning btn-sm"><i class="bi bi-arrow-return-left me-1"></i>Return for Edit</button>
-                            </form>
-                        </div>
-                    }
+                    <table class="table table-sm mb-0" style="font-size:13px;">
+                        <thead style="background:var(--bs-tertiary-bg);">
+                            <tr>
+                                <th class="ps-3">Step</th>
+                                <th>Approver</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th class="pe-3">Comment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var step in approvalSteps.OrderBy(s => s.Order))
+                            {
+                                var badgeCls = step.Status switch {
+                                    ApprovalStatus.Approved        => "bg-success",
+                                    ApprovalStatus.Rejected        => "bg-danger",
+                                    ApprovalStatus.ReturnedForEdit => "bg-warning text-dark",
+                                    _                              => "bg-secondary"
+                                };
+                                var isActive = step.Status == ApprovalStatus.Pending &&
+                                    approvalSteps.Where(x => x.Order < step.Order).All(x => x.Status == ApprovalStatus.Approved);
+                                <tr class="@(isActive ? "table-active" : "")">
+                                    <td class="ps-3 align-middle fw-semibold">@step.Order</td>
+                                    <td class="align-middle">@(step.Approver?.FullName ?? "—")</td>
+                                    <td class="align-middle text-muted">@(string.IsNullOrEmpty(step.RoleName) ? "—" : step.RoleName)</td>
+                                    <td class="align-middle">
+                                        <span class="badge @badgeCls" style="font-size:10px;">
+                                            @(isActive ? "Awaiting" : step.Status.ToString())
+                                        </span>
+                                    </td>
+                                    <td class="align-middle text-muted" style="white-space:nowrap;">
+                                        @(step.ActedAt.HasValue ? step.ActedAt.Value.ToString("dd MMM yyyy") : "—")
+                                    </td>
+                                    <td class="align-middle pe-3 text-muted fst-italic" style="font-size:12px;">
+                                        @(string.IsNullOrEmpty(step.Comment) ? "" : $"\"{step.Comment}\"")
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
             </div>
         }
-        else if (canManage && Model.Status == PCA.Shared.Enums.DocumentStatus.Draft)
+        else if (canManage && Model.Status == DocumentStatus.Draft)
         {
             <div class="form-section">
                 <div class="form-section-header"><i class="bi bi-check2-circle"></i> Approval</div>
                 <div class="form-section-body">
-                    <p class="text-muted mb-3" style="font-size:13px;">This document has not been submitted for approval yet.</p>
+                    <p class="text-muted mb-3" style="font-size:13px;">
+                        This document has not been submitted for approval yet.
+                    </p>
                     <form asp-action="SubmitForApproval" asp-route-id="@Model.Id" method="post">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-primary btn-sm">
@@ -378,56 +353,87 @@ else if (reviewState == ReviewDueState.DueSoon)
             </div>
         }
 
-        @* Review history *@
-        @if (reviewHistory.Any())
+        @* Permissions (manager only, collapsed by default if no overrides) *@
+        @if (canManage)
         {
             <div class="form-section">
-                <div class="form-section-header"><i class="bi bi-clock-history"></i> Review History</div>
-                <div class="form-section-body p-0">
-                    <div class="px-3 py-2">
-                        @foreach (var rev in reviewHistory)
+                <div class="form-section-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-shield-lock me-2"></i>Permissions</span>
+                    <button class="btn btn-link btn-sm p-0 text-muted" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#permissionsPanel"
+                            style="font-size:12px;">
+                        @(docPerms.Any() ? $"{docPerms.Count} override(s)" : "No overrides") <i class="bi bi-chevron-down ms-1"></i>
+                    </button>
+                </div>
+                <div class="collapse @(docPerms.Any() ? "show" : "")" id="permissionsPanel">
+                    <div class="form-section-body">
+                        @if (folderPerms.Any())
                         {
-                            var dotBg   = rev.Status == ReviewStatus.Approved ? "color-mix(in srgb,#22c55e 15%,transparent)"
-                                        : rev.Status == ReviewStatus.Rejected  ? "color-mix(in srgb,#ef4444 15%,transparent)"
-                                        : "color-mix(in srgb,var(--color-primary) 12%,transparent)";
-                            var dotIcon = rev.Status == ReviewStatus.Approved ? "bi-check2"
-                                        : rev.Status == ReviewStatus.Rejected  ? "bi-x-lg"
-                                        : "bi-hourglass-split";
-                            var dotClr  = rev.Status == ReviewStatus.Approved ? "#22c55e"
-                                        : rev.Status == ReviewStatus.Rejected  ? "#ef4444"
-                                        : "var(--color-primary)";
-                            var badge   = rev.Status == ReviewStatus.Approved
-                                            ? "<span class=\"badge bg-success\" style=\"font-size:10px;\">Approved</span>"
-                                        : rev.Status == ReviewStatus.Rejected
-                                            ? "<span class=\"badge bg-danger\" style=\"font-size:10px;\">Rejected</span>"
-                                        : "<span class=\"badge bg-warning text-dark\" style=\"font-size:10px;\">Pending approval</span>";
-                            <div class="d-flex gap-3 align-items-start mb-3">
-                                <div class="flex-shrink-0 rounded-circle d-flex align-items-center justify-content-center"
-                                     style="width:32px;height:32px;background:@dotBg;">
-                                    <i class="bi @dotIcon" style="color:@dotClr;font-size:14px;"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <div class="d-flex align-items-center gap-2 flex-wrap" style="font-size:13px;">
-                                        <span class="fw-semibold">@(rev.ReviewedBy?.FullName ?? "Unknown")</span>
-                                        @Html.Raw(badge)
-                                        <span class="text-muted" style="font-size:11px;">@rev.ReviewedAt.ToString("dd MMM yyyy HH:mm")</span>
-                                    </div>
-                                    @if (!string.IsNullOrEmpty(rev.Notes))
-                                    {
-                                        <div class="mt-1 p-2 rounded" style="background:#f8f9fa;font-size:12px;">@rev.Notes</div>
-                                    }
-                                    @if (rev.NextReviewDate.HasValue)
-                                    {
-                                        var nextLabel = rev.Status == ReviewStatus.Approved ? "Next review set to"
-                                                      : rev.Status == ReviewStatus.Pending  ? "Proposed next review"
-                                                      : "Proposed next review (not applied)";
-                                        <div class="text-muted mt-1" style="font-size:11px;">
-                                            <i class="bi bi-calendar-event me-1"></i>@nextLabel @rev.NextReviewDate.Value.ToString("dd MMM yyyy")
-                                        </div>
-                                    }
-                                </div>
+                            <div class="mb-3 p-2 rounded" style="background:var(--bs-tertiary-bg);font-size:12px;">
+                                <strong>Inherited from folder:</strong>
+                                @foreach (var p in folderPerms)
+                                {
+                                    <span class="badge ms-1" style="background:color-mix(in srgb,var(--color-primary) 15%,transparent);color:var(--color-primary);">
+                                        @p.SubjectType: @p.SubjectId — @p.AccessLevel
+                                    </span>
+                                }
                             </div>
                         }
+                        @if (docPerms.Any())
+                        {
+                            <table class="table table-sm mb-3" style="font-size:13px;">
+                                <thead><tr><th>Type</th><th>Subject</th><th>Level</th><th></th></tr></thead>
+                                <tbody>
+                                    @foreach (var p in docPerms)
+                                    {
+                                        <tr>
+                                            <td>@p.SubjectType</td>
+                                            <td>@p.SubjectId</td>
+                                            <td><span class="status-badge status-approved" style="font-size:10px;">@p.AccessLevel</span></td>
+                                            <td>
+                                                <form asp-action="RemoveDocumentPermission" method="post" class="d-inline">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="permissionId" value="@p.Id" />
+                                                    <input type="hidden" name="documentId" value="@Model.Id" />
+                                                    <button class="btn btn-outline-danger btn-sm" style="padding:1px 6px;font-size:11px;">Remove</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                        <form asp-action="GrantDocumentPermission" method="post" class="row g-2 align-items-end">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="DocumentId" value="@Model.Id" />
+                            <div class="col-md-3">
+                                <label class="form-label small">Type</label>
+                                <select name="SubjectType" class="form-select form-select-sm">
+                                    <option value="User">User</option>
+                                    <option value="Role">Role</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">User / Role</label>
+                                <select name="SubjectId" id="docPermSubject" class="form-select form-select-sm">
+                                    @foreach (var u in allUsers)
+                                    {
+                                        <option value="@u.Id">@u.FullName (@u.Email)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Access Level</label>
+                                <select name="AccessLevel" class="form-select form-select-sm">
+                                    <option value="Viewer">Viewer</option>
+                                    <option value="Contributor">Contributor</option>
+                                    <option value="Manager">Manager</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary btn-sm w-100">Grant</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -435,18 +441,20 @@ else if (reviewState == ReviewDueState.DueSoon)
 
         @await Html.PartialAsync("_AttachmentsPanel", (object)null!, new ViewDataDictionary(ViewData)
         {
-            ["Controller"] = "Documents",
-            ["EntityId"] = Model.Id,
-            ["Attachments"] = ViewBag.Attachments,
+            ["Controller"]    = "Documents",
+            ["EntityId"]      = Model.Id,
+            ["Attachments"]   = ViewBag.Attachments,
             ["CurrentUserId"] = currentUserId,
-            ["IsAdmin"] = isAdmin
+            ["IsAdmin"]       = isAdmin
         })
 
     </div>
 
-    <!-- Right: sidebar card -->
+    @* Right sidebar *@
     <div class="col-lg-4">
-        <div class="card position-sticky" style="top:80px;">
+
+        @* Actions card *@
+        <div class="card mb-3 position-sticky" style="top:80px;">
             <div class="card-header"><i class="bi bi-file-earmark me-2"></i>Actions</div>
             <div class="card-body">
                 @{
@@ -464,14 +472,12 @@ else if (reviewState == ReviewDueState.DueSoon)
                         <i class="bi bi-download me-1"></i> Download Current Version
                     </a>
                 }
-
                 @if (canManage)
                 {
                     <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-secondary w-100 mb-2">
                         <i class="bi bi-pencil me-1"></i> Edit Metadata
                     </a>
                 }
-
                 @if (canManage && Model.NextReviewDate.HasValue && Model.Status != DocumentStatus.Retired
                      && reviewState != ReviewDueState.Overdue && reviewState != ReviewDueState.DueSoon)
                 {
@@ -480,11 +486,18 @@ else if (reviewState == ReviewDueState.DueSoon)
                         <i class="bi bi-clipboard2-check me-1"></i> Mark as Reviewed
                     </button>
                 }
-
+                @if (reviewHistory.Any())
+                {
+                    <button type="button" class="btn btn-outline-secondary w-100 mb-2"
+                            data-bs-toggle="offcanvas" data-bs-target="#reviewHistoryOffcanvas">
+                        <i class="bi bi-clipboard2-check me-1"></i> Review History
+                        <span class="badge ms-1" style="background:color-mix(in srgb,var(--color-primary) 15%,transparent);color:var(--color-primary);font-size:10px;">@reviewHistory.Count</span>
+                    </button>
+                }
                 @if (canManage && Model.Status != DocumentStatus.Retired)
                 {
                     <form asp-action="Retire" asp-route-id="@Model.Id" method="post"
-                          onsubmit="return confirm('Retire this document? It will remain visible but marked as retired.')">
+                          onsubmit="return confirm('Retire this document?')">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-outline-danger w-100">
                             <i class="bi bi-archive me-1"></i> Retire Document
@@ -500,9 +513,72 @@ else if (reviewState == ReviewDueState.DueSoon)
                 }
             </div>
         </div>
+
     </div>
 </div>
 
+@* Review History offcanvas *@
+@if (reviewHistory.Any())
+{
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="reviewHistoryOffcanvas" style="width:480px;">
+        <div class="offcanvas-header border-bottom">
+            <h6 class="offcanvas-title mb-0">
+                <i class="bi bi-clipboard2-check me-2"></i>Review History
+            </h6>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+            <table class="table table-sm mb-0" style="font-size:13px;">
+                <thead style="background:var(--bs-tertiary-bg);position:sticky;top:0;z-index:1;">
+                    <tr>
+                        <th class="ps-3">Date</th>
+                        <th>Reviewed By</th>
+                        <th>Status</th>
+                        <th class="pe-3">Notes / Next Review</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var rev in reviewHistory.OrderByDescending(r => r.ReviewedAt))
+                    {
+                        var rBadgeCls = rev.Status == ReviewStatus.Approved ? "bg-success"
+                                     : rev.Status == ReviewStatus.Rejected  ? "bg-danger"
+                                     : "bg-secondary";
+                        var rLabel = rev.Status == ReviewStatus.Approved ? "Approved"
+                                   : rev.Status == ReviewStatus.Rejected  ? "Rejected"
+                                   : "Pending";
+                        <tr>
+                            <td class="ps-3 align-top text-muted" style="white-space:nowrap;">
+                                @rev.ReviewedAt.ToString("dd MMM yyyy")
+                            </td>
+                            <td class="align-top">@(rev.ReviewedBy?.FullName ?? "—")</td>
+                            <td class="align-top">
+                                <span class="badge @rBadgeCls" style="font-size:10px;">@rLabel</span>
+                            </td>
+                            <td class="pe-3 align-top" style="font-size:12px;">
+                                @if (!string.IsNullOrEmpty(rev.Notes))
+                                {
+                                    <div class="fst-italic text-muted">@rev.Notes</div>
+                                }
+                                @if (rev.NextReviewDate.HasValue)
+                                {
+                                    <div class="text-muted mt-1">
+                                        <i class="bi bi-calendar-event me-1"></i>@rev.NextReviewDate.Value.ToString("dd MMM yyyy")
+                                    </div>
+                                }
+                                @if (string.IsNullOrEmpty(rev.Notes) && !rev.NextReviewDate.HasValue)
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@* Modals *@
 @if (canManage && Model.NextReviewDate.HasValue)
 {
     <div class="modal fade" id="markReviewedModal" tabindex="-1">
@@ -523,14 +599,12 @@ else if (reviewState == ReviewDueState.DueSoon)
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Review Notes <small class="text-muted">(optional)</small></label>
                             <textarea name="notes" class="form-control" rows="3"
-                                      placeholder="Summary of what was reviewed, any changes made or observations…"></textarea>
+                                      placeholder="Summary of what was reviewed…"></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check2 me-1"></i> Confirm Review
-                        </button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Confirm Review</button>
                     </div>
                 </form>
             </div>
@@ -538,40 +612,126 @@ else if (reviewState == ReviewDueState.DueSoon)
     </div>
 }
 
-@section Scripts {
-<script>
-const dropzone = document.getElementById('uploadZone');
-const fileInput = document.getElementById('fileInput');
-const fileLabel = document.getElementById('fileLabel');
+@if (myStep != null)
+{
+    <div class="modal fade" id="approvalActionModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-check2-circle me-2"></i>Review Decision — Step @myStep.Order</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3" style="font-size:13px;">
+                        Select your decision. A comment is optional for approval but required for rejection or return.
+                    </p>
+                    <div class="d-flex gap-2 mb-3">
+                        <button type="button" class="btn btn-outline-success flex-fill action-choice" data-action="Approve">
+                            <i class="bi bi-check2-circle d-block fs-4 mb-1"></i>Approve
+                        </button>
+                        <button type="button" class="btn btn-outline-danger flex-fill action-choice" data-action="Reject">
+                            <i class="bi bi-x-circle d-block fs-4 mb-1"></i>Reject
+                        </button>
+                        <button type="button" class="btn btn-outline-warning flex-fill action-choice" data-action="ReturnForEdit">
+                            <i class="bi bi-arrow-return-left d-block fs-4 mb-1"></i>Return for Edit
+                        </button>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold" id="commentLabel">
+                            Comment <span class="text-muted">(optional)</span>
+                        </label>
+                        <textarea id="approvalComment" class="form-control" rows="3"
+                                  placeholder="Add a note for the submitter…"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="submitApprovalAction" disabled>
+                        Confirm Decision
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-if (dropzone) {
-    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
-    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-    dropzone.addEventListener('drop', e => {
-        e.preventDefault();
-        dropzone.classList.remove('dragover');
-        if (e.dataTransfer.files.length) {
-            fileInput.files = e.dataTransfer.files;
-            fileLabel.textContent = e.dataTransfer.files[0].name;
-        }
-    });
-    fileInput.addEventListener('change', () => {
-        fileLabel.textContent = fileInput.files[0]?.name ?? '';
-    });
+    <form id="formApprove" asp-controller="Approvals" asp-action="Approve" method="post" class="d-none">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="stepId" value="@myStep.Id" />
+        <input type="hidden" name="entityType" value="Document" />
+        <input type="hidden" name="entityId" value="@Model.Id" />
+        <input type="hidden" name="comment" id="approveComment" />
+    </form>
+    <form id="formReject" asp-controller="Approvals" asp-action="Reject" method="post" class="d-none">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="stepId" value="@myStep.Id" />
+        <input type="hidden" name="entityType" value="Document" />
+        <input type="hidden" name="entityId" value="@Model.Id" />
+        <input type="hidden" name="comment" id="rejectComment" />
+    </form>
+    <form id="formReturn" asp-controller="Approvals" asp-action="ReturnForEdit" method="post" class="d-none">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="stepId" value="@myStep.Id" />
+        <input type="hidden" name="entityType" value="Document" />
+        <input type="hidden" name="entityId" value="@Model.Id" />
+        <input type="hidden" name="comment" id="returnComment" />
+    </form>
 }
 
-// Doc perm subject toggle (User vs Role)
-document.querySelector('[name="SubjectType"]')?.addEventListener('change', function() {
+@section Scripts {
+<script>
+// Upload zone
+const dropzone  = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const fileLabel = document.getElementById('fileLabel');
+if (dropzone) {
+    dropzone.addEventListener('dragover',  e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', ()  => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', e => {
+        e.preventDefault(); dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; fileLabel.textContent = e.dataTransfer.files[0].name; }
+    });
+    fileInput.addEventListener('change', () => { fileLabel.textContent = fileInput.files[0]?.name ?? ''; });
+}
+
+// Permission subject toggle
+document.querySelector('[name="SubjectType"]')?.addEventListener('change', function () {
     const sel = document.getElementById('docPermSubject');
     if (!sel) return;
-    if (this.value === 'Role') {
-        sel.innerHTML = `
-            <option value="Admin">Admin</option>
-            <option value="Approver">Approver</option>
-            <option value="Requester">Requester</option>`;
-    } else {
-        sel.innerHTML = `@Html.Raw(string.Join("", allUsers.Select(u => $"<option value='{u.Id}'>{System.Web.HttpUtility.HtmlEncode(u.FullName)} ({System.Web.HttpUtility.HtmlEncode(u.Email)})</option>")))`;
-    }
+    sel.innerHTML = this.value === 'Role'
+        ? `<option value="Admin">Admin</option><option value="Approver">Approver</option><option value="Requester">Requester</option>`
+        : `@Html.Raw(string.Join("", allUsers.Select(u => $"<option value='{u.Id}'>{System.Web.HttpUtility.HtmlEncode(u.FullName)} ({System.Web.HttpUtility.HtmlEncode(u.Email)})</option>")))`;
 });
+
+// Approval action modal
+(function () {
+    var selected = null;
+    var requiresComment = { Reject: true, ReturnForEdit: true };
+    document.querySelectorAll('.action-choice').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.action-choice').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selected = btn.dataset.action;
+            var lbl = document.getElementById('commentLabel');
+            if (lbl) lbl.innerHTML = requiresComment[selected]
+                ? 'Comment <span class="text-danger">* required</span>'
+                : 'Comment <span class="text-muted">(optional)</span>';
+            updateSubmit();
+        });
+    });
+    var ta = document.getElementById('approvalComment');
+    if (ta) ta.addEventListener('input', updateSubmit);
+    function updateSubmit() {
+        var comment = (document.getElementById('approvalComment')?.value ?? '').trim();
+        var ok = selected && (!requiresComment[selected] || comment.length > 0);
+        var btn = document.getElementById('submitApprovalAction');
+        if (btn) btn.disabled = !ok;
+    }
+    document.getElementById('submitApprovalAction')?.addEventListener('click', function () {
+        var comment = (document.getElementById('approvalComment')?.value ?? '').trim();
+        if      (selected === 'Approve')       { document.getElementById('approveComment').value = comment; document.getElementById('formApprove').submit(); }
+        else if (selected === 'Reject')        { document.getElementById('rejectComment').value  = comment; document.getElementById('formReject').submit(); }
+        else if (selected === 'ReturnForEdit') { document.getElementById('returnComment').value  = comment; document.getElementById('formReturn').submit(); }
+    });
+})();
 </script>
 }

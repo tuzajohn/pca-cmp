@@ -122,6 +122,7 @@ public class DocumentsController : Controller
         ViewBag.DocumentPermissions = await _docService.GetDocumentPermissionsAsync(doc.Id);
         ViewBag.AllUsers = await _userManager.Users.ToListAsync();
         ViewBag.ApprovalSteps = await _approvalService.GetStepsForEntityAsync("Document", id);
+        ViewBag.ActiveFlow    = await _approvalService.GetActiveFlowAsync("Document", id);
         ViewBag.ReviewHistory = await _docService.GetReviewHistoryAsync(id);
         ViewBag.Attachments = await HttpContext.RequestServices
             .GetRequiredService<PCA.Web.Services.IAttachmentService>()
@@ -320,7 +321,7 @@ public class DocumentsController : Controller
         var retireTemplates = await _approvalService.GetAutoTriggerTemplatesAsync(AutoTriggerOn.OnRetire, "Document");
         if (retireTemplates.Any())
         {
-            await _approvalService.InitiateApprovalFlowAsync("Document", id, null);
+            await _approvalService.InitiateApprovalFlowAsync("Document", id, null, user!.Id);
             var workflow = _workflowRegistry.Resolve("Document");
             await workflow.OnFlowInitiatedAsync(id, user!.Id, HttpContext.RequestServices);
             TempData["Success"] = "Retirement submitted for approval.";
@@ -507,7 +508,7 @@ public class DocumentsController : Controller
         if (doc == null) return NotFound();
         var user = await _userManager.GetUserAsync(User);
         var workflow = _workflowRegistry.Resolve("Document");
-        await _approvalService.InitiateApprovalFlowAsync("Document", id, null);
+        await _approvalService.InitiateApprovalFlowAsync("Document", id, null, user!.Id);
         await workflow.OnFlowInitiatedAsync(id, user!.Id, HttpContext.RequestServices);
         TempData["Success"] = "Document submitted for approval.";
         return RedirectToAction(nameof(Details), new { id });
@@ -561,7 +562,7 @@ public class DocumentsController : Controller
     {
         var templates = await _approvalService.GetAutoTriggerTemplatesAsync(trigger, "Document");
         if (!templates.Any()) return;
-        await _approvalService.InitiateApprovalFlowAsync("Document", documentId, null);
+        await _approvalService.InitiateApprovalFlowAsync("Document", documentId, null, userId);
         var workflow = _workflowRegistry.Resolve("Document");
         await workflow.OnFlowInitiatedAsync(documentId, userId, HttpContext.RequestServices);
     }
