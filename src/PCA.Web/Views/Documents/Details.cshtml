@@ -486,6 +486,14 @@ else if (reviewState == ReviewDueState.DueSoon)
                         <i class="bi bi-clipboard2-check me-1"></i> Mark as Reviewed
                     </button>
                 }
+                @if (reviewHistory.Any())
+                {
+                    <button type="button" class="btn btn-outline-secondary w-100 mb-2"
+                            data-bs-toggle="offcanvas" data-bs-target="#reviewHistoryOffcanvas">
+                        <i class="bi bi-clipboard2-check me-1"></i> Review History
+                        <span class="badge ms-1" style="background:color-mix(in srgb,var(--color-primary) 15%,transparent);color:var(--color-primary);font-size:10px;">@reviewHistory.Count</span>
+                    </button>
+                }
                 @if (canManage && Model.Status != DocumentStatus.Retired)
                 {
                     <form asp-action="Retire" asp-route-id="@Model.Id" method="post"
@@ -506,61 +514,69 @@ else if (reviewState == ReviewDueState.DueSoon)
             </div>
         </div>
 
-        @* Review history *@
-        @if (reviewHistory.Any())
-        {
-            <div class="card">
-                <div class="card-header" style="font-size:13px;font-weight:600;">
-                    <i class="bi bi-clipboard2-check me-2"></i>Review History
-                </div>
-                <div class="card-body p-0">
-                    <table class="table table-sm mb-0" style="font-size:12px;">
-                        <thead style="background:var(--bs-tertiary-bg);">
-                            <tr>
-                                <th class="ps-3">Date</th>
-                                <th>Reviewed By</th>
-                                <th class="pe-3">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var rev in reviewHistory.OrderByDescending(r => r.ReviewedAt))
-                            {
-                                var rBadgeCls = rev.Status == ReviewStatus.Approved ? "bg-success"
-                                             : rev.Status == ReviewStatus.Rejected  ? "bg-danger"
-                                             : "bg-secondary";
-                                var rLabel = rev.Status == ReviewStatus.Approved ? "Approved"
-                                           : rev.Status == ReviewStatus.Rejected  ? "Rejected"
-                                           : "Pending";
-                                <tr>
-                                    <td class="ps-3 align-top" style="white-space:nowrap;color:var(--bs-secondary-color);">
-                                        @rev.ReviewedAt.ToString("dd MMM yyyy")
-                                    </td>
-                                    <td class="align-top">
-                                        <div>@(rev.ReviewedBy?.FullName ?? "—")</div>
-                                        @if (!string.IsNullOrEmpty(rev.Notes))
-                                        {
-                                            <div class="text-muted fst-italic mt-1" style="font-size:11px;">@rev.Notes</div>
-                                        }
-                                        @if (rev.NextReviewDate.HasValue)
-                                        {
-                                            <div class="text-muted mt-1" style="font-size:11px;">
-                                                <i class="bi bi-calendar-event me-1"></i>Next: @rev.NextReviewDate.Value.ToString("dd MMM yyyy")
-                                            </div>
-                                        }
-                                    </td>
-                                    <td class="pe-3 align-top">
-                                        <span class="badge @rBadgeCls" style="font-size:10px;">@rLabel</span>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        }
-
     </div>
 </div>
+
+@* Review History offcanvas *@
+@if (reviewHistory.Any())
+{
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="reviewHistoryOffcanvas" style="width:480px;">
+        <div class="offcanvas-header border-bottom">
+            <h6 class="offcanvas-title mb-0">
+                <i class="bi bi-clipboard2-check me-2"></i>Review History
+            </h6>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body p-0">
+            <table class="table table-sm mb-0" style="font-size:13px;">
+                <thead style="background:var(--bs-tertiary-bg);position:sticky;top:0;z-index:1;">
+                    <tr>
+                        <th class="ps-3">Date</th>
+                        <th>Reviewed By</th>
+                        <th>Status</th>
+                        <th class="pe-3">Notes / Next Review</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var rev in reviewHistory.OrderByDescending(r => r.ReviewedAt))
+                    {
+                        var rBadgeCls = rev.Status == ReviewStatus.Approved ? "bg-success"
+                                     : rev.Status == ReviewStatus.Rejected  ? "bg-danger"
+                                     : "bg-secondary";
+                        var rLabel = rev.Status == ReviewStatus.Approved ? "Approved"
+                                   : rev.Status == ReviewStatus.Rejected  ? "Rejected"
+                                   : "Pending";
+                        <tr>
+                            <td class="ps-3 align-top text-muted" style="white-space:nowrap;">
+                                @rev.ReviewedAt.ToString("dd MMM yyyy")
+                            </td>
+                            <td class="align-top">@(rev.ReviewedBy?.FullName ?? "—")</td>
+                            <td class="align-top">
+                                <span class="badge @rBadgeCls" style="font-size:10px;">@rLabel</span>
+                            </td>
+                            <td class="pe-3 align-top" style="font-size:12px;">
+                                @if (!string.IsNullOrEmpty(rev.Notes))
+                                {
+                                    <div class="fst-italic text-muted">@rev.Notes</div>
+                                }
+                                @if (rev.NextReviewDate.HasValue)
+                                {
+                                    <div class="text-muted mt-1">
+                                        <i class="bi bi-calendar-event me-1"></i>@rev.NextReviewDate.Value.ToString("dd MMM yyyy")
+                                    </div>
+                                }
+                                @if (string.IsNullOrEmpty(rev.Notes) && !rev.NextReviewDate.HasValue)
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
 
 @* Modals *@
 @if (canManage && Model.NextReviewDate.HasValue)
