@@ -24,11 +24,13 @@ jobs:
 
       - name: Backup existing deployment
         run: |
+          # Create backup with timestamp
           [ -d /var/www/pcuganda-admin ] && \
             sudo cp -r /var/www/pcuganda-admin \
               /var/www/pcuganda-admin_backup_$(date +%Y%m%d_%H%M%S) || true
-          # Keep only last 3 backups
-          ls -dt /var/www/pcuganda-admin_backup_* 2>/dev/null | tail -n +4 | xargs rm -rf
+          
+          # Keep only last 3 backups (Added 'sudo' to the xargs execution)
+          ls -dt /var/www/pcuganda-admin_backup_* 2>/dev/null | tail -n +4 | xargs -I {} sudo rm -rf "{}"
 
       - name: Deploy to server
         run: |
