@@ -453,6 +453,62 @@ else if (reviewState == ReviewDueState.DueSoon)
     @* Right sidebar *@
     <div class="col-lg-4">
 
+        @* Approval Flow card *@
+        @if (approvalSteps.Any())
+        {
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-check2-circle me-2"></i>Approval Flow</div>
+                @if (activeFlow != null && activeFlow.Status == FlowStatus.InProgress)
+                {
+                    @if (approvalSteps.Any(s => s.Status == ApprovalStatus.Pending))
+                    {
+                        <div class="card-footer bg-light">
+                            <form asp-controller="Approvals" asp-action="SendReminder" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="entityType" value="Document" />
+                                <input type="hidden" name="entityId" value="@Model.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                                    <i class="bi bi-bell me-1"></i>Send Reminder to Current Approver
+                                </button>
+                            </form>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0" style="font-size:13px;">
+                            <tbody>
+                                @foreach (var step in approvalSteps.OrderBy(s => s.Order))
+                                {
+                                    var badgeCls = step.Status switch {
+                                        ApprovalStatus.Approved        => "bg-success",
+                                        ApprovalStatus.Rejected        => "bg-danger",
+                                        ApprovalStatus.ReturnedForEdit => "bg-warning text-dark",
+                                        _                              => "bg-secondary"
+                                    };
+                                    <tr>
+                                        <td class="ps-3 text-muted" style="width:60px;">Step @step.Order</td>
+                                        <td>@(step.Approver?.FullName ?? "—")</td>
+                                        <td><span class="badge @badgeCls" style="font-size:10px;">@step.Status</span></td>
+                                        <td class="text-muted pe-3" style="font-size:11px;">@step.ActedAt?.ToString("dd MMM yyyy")</td>
+                                    </tr>
+                                    @if (!string.IsNullOrEmpty(step.Comment))
+                                    {
+                                        <tr>
+                                            <td colspan="4" class="ps-3 pe-3 pb-2">
+                                                <span class="text-muted fst-italic" style="font-size:12px;">"@step.Comment"</span>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        }
+
         @* Actions card *@
         <div class="card mb-3 position-sticky" style="top:80px;">
             <div class="card-header"><i class="bi bi-file-earmark me-2"></i>Actions</div>

@@ -20,14 +20,19 @@ public class IncidentsController : Controller
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IAttachmentService _attachmentService;
     private readonly IApprovalService _approvalService;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<IncidentsController> _logger;
 
     public IncidentsController(IIncidentService incidentService, UserManager<ApplicationUser> userManager,
-        IAttachmentService attachmentService, IApprovalService approvalService)
+        IAttachmentService attachmentService, IApprovalService approvalService,
+        IEmailService emailService, ILogger<IncidentsController> logger)
     {
         _incidentService = incidentService;
         _userManager = userManager;
         _attachmentService = attachmentService;
         _approvalService = approvalService;
+        _emailService = emailService;
+        _logger = logger;
     }
 
     public async Task<IActionResult> Index(string? status, string? severity, string? category)
@@ -80,7 +85,32 @@ public class IncidentsController : Controller
 
         var autoTemplates = await _approvalService.GetAutoTriggerTemplatesAsync(AutoTriggerOn.OnSubmit, "Incident");
         if (autoTemplates.Any())
+        {
             await _approvalService.InitiateApprovalFlowAsync("Incident", incident.Id, null, user!.Id);
+
+            // Notify first approver
+            try
+            {
+                var firstStep = await _approvalService.GetNextPendingStepAsync("Incident", incident.Id);
+                if (firstStep?.Approver != null && !string.IsNullOrEmpty(firstStep.Approver.Email))
+                {
+                    var entityLabel = $"Incident {incident.SerialNumber} - {incident.Title}";
+                    var viewLink = Url.Action(nameof(Details), "Incidents", new { id = incident.Id }, Request.Scheme);
+
+                    await _emailService.SendApprovalRequestAsync(
+                        firstStep.Approver.Email,
+                        firstStep.Approver.FullName,
+                        entityLabel,
+                        firstStep.RoleName ?? "Approver",
+                        viewLink ?? ""
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send approval notification for Incident {Id}", incident.Id);
+            }
+        }
 
         TempData["Success"] = $"Incident {incident.SerialNumber} created.";
         return RedirectToAction(nameof(Details), new { id = incident.Id });
@@ -96,6 +126,8 @@ public class IncidentsController : Controller
         ViewBag.IsAdmin = User.IsInRole("Admin");
         ViewBag.AllUsers = await _userManager.Users.ToListAsync();
         ViewBag.Attachments = await _attachmentService.GetForEntityAsync("Incident", id);
+        ViewBag.ApprovalSteps = await _approvalService.GetStepsForEntityAsync("Incident", id);
+        ViewBag.ActiveFlow = await _approvalService.GetActiveFlowAsync("Incident", id);
         return View(incident);
     }
 

@@ -146,6 +146,17 @@ public class ApprovalService : IApprovalService
             .ToListAsync();
     }
 
+    public async Task<ApprovalStep?> GetNextPendingStepAsync(string entityType, int entityId)
+    {
+        return await _db.ApprovalSteps
+            .Include(s => s.Approver)
+            .Where(s => s.EntityType == entityType && 
+                        s.EntityId == entityId && 
+                        s.Status == ApprovalStatus.Pending)
+            .OrderBy(s => s.Order)
+            .FirstOrDefaultAsync();
+    }
+
     public async Task<ApprovalOutcome> ApproveStepAsync(int stepId, string approverId, string? comment)
     {
         var step = await _db.ApprovalSteps.FindAsync(stepId);

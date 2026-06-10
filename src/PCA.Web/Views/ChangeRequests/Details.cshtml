@@ -283,14 +283,19 @@
             }
             else if (activeFlow != null)
             {
-                <div class="card-body p-0">
-                    @await Html.PartialAsync("_ApprovalFlowChart", (object)null!, new ViewDataDictionary(ViewData)
-                    {
-                        ["Steps"]      = steps,
-                        ["EntityType"] = "ChangeRequest",
-                        ["EntityId"]   = Model.Id
-                    })
-                </div>
+                @if (activeFlow.Status == FlowStatus.InProgress && steps.Any(s => s.Status == ApprovalStatus.Pending))
+                {
+                    <div class="card-footer bg-light">
+                        <form asp-controller="Approvals" asp-action="SendReminder" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="entityType" value="ChangeRequest" />
+                            <input type="hidden" name="entityId" value="@Model.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                                <i class="bi bi-bell me-1"></i>Send Reminder to Current Approver
+                            </button>
+                        </form>
+                    </div>
+                }
             }
             else
             {

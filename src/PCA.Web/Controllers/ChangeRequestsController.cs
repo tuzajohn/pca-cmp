@@ -19,14 +19,19 @@ public class ChangeRequestsController : Controller
     private readonly IApprovalService _approvalService;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IAttachmentService _attachmentService;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<ChangeRequestsController> _logger;
 
     public ChangeRequestsController(IChangeRequestService crService, IApprovalService approvalService,
-        UserManager<ApplicationUser> userManager, IAttachmentService attachmentService)
+        UserManager<ApplicationUser> userManager, IAttachmentService attachmentService, 
+        IEmailService emailService, ILogger<ChangeRequestsController> logger)
     {
         _crService = crService;
         _approvalService = approvalService;
         _userManager = userManager;
         _attachmentService = attachmentService;
+        _emailService = emailService;
+        _logger = logger;
     }
 
     public async Task<IActionResult> Index()
@@ -76,7 +81,32 @@ public class ChangeRequestsController : Controller
         var autoTemplates = await _approvalService.GetAutoTriggerTemplatesAsync(AutoTriggerOn.OnSubmit, "ChangeRequest");
         var matchingTemplate = autoTemplates.FirstOrDefault(t => t.EntitySubType == null || t.EntitySubType == cr.Type.ToString());
         if (matchingTemplate != null)
+        {
             await _approvalService.InitiateApprovalFlowAsync("ChangeRequest", cr.Id, cr.Type.ToString(), user!.Id);
+
+            // Notify first approver
+            try
+            {
+                var firstStep = await _approvalService.GetNextPendingStepAsync("ChangeRequest", cr.Id);
+                if (firstStep?.Approver != null && !string.IsNullOrEmpty(firstStep.Approver.Email))
+                {
+                    var entityLabel = $"Change Request {cr.SerialNumber} - {cr.Title}";
+                    var viewLink = Url.Action(nameof(Details), "ChangeRequests", new { id = cr.Id }, Request.Scheme);
+
+                    await _emailService.SendApprovalRequestAsync(
+                        firstStep.Approver.Email,
+                        firstStep.Approver.FullName,
+                        entityLabel,
+                        firstStep.RoleName ?? "Approver",
+                        viewLink ?? ""
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send approval notification for ChangeRequest {Id}", cr.Id);
+            }
+        }
 
         TempData["Success"] = "Change request created successfully.";
         return RedirectToAction(nameof(Details), new { id = cr.Id });
@@ -168,6 +198,30 @@ public class ChangeRequestsController : Controller
         if (success)
         {
             await _approvalService.InitiateApprovalFlowAsync("ChangeRequest", id, cr.Type.ToString(), user!.Id);
+
+            // Notify first approver
+            try
+            {
+                var firstStep = await _approvalService.GetNextPendingStepAsync("ChangeRequest", cr.Id);
+                if (firstStep?.Approver != null && !string.IsNullOrEmpty(firstStep.Approver.Email))
+                {
+                    var entityLabel = $"Change Request {cr.SerialNumber} - {cr.Title}";
+                    var viewLink = Url.Action(nameof(Details), "ChangeRequests", new { id = cr.Id }, Request.Scheme);
+
+                    await _emailService.SendApprovalRequestAsync(
+                        firstStep.Approver.Email,
+                        firstStep.Approver.FullName,
+                        entityLabel,
+                        firstStep.RoleName ?? "Approver",
+                        viewLink ?? ""
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send approval notification for ChangeRequest {Id}", cr.Id);
+            }
+
             TempData["Success"] = "Change request submitted for approval.";
         }
         else

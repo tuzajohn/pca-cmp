@@ -15,6 +15,7 @@ public interface IApprovalService
     Task<ApprovalFlow?> GetActiveFlowAsync(string entityType, int entityId);
     Task<List<ApprovalStep>> GetStepsForEntityAsync(string entityType, int entityId);
     Task<List<ApprovalStep>> GetPendingStepsForApproverAsync(string approverId);
+    Task<ApprovalStep?> GetNextPendingStepAsync(string entityType, int entityId);
     Task<ApprovalOutcome> ApproveStepAsync(int stepId, string approverId, string? comment);
     Task<ApprovalOutcome> RejectStepAsync(int stepId, string approverId, string comment);
     Task<ApprovalOutcome> ReturnStepAsync(int stepId, string approverId, string comment);

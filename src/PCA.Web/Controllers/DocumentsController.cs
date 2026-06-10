@@ -10,6 +10,7 @@ using PCA.Modules.Documents.Services;
 using PCA.Modules.Identity.Models;
 using PCA.Shared.Enums;
 using PCA.Web.Models;
+using PCA.Web.Services;
 
 namespace PCA.Web.Controllers;
 
@@ -20,14 +21,19 @@ public class DocumentsController : Controller
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IApprovalService _approvalService;
     private readonly IApprovalWorkflowRegistry _workflowRegistry;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<DocumentsController> _logger;
 
     public DocumentsController(IDocumentService docService, UserManager<ApplicationUser> userManager,
-        IApprovalService approvalService, IApprovalWorkflowRegistry workflowRegistry)
+        IApprovalService approvalService, IApprovalWorkflowRegistry workflowRegistry,
+        IEmailService emailService, ILogger<DocumentsController> logger)
     {
         _docService = docService;
         _userManager = userManager;
         _approvalService = approvalService;
         _workflowRegistry = workflowRegistry;
+        _emailService = emailService;
+        _logger = logger;
     }
 
     // ── Index ─────────────────────────────────────────────────────────────────
@@ -324,6 +330,30 @@ public class DocumentsController : Controller
             await _approvalService.InitiateApprovalFlowAsync("Document", id, null, user!.Id);
             var workflow = _workflowRegistry.Resolve("Document");
             await workflow.OnFlowInitiatedAsync(id, user!.Id, HttpContext.RequestServices);
+
+            // Notify first approver
+            try
+            {
+                var firstStep = await _approvalService.GetNextPendingStepAsync("Document", id);
+                if (firstStep?.Approver != null && !string.IsNullOrEmpty(firstStep.Approver.Email))
+                {
+                    var entityLabel = $"Document {doc.SerialNumber} - {doc.Title}";
+                    var viewLink = Url.Action(nameof(Details), "Documents", new { id }, Request.Scheme);
+
+                    await _emailService.SendApprovalRequestAsync(
+                        firstStep.Approver.Email,
+                        firstStep.Approver.FullName,
+                        entityLabel,
+                        firstStep.RoleName ?? "Approver",
+                        viewLink ?? ""
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send approval notification for Document {Id}", id);
+            }
+
             TempData["Success"] = "Retirement submitted for approval.";
             return RedirectToAction(nameof(Details), new { id });
         }
@@ -510,6 +540,30 @@ public class DocumentsController : Controller
         var workflow = _workflowRegistry.Resolve("Document");
         await _approvalService.InitiateApprovalFlowAsync("Document", id, null, user!.Id);
         await workflow.OnFlowInitiatedAsync(id, user!.Id, HttpContext.RequestServices);
+
+        // Notify first approver
+        try
+        {
+            var firstStep = await _approvalService.GetNextPendingStepAsync("Document", id);
+            if (firstStep?.Approver != null && !string.IsNullOrEmpty(firstStep.Approver.Email))
+            {
+                var entityLabel = $"Document {doc.SerialNumber} - {doc.Title}";
+                var viewLink = Url.Action(nameof(Details), "Documents", new { id }, Request.Scheme);
+
+                await _emailService.SendApprovalRequestAsync(
+                    firstStep.Approver.Email,
+                    firstStep.Approver.FullName,
+                    entityLabel,
+                    firstStep.RoleName ?? "Approver",
+                    viewLink ?? ""
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send approval notification for Document {Id}", id);
+        }
+
         TempData["Success"] = "Document submitted for approval.";
         return RedirectToAction(nameof(Details), new { id });
     }
@@ -565,6 +619,33 @@ public class DocumentsController : Controller
         await _approvalService.InitiateApprovalFlowAsync("Document", documentId, null, userId);
         var workflow = _workflowRegistry.Resolve("Document");
         await workflow.OnFlowInitiatedAsync(documentId, userId, HttpContext.RequestServices);
+
+        // Notify first approver
+        try
+        {
+            var firstStep = await _approvalService.GetNextPendingStepAsync("Document", documentId);
+            if (firstStep?.Approver != null && !string.IsNullOrEmpty(firstStep.Approver.Email))
+            {
+                var doc = await _docService.GetByIdAsync(documentId);
+                if (doc != null)
+                {
+                    var entityLabel = $"Document {doc.SerialNumber} - {doc.Title}";
+                    var viewLink = Url.Action(nameof(Details), "Documents", new { id = documentId }, Request.Scheme);
+
+                    await _emailService.SendApprovalRequestAsync(
+                        firstStep.Approver.Email,
+                        firstStep.Approver.FullName,
+                        entityLabel,
+                        firstStep.RoleName ?? "Approver",
+                        viewLink ?? ""
+                    );
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send approval notification for Document {Id}", documentId);
+        }
     }
 
     private static void FlattenFolderTree(IEnumerable<DocumentFolder> folders, int depth, List<FlatFolderItem> result)
