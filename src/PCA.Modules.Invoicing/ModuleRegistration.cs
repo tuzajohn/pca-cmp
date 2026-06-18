@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using PCA.Modules.Invoicing.Services;
 
 namespace PCA.Modules.Invoicing;
@@ -15,6 +16,8 @@ public class ModuleRegistration
         var hcm  = config.GetSection("Invoicing:HcmDb").Get<ExternalDbSettings>()
                    ?? new ExternalDbSettings();
 
-        services.AddSingleton(new InvoiceDataService(ipps, hcm));
+        services.AddSingleton(sp => new InvoiceDataService(
+            ipps, hcm,
+            sp.GetRequiredService<ILogger<InvoiceDataService>>()));
     }
 }

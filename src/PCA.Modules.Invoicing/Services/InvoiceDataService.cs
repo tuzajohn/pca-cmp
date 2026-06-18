@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using MySqlConnector;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
@@ -19,16 +20,21 @@ public class InvoiceDataService
 {
     public ExternalDbSettings IppsSettings { get; }
     public ExternalDbSettings HcmSettings { get; }
+    private readonly ILogger<InvoiceDataService> _logger;
 
-    public InvoiceDataService(ExternalDbSettings ippsSettings, ExternalDbSettings hcmSettings)
+    public InvoiceDataService(ExternalDbSettings ippsSettings, ExternalDbSettings hcmSettings,
+        ILogger<InvoiceDataService> logger)
     {
         IppsSettings = ippsSettings;
         HcmSettings  = hcmSettings;
+        _logger      = logger;
     }
 
     public async Task<(List<DeductionRow> Rows, int IppsCount, int HcmCount)> FetchMergedDataAsync(
         string deductionCode, CancellationToken ct = default)
     {
+        _logger.LogInformation("FetchMergedData: starting for deduction code {DeductionCode}", deductionCode);
+
         var ippsRows = await FetchDeductionsFromSourceAsync(IppsSettings, deductionCode, "IPPS", ct);
         var hcmRows  = await FetchDeductionsFromSourceAsync(HcmSettings,  deductionCode, "HCM",  ct);
 
@@ -38,12 +44,19 @@ public class InvoiceDataService
             .OrderBy(r => r.EmployeeNumber)
             .ToList();
 
+        _logger.LogInformation(
+            "FetchMergedData: IPPS={IppsCount} rows, HCM={HcmCount} rows, merged={MergedCount} rows after dedup",
+            ippsRows.Count, hcmRows.Count, merged.Count);
+
         return (merged, ippsRows.Count, hcmRows.Count);
     }
 
     public async Task<List<DeductionRow>> FetchDeductionsFromSourceAsync(
         ExternalDbSettings cfg, string deductionCode, string source, CancellationToken ct)
     {
+        _logger.LogInformation("FetchDeductions [{Source}]: opening tunnel to {DbHost}/{Database}",
+            source, cfg.DbHost, cfg.Database);
+
         using var tunnel = await SshTunnelService.OpenAsync(cfg);
         var rows = new List<DeductionRow>();
 
@@ -74,7 +87,9 @@ public class InvoiceDataService
                     ? parsed : 0m;
 
             var empRaw = reader.GetString("employeenumber");
-            long.TryParse(empRaw, out var empNumber);
+            if (!long.TryParse(empRaw, out var empNumber))
+                _logger.LogWarning("FetchDeductions [{Source}]: could not parse employee number '{Raw}' — skipping row",
+                    source, empRaw);
 
             rows.Add(new DeductionRow(
                 EmployeeNumber:    empNumber,
@@ -84,6 +99,9 @@ public class InvoiceDataService
                 DateCreated:       reader.GetDateTime("datecreated"),
                 Source:            source));
         }
+
+        _logger.LogInformation("FetchDeductions [{Source}]: fetched {Count} rows for code {DeductionCode}",
+            source, rows.Count, deductionCode);
 
         return rows;
     }
@@ -141,11 +159,18 @@ public class InvoiceDataService
     public (List<DeductionRow> IppsSheet, List<DeductionRow> HcmSheet) SplitRows(
         List<DeductionRow> ippsRows, List<DeductionRow> hcmRows, string refFilePath)
     {
+        _logger.LogInformation("SplitRows: reading HCM ref file {RefFilePath}", refFilePath);
         var refNumbers = ReadHcmRefNumbers(refFilePath);
+        _logger.LogInformation("SplitRows: ref file contains {RefCount} IPPS numbers", refNumbers.Count);
 
         var trueHcm  = hcmRows.Where(r => refNumbers.Contains(r.EmployeeNumber)).ToList();
         var tempIpps = hcmRows.Where(r => !refNumbers.Contains(r.EmployeeNumber)).ToList();
+        var droppedFromIpps = ippsRows.Count(r => refNumbers.Contains(r.EmployeeNumber));
         var keptIpps = ippsRows.Where(r => !refNumbers.Contains(r.EmployeeNumber)).ToList();
+
+        _logger.LogInformation(
+            "SplitRows: trueHCM={TrueHcm}, tempIPPS={TempIpps}, keptIPPS={KeptIpps}, droppedFromIPPS={Dropped}",
+            trueHcm.Count, tempIpps.Count, keptIpps.Count, droppedFromIpps);
 
         var ippsSheet = keptIpps.Concat(tempIpps)
             .GroupBy(r => r.EmployeeNumber)
@@ -158,6 +183,10 @@ public class InvoiceDataService
             .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
             .OrderBy(r => r.EmployeeNumber)
             .ToList();
+
+        _logger.LogInformation(
+            "SplitRows: final IPPS sheet={IppsSheet} rows, HCM sheet={HcmSheet} rows",
+            ippsSheet.Count, hcmSheet.Count);
 
         return (ippsSheet, hcmSheet);
     }
