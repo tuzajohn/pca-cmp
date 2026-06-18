@@ -102,7 +102,7 @@ public class InvoiceRunOrchestrator
         msg.Body = builder.ToMessageBody();
 
         using var client = new SmtpClient();
-        await client.ConnectAsync(_smtp.Host, _smtp.Port, _smtp.UseSsl, ct);
+        await client.ConnectAsync(_smtp.Host, _smtp.Port, MailKit.Security.SecureSocketOptions.Auto, ct);
         if (!string.IsNullOrEmpty(_smtp.Username))
             await client.AuthenticateAsync(_smtp.Username, _smtp.Password, ct);
         await client.SendAsync(msg, ct);
