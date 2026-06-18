@@ -28,5 +28,6 @@
     <ProjectReference Include="..\PCA.Modules.Documents\PCA.Modules.Documents.csproj" />
     <ProjectReference Include="..\PCA.Modules.Incidents\PCA.Modules.Incidents.csproj" />
     <ProjectReference Include="..\PCA.Modules.AccessManagement\PCA.Modules.AccessManagement.csproj" />
+    <ProjectReference Include="..\PCA.Modules.Invoicing\PCA.Modules.Invoicing.csproj" />
   </ItemGroup>
 </Project>

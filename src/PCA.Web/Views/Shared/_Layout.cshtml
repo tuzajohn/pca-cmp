@@ -132,6 +132,26 @@ else
                 <span>Server Room Access</span>
             </a>
 
+            <div class="sidebar-section-label">Invoicing</div>
+
+            <a asp-controller="InvoiceSchedules" asp-action="Index"
+               class="sidebar-link @ActiveIf("InvoiceSchedules")">
+                <i class="bi bi-calendar-check"></i>
+                <span>Invoice Schedules</span>
+            </a>
+
+            <a asp-controller="InvoiceLenders" asp-action="Index"
+               class="sidebar-link @ActiveIf("InvoiceLenders")">
+                <i class="bi bi-building"></i>
+                <span>Lenders</span>
+            </a>
+
+            <a asp-controller="InvoiceRecipients" asp-action="Index"
+               class="sidebar-link @ActiveIf("InvoiceRecipients")">
+                <i class="bi bi-envelope-at"></i>
+                <span>Recipients</span>
+            </a>
+
             <div class="sidebar-section-label">Documents</div>
 
             <a asp-controller="Documents" asp-action="Index"

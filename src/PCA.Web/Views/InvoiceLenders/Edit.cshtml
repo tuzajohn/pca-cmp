@@ -1,0 +1,53 @@
+@model PCA.Web.Models.InvoiceLenderEditViewModel
+@{ ViewData["Title"] = "Edit Lender"; }
+
+<div class="page-header">
+    <div><h1 class="page-header-title">Edit Lender</h1></div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i> Back</a>
+</div>
+
+<form asp-action="Edit" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-building"></i> Lender Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="Name" class="form-label fw-semibold"></label>
+                            <input asp-for="Name" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="CompanyType" class="form-label fw-semibold"></label>
+                            <select asp-for="CompanyType" class="form-select">
+                                <option value="MFI">MFI</option>
+                                <option value="BANK">BANK</option>
+                                <option value="SACCO">SACCO</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="DeductionCode" class="form-label fw-semibold"></label>
+                            <input asp-for="DeductionCode" class="form-control" />
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input asp-for="IsActive" class="form-check-input" />
+                                <label asp-for="IsActive" class="form-check-label fw-semibold"></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card position-sticky" style="top:80px;">
+                <div class="card-footer d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-save me-1"></i> Save Changes</button>
+                    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
