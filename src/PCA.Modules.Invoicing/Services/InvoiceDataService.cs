@@ -113,6 +113,9 @@ public class InvoiceDataService
     public async Task<List<CompanyRow>> FetchCompaniesByTypeAsync(
         string companyType, CancellationToken ct = default)
     {
+        _logger.LogInformation("FetchCompaniesByType [{CompanyType}]: opening tunnel to {DbHost}/{Database}",
+            companyType, IppsSettings.DbHost, IppsSettings.Database);
+
         using var tunnel = await SshTunnelService.OpenAsync(IppsSettings);
         var rows = new List<CompanyRow>();
 
@@ -133,7 +136,8 @@ public class InvoiceDataService
                 reader.GetString("companyname"),
                 reader.GetString("deductiontype")));
         }
-
+        
+        _logger.LogInformation("FetchCompaniesByType [{CompanyType}]: fetched {Count} rows", companyType, rows.Count);
         return rows;
     }
 
