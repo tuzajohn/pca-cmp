@@ -3,6 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>85bf1cb6-9a45-4c22-8307-57857e8eda65</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <!-- EF Core 9 is fully compatible with net10.0 runtime -->
