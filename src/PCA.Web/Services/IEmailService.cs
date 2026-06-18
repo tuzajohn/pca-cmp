@@ -6,6 +6,9 @@ public interface IEmailService
     Task SendPasswordResetAsync(string toEmail, string toName, string resetLink);
     Task SendRawAsync(string toEmail, string toName, string subject, string htmlBody);
 
+    Task SendWithAttachmentAsync(IEnumerable<(string Email, string Name)> recipients,
+        string subject, string textBody, string filePath, string fileName, string mimeType);
+
     // Approval notifications
     Task SendApprovalRequestAsync(string toEmail, string toName, string entityLabel, string roleName, string viewLink);
     Task SendApprovalReminderAsync(string toEmail, string toName, string entityLabel, string roleName, string viewLink);

@@ -252,4 +252,36 @@ public class EmailService : IEmailService
             throw;
         }
     }
+
+    public async Task SendWithAttachmentAsync(
+        IEnumerable<(string Email, string Name)> recipients,
+        string subject, string textBody,
+        string filePath, string fileName, string mimeType)
+    {
+        try
+        {
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress(_settings.FromName, _settings.FromAddress));
+            foreach (var (email, name) in recipients)
+                message.To.Add(new MailboxAddress(name, email));
+            message.Subject = subject;
+
+            var builder = new BodyBuilder { TextBody = textBody };
+            builder.Attachments.Add(fileName, await File.ReadAllBytesAsync(filePath),
+                MimeKit.ContentType.Parse(mimeType));
+            message.Body = builder.ToMessageBody();
+
+            using var client = new SmtpClient();
+            await client.ConnectAsync(_settings.Host, _settings.Port,
+                _settings.Port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls);
+            await client.AuthenticateAsync(_settings.Username, _settings.Password);
+            await client.SendAsync(message);
+            await client.DisconnectAsync(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send invoice email — subject: {Subject}", subject);
+            throw;
+        }
+    }
 }
