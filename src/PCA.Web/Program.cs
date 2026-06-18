@@ -4,6 +4,7 @@ using PCA.Modules.AccessManagement;
 using PCA.Modules.AccessManagement.Services;
 using PCA.Modules.Invoicing;
 using PCA.Modules.Invoicing.Services;
+using PCA.Web.Services;
 using PCA.Modules.Approvals;
 using PCA.Modules.Approvals.Services;
 using PCA.Modules.ChangeManagement;
@@ -100,24 +101,15 @@ builder.Services.AddHostedService<DocumentReviewAlertWorker>();
 builder.Services.AddHostedService<DeprovisioningAlertWorker>();
 
 // Invoice scheduler background worker
+builder.Services.AddScoped<IInvoiceEmailSender, InvoiceEmailSender>();
 var invoiceStorageRoot = builder.Configuration["InvoiceStoragePath"]
     ?? Path.Combine(builder.Environment.ContentRootPath, "uploads", "documents");
-builder.Services.AddScoped<InvoiceRunOrchestrator>(sp =>
-{
-    var svc     = sp.GetRequiredService<IInvoicingService>();
-    var dataSvc = sp.GetRequiredService<InvoiceDataService>();
-    var smtp    = sp.GetRequiredService<SmtpSettings>();
-    var logger  = sp.GetRequiredService<ILogger<InvoiceRunOrchestrator>>();
-    var smtpCfg = new SmtpConfig
-    {
-        Host     = smtp.Host,
-        Port     = smtp.Port,
-        Username = smtp.Username,
-        Password = smtp.Password,
-        From     = smtp.FromAddress
-    };
-    return new InvoiceRunOrchestrator(svc, dataSvc, invoiceStorageRoot, smtpCfg, logger);
-});
+builder.Services.AddScoped<InvoiceRunOrchestrator>(sp => new InvoiceRunOrchestrator(
+    sp.GetRequiredService<IInvoicingService>(),
+    sp.GetRequiredService<InvoiceDataService>(),
+    sp.GetRequiredService<IInvoiceEmailSender>(),
+    invoiceStorageRoot,
+    sp.GetRequiredService<ILogger<InvoiceRunOrchestrator>>()));
 builder.Services.AddHostedService<InvoiceSchedulerWorker>();
 
 // Logging
