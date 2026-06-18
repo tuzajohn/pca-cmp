@@ -41,12 +41,9 @@ public sealed class SshTunneledConnection : IDisposable
 
 public static class SshTunnelService
 {
-    private static readonly ILogger _logger =
-        LoggerFactory.Create(b => b.AddConsole()).CreateLogger(nameof(SshTunnelService));
-
-    public static async Task<SshTunneledConnection> OpenAsync(ExternalDbSettings cfg)
+    public static async Task<SshTunneledConnection> OpenAsync(ExternalDbSettings cfg, ILogger? logger = null)
     {
-        _logger.LogInformation("SSH tunnel: connecting to {SshHost}:{SshPort} as {SshUser}",
+        logger?.LogInformation("SSH tunnel: connecting to {SshHost}:{SshPort} as {SshUser}",
             cfg.SshHost, cfg.SshPort, cfg.SshUsername);
 
         var keyFile = new PrivateKeyFile(cfg.SshKeyPath);
@@ -55,14 +52,14 @@ public static class SshTunnelService
 
         var ssh = new SshClient(sshConn);
         ssh.Connect();
-        _logger.LogInformation("SSH tunnel: connected to {SshHost}", cfg.SshHost);
+        logger?.LogInformation("SSH tunnel: connected to {SshHost}", cfg.SshHost);
 
         var fwd = new ForwardedPortLocal("127.0.0.1", cfg.DbHost, (uint)cfg.DbPort);
         ssh.AddForwardedPort(fwd);
         fwd.Start();
 
         var localPort = fwd.BoundPort;
-        _logger.LogInformation("SSH tunnel: forwarding 127.0.0.1:{LocalPort} → {DbHost}:{DbPort} (db: {Database})",
+        logger?.LogInformation("SSH tunnel: forwarding 127.0.0.1:{LocalPort} → {DbHost}:{DbPort} (db: {Database})",
             localPort, cfg.DbHost, cfg.DbPort, cfg.Database);
 
         var cs = new MySqlConnectionStringBuilder
@@ -78,7 +75,7 @@ public static class SshTunnelService
 
         var conn = new MySqlConnection(cs);
         await conn.OpenAsync();
-        _logger.LogInformation("SSH tunnel: MySQL connection open on port {LocalPort}", localPort);
+        logger?.LogInformation("SSH tunnel: MySQL connection open on port {LocalPort}", localPort);
 
         return new SshTunneledConnection(ssh, fwd, conn);
     }
