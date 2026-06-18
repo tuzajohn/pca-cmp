@@ -1,6 +1,11 @@
 @model PCA.Modules.Invoicing.Models.InvoiceSchedule
 @using PCA.Modules.Invoicing.Models
-@{ ViewData["Title"] = Model.Name; }
+@{
+    ViewData["Title"] = Model.Name;
+    var refFiles = ViewBag.HcmRefFiles as List<InvoiceHcmRefFile> ?? new List<InvoiceHcmRefFile>();
+    var currentMonth = DateTime.UtcNow.ToString("yyyy-MM");
+    var hasRefForThisMonth = refFiles.Any(f => f.MonthYear == currentMonth);
+}
 
 <div class="page-header">
     <div>
@@ -97,6 +102,81 @@
             </div>
         </div>
 
+        @if (Model.SplitSheets)
+        {
+        <div class="form-section mt-3">
+            <div class="form-section-header">
+                <i class="bi bi-file-earmark-spreadsheet"></i> HCM Ref Files
+                @if (!hasRefForThisMonth)
+                {
+                    <span class="badge bg-warning text-dark ms-2" style="font-size:10px;">Missing for @currentMonth</span>
+                }
+            </div>
+            <div class="form-section-body">
+                <p class="text-muted small mb-3">
+                    Upload the monthly HCM ref file (Excel with IPPS numbers in column A) for each month you plan to run an invoice with split sheets.
+                </p>
+                <form asp-action="UploadHcmRef" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="row g-2 align-items-end mb-3">
+                    @Html.AntiForgeryToken()
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold" style="font-size:12px;">Month (YYYY-MM)</label>
+                        <input type="month" name="monthYear" class="form-control form-control-sm"
+                               value="@currentMonth" required />
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold" style="font-size:12px;">Excel File (.xlsx)</label>
+                        <input type="file" name="refFile" accept=".xlsx" class="form-control form-control-sm" required />
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary btn-sm w-100">
+                            <i class="bi bi-upload me-1"></i> Upload
+                        </button>
+                    </div>
+                </form>
+
+                @if (!refFiles.Any())
+                {
+                    <div class="text-muted small">No ref files uploaded yet.</div>
+                }
+                else
+                {
+                    <table class="table table-sm mb-0" style="font-size:12px;">
+                        <thead style="background:var(--bs-tertiary-bg);">
+                            <tr>
+                                <th class="ps-3">Month</th>
+                                <th>File</th>
+                                <th>Uploaded</th>
+                                <th>By</th>
+                                <th class="pe-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var rf in refFiles)
+                            {
+                                <tr>
+                                    <td class="ps-3 align-middle fw-semibold">@rf.MonthYear</td>
+                                    <td class="align-middle text-muted">@rf.OriginalFileName</td>
+                                    <td class="align-middle text-muted" style="white-space:nowrap;">@rf.UploadedAt.ToString("dd MMM yyyy HH:mm")</td>
+                                    <td class="align-middle text-muted">@(rf.UploadedBy?.FullName ?? "—")</td>
+                                    <td class="pe-3 align-middle text-end">
+                                        <form asp-action="DeleteHcmRef" asp-route-id="@Model.Id" method="post" class="d-inline"
+                                              onsubmit="return confirm('Delete this ref file?')">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="refFileId" value="@rf.Id" />
+                                            <button type="submit" class="btn btn-outline-danger btn-sm" style="padding:2px 8px;font-size:11px;">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+        }
+
     </div>
     <div class="col-lg-4">
         <div class="card position-sticky" style="top:80px;">
@@ -117,6 +197,23 @@
                 <div class="mb-2">
                     <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Next Run</div>
                     <div>@(Model.NextRunAt.HasValue ? Model.NextRunAt.Value.ToString("dd MMM yyyy HH:mm") + " UTC" : "—")</div>
+                </div>
+                <div class="mb-2">
+                    <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Split Sheets</div>
+                    <div>
+                        @if (Model.SplitSheets)
+                        {
+                            <span class="badge bg-primary" style="font-size:10px;">Enabled</span>
+                            if (!hasRefForThisMonth)
+                            {
+                                <span class="badge bg-warning text-dark ms-1" style="font-size:10px;">Ref missing for @currentMonth</span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted" style="font-size:12px;">Disabled</span>
+                        }
+                    </div>
                 </div>
                 <div class="mb-2">
                     <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Recipients</div>

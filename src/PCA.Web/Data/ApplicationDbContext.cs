@@ -76,6 +76,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     public DbSet<InvoiceSchedule> InvoiceSchedules => Set<InvoiceSchedule>();
     public DbSet<InvoiceScheduleRecipient> InvoiceScheduleRecipients => Set<InvoiceScheduleRecipient>();
     public DbSet<InvoiceRun> InvoiceRuns => Set<InvoiceRun>();
+    public DbSet<InvoiceHcmRefFile> InvoiceHcmRefFiles => Set<InvoiceHcmRefFile>();
 
     // Attachments
     public DbSet<Attachment> Attachments => Set<Attachment>();
@@ -124,6 +125,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
         builder.ApplyConfiguration(new InvoiceScheduleConfiguration());
         builder.ApplyConfiguration(new InvoiceScheduleRecipientConfiguration());
         builder.ApplyConfiguration(new InvoiceRunConfiguration());
+        builder.ApplyConfiguration(new InvoiceHcmRefFileConfiguration());
 
         builder.Entity<AccessSequence>().ToTable("AccessSequences").HasKey(x => x.Id);
         builder.Entity<AccessSequence>().HasIndex(x => new { x.Prefix, x.Year, x.Month }).IsUnique();

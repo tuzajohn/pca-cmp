@@ -43,9 +43,38 @@ public class InvoiceRunOrchestrator
                 throw new InvalidOperationException(
                     $"Lender '{lender.Name}' has no deduction code. Re-save the lender to fetch it from IPPS.");
 
-            var (rows, ippsCount, hcmCount) = await _dataSvc.FetchMergedDataAsync(lender.DeductionCode, ct);
+            var ippsRows = await _dataSvc.FetchDeductionsFromSourceAsync(_dataSvc.IppsSettings, lender.DeductionCode, "IPPS", ct);
+            var hcmRows  = await _dataSvc.FetchDeductionsFromSourceAsync(_dataSvc.HcmSettings,  lender.DeductionCode, "HCM",  ct);
 
-            var filePath = InvoiceDataService.BuildExcel(rows, lender.Name, _storageRoot);
+            string filePath;
+            int finalCount;
+            List<DeductionRow>? hcmSheet = null;
+
+            if (schedule.SplitSheets)
+            {
+                var monthYear = DateTime.UtcNow.ToString("yyyy-MM");
+                var refFile   = await _svc.GetHcmRefFileForMonthAsync(schedule.Id, monthYear);
+                if (refFile == null)
+                    throw new InvalidOperationException(
+                        $"Split sheets is enabled but no HCM ref file has been uploaded for {monthYear}. " +
+                        "Upload the ref file from the schedule details page before running.");
+
+                var (ippsSheet, hcmSheetRows) = _dataSvc.SplitRows(ippsRows, hcmRows, refFile.FilePath);
+                hcmSheet   = hcmSheetRows;
+                filePath   = InvoiceDataService.BuildExcel(ippsSheet, lender.Name, _storageRoot, hcmSheet);
+                finalCount = ippsSheet.Count + hcmSheetRows.Count;
+            }
+            else
+            {
+                var merged = ippsRows.Concat(hcmRows)
+                    .GroupBy(r => r.EmployeeNumber)
+                    .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
+                    .OrderBy(r => r.EmployeeNumber)
+                    .ToList();
+                filePath   = InvoiceDataService.BuildExcel(merged, lender.Name, _storageRoot);
+                finalCount = merged.Count;
+            }
+
             var fileName = Path.GetFileName(filePath);
 
             var recipients = schedule.ScheduleRecipients
@@ -57,7 +86,7 @@ public class InvoiceRunOrchestrator
                 var now     = DateTime.UtcNow;
                 var subject = $"Invoice Breakdown — {lender.Name} — {now:MMMM yyyy}";
                 var body    = $"Please find attached the invoice breakdown for {lender.Name} ({now:MMMM yyyy}).\n\n" +
-                              $"Total records: {rows.Count}.\n\nThis is an automated message.";
+                              $"Total records: {finalCount}.\n\nThis is an automated message.";
 
                 await _email.SendInvoiceAsync(recipients, subject, body, filePath, fileName, ct);
             }
@@ -65,9 +94,9 @@ public class InvoiceRunOrchestrator
             run.Status        = InvoiceRunStatus.Completed;
             run.FilePath      = filePath;
             run.FileName      = fileName;
-            run.IppsRowCount  = ippsCount;
-            run.HcmRowCount   = hcmCount;
-            run.FinalRowCount = rows.Count;
+            run.IppsRowCount  = ippsRows.Count;
+            run.HcmRowCount   = hcmRows.Count;
+            run.FinalRowCount = finalCount;
             run.CompletedAt   = DateTime.UtcNow;
         }
         catch (Exception ex)

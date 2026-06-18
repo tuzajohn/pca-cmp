@@ -17,6 +17,7 @@ public class InvoiceSchedule
     public int? DayOfMonth { get; set; }  // 1–31 (Monthly)
     public TimeOnly TimeOfDay { get; set; }
 
+    public bool SplitSheets { get; set; }
     public bool IsEnabled { get; set; } = true;
     public DateTime? LastRunAt { get; set; }
     public DateTime? NextRunAt { get; set; }
