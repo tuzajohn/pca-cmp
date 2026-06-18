@@ -56,19 +56,31 @@ public class InvoiceLendersController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(InvoiceLenderCreateViewModel vm)
+    public async Task<IActionResult> Create(InvoiceLenderBulkCreateViewModel vm)
     {
-        if (!ModelState.IsValid) return View(vm);
-        var user = await _users.GetUserAsync(User);
-        await _svc.CreateLenderAsync(new InvoiceLender
+        var selected = vm.Lenders.Where(l => l.Selected && !string.IsNullOrWhiteSpace(l.Name)).ToList();
+        if (!selected.Any())
         {
-            Name          = vm.Name,
-            CompanyType   = vm.CompanyType,
-            DeductionCode = vm.DeductionCode,
-            IsActive      = vm.IsActive,
-            CreatedById   = user?.Id
-        });
-        TempData["Success"] = "Lender created.";
+            TempData["Error"] = "Select at least one company to save.";
+            return View(new InvoiceLenderCreateViewModel());
+        }
+
+        var user = await _users.GetUserAsync(User);
+        int saved = 0;
+        foreach (var item in selected)
+        {
+            await _svc.CreateLenderAsync(new InvoiceLender
+            {
+                Name          = item.Name,
+                CompanyType   = vm.CompanyType,
+                DeductionCode = item.DeductionCode,
+                IsActive      = item.IsActive,
+                CreatedById   = user?.Id
+            });
+            saved++;
+        }
+
+        TempData["Success"] = $"{saved} lender(s) saved.";
         return RedirectToAction(nameof(Index));
     }
 

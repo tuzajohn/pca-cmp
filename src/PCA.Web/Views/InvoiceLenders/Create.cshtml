@@ -1,118 +1,116 @@
 @model PCA.Web.Models.InvoiceLenderCreateViewModel
-@{ ViewData["Title"] = "New Lender"; }
+@{ ViewData["Title"] = "New Lenders"; }
 
 <div class="page-header">
-    <div><h1 class="page-header-title">New Lender</h1></div>
+    <div>
+        <h1 class="page-header-title">New Lenders</h1>
+        <p class="page-header-sub mb-0">Fetch companies from IPPS and save one or more as lenders</p>
+    </div>
     <a asp-action="Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i> Back</a>
 </div>
 
-<form asp-action="Create" method="post">
-    @Html.AntiForgeryToken()
-    <div class="row g-3">
-        <div class="col-lg-8">
-            <div class="form-section">
-                <div class="form-section-header"><i class="bi bi-building"></i> Step 1 — Select Company Type</div>
-                <div class="form-section-body">
-                    <div class="row g-3">
-                        <div class="col-md-5">
-                            <label class="form-label fw-semibold">Company Type</label>
-                            <select id="companyTypeSelect" class="form-select">
-                                <option value="">— Select type —</option>
-                                <option value="MFI">MFI</option>
-                                <option value="BANK">BANK</option>
-                                <option value="SACCO">SACCO</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3 d-flex align-items-end">
-                            <button type="button" id="fetchBtn" class="btn btn-outline-primary btn-sm w-100" onclick="fetchCompanies()" disabled>
-                                <i class="bi bi-cloud-download me-1"></i> Fetch from IPPS
-                            </button>
-                        </div>
-                        <div class="col-12" id="fetchStatus" style="display:none;">
-                            <div id="fetchSpinner" class="text-muted small" style="display:none;">
-                                <span class="spinner-border spinner-border-sm me-1"></span> Querying IPPS database…
-                            </div>
-                            <div id="fetchError" class="text-danger small" style="display:none;"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Error"] <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
 
-            <div class="form-section" id="companyPickerSection" style="display:none;">
-                <div class="form-section-header"><i class="bi bi-list-ul"></i> Step 2 — Select Company</div>
-                <div class="form-section-body">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">Companies found in IPPS</label>
-                            <select id="companySelect" class="form-select" onchange="populateFromCompany()">
-                                <option value="">— Pick a company —</option>
-                            </select>
-                            <div class="text-muted small mt-1" id="companyCount"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+<div class="row g-3">
+    <div class="col-lg-8">
 
-            <div class="form-section" id="lenderDetailsSection" style="display:none;">
-                <div class="form-section-header"><i class="bi bi-check-circle"></i> Step 3 — Confirm & Save</div>
-                <div class="form-section-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label asp-for="Name" class="form-label fw-semibold"></label>
-                            <input asp-for="Name" class="form-control" id="nameInput" readonly />
-                            <span asp-validation-for="Name" class="text-danger small"></span>
+        @* Step 1: pick type and fetch *@
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-cloud-download"></i> Step 1 — Fetch from IPPS</div>
+            <div class="form-section-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Company Type</label>
+                        <select id="companyTypeSelect" class="form-select" onchange="onTypeChange()">
+                            <option value="">— Select type —</option>
+                            <option value="MFI">MFI</option>
+                            <option value="BANK">BANK</option>
+                            <option value="SACCO">SACCO</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="button" id="fetchBtn" class="btn btn-outline-primary btn-sm w-100"
+                                onclick="fetchCompanies()" disabled>
+                            <i class="bi bi-cloud-download me-1"></i> Fetch
+                        </button>
+                    </div>
+                    <div class="col-12" id="fetchStatus" style="display:none;">
+                        <div id="fetchSpinner" class="text-muted small" style="display:none;">
+                            <span class="spinner-border spinner-border-sm me-1"></span> Querying IPPS database…
                         </div>
-                        <div class="col-md-3">
-                            <label asp-for="CompanyType" class="form-label fw-semibold"></label>
-                            <input asp-for="CompanyType" class="form-control" id="companyTypeInput" readonly />
-                        </div>
-                        <div class="col-md-3">
-                            <label asp-for="DeductionCode" class="form-label fw-semibold"></label>
-                            <input asp-for="DeductionCode" class="form-control" id="deductionCodeInput" readonly />
-                        </div>
-                        <div class="col-12">
-                            <div class="form-check">
-                                <input asp-for="IsActive" class="form-check-input" />
-                                <label asp-for="IsActive" class="form-check-label fw-semibold"></label>
-                            </div>
-                        </div>
+                        <div id="fetchError" class="text-danger small" style="display:none;"></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-4">
-            <div class="card position-sticky" style="top:80px;">
-                <div class="card-header"><i class="bi bi-info-circle me-2"></i>How it works</div>
-                <div class="card-body text-muted" style="font-size:13px;">
-                    <ol class="ps-3 mb-0">
-                        <li class="mb-1">Select a company type</li>
-                        <li class="mb-1">Click <strong>Fetch from IPPS</strong> to query the live database</li>
-                        <li class="mb-1">Pick the specific company from the results</li>
-                        <li>Save — the deduction code is stored automatically</li>
-                    </ol>
-                </div>
-                <div class="card-footer d-flex gap-2">
-                    <button type="submit" id="saveBtn" class="btn btn-primary btn-sm flex-fill" disabled>
-                        <i class="bi bi-save me-1"></i> Save Lender
-                    </button>
-                    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Cancel</a>
-                </div>
+        @* Step 2: results table *@
+        <div class="form-section" id="resultsSection" style="display:none;">
+            <div class="form-section-header">
+                <i class="bi bi-list-check"></i> Step 2 — Select Companies to Save
+                <span class="ms-2 text-muted fw-normal" style="font-size:12px;" id="resultCount"></span>
+            </div>
+            <div class="form-section-body p-0">
+                <form asp-action="Create" method="post" id="saveForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" id="hiddenCompanyType" name="CompanyType" />
+
+                    <div class="px-3 py-2 d-flex gap-3 align-items-center" style="background:var(--bs-tertiary-bg);font-size:12px;">
+                        <div class="form-check mb-0">
+                            <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleAll(this)" />
+                            <label class="form-check-label" for="selectAll">Select all</label>
+                        </div>
+                        <span class="text-muted" id="selectedCount">0 selected</span>
+                    </div>
+
+                    <table class="table table-sm mb-0" style="font-size:13px;">
+                        <thead style="background:var(--bs-tertiary-bg);">
+                            <tr>
+                                <th class="ps-3" style="width:40px;"></th>
+                                <th>Company Name</th>
+                                <th>Deduction Code</th>
+                                <th style="width:100px;">Active</th>
+                            </tr>
+                        </thead>
+                        <tbody id="companiesBody">
+                        </tbody>
+                    </table>
+
+                    <div class="p-3 d-flex justify-content-end gap-2">
+                        <button type="submit" id="saveBtn" class="btn btn-primary btn-sm" disabled>
+                            <i class="bi bi-save me-1"></i> Save Selected Lenders
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+    <div class="col-lg-4">
+        <div class="card position-sticky" style="top:80px;">
+            <div class="card-header"><i class="bi bi-info-circle me-2"></i>How it works</div>
+            <div class="card-body text-muted" style="font-size:13px;">
+                <ol class="ps-3 mb-0">
+                    <li class="mb-1">Select a company type and click <strong>Fetch</strong></li>
+                    <li class="mb-1">Tick the companies you want to add as lenders</li>
+                    <li>Click <strong>Save Selected Lenders</strong> — all ticked companies are saved in one go</li>
+                </ol>
             </div>
         </div>
     </div>
-</form>
+</div>
 
 <script>
-    let companiesData = [];
-
-    document.getElementById('companyTypeSelect').addEventListener('change', function () {
-        document.getElementById('fetchBtn').disabled = !this.value;
-        document.getElementById('companyPickerSection').style.display = 'none';
-        document.getElementById('lenderDetailsSection').style.display = 'none';
-        document.getElementById('saveBtn').disabled = true;
-        companiesData = [];
-    });
+    function onTypeChange() {
+        const val = document.getElementById('companyTypeSelect').value;
+        document.getElementById('fetchBtn').disabled = !val;
+        document.getElementById('resultsSection').style.display = 'none';
+    }
 
     async function fetchCompanies() {
         const type = document.getElementById('companyTypeSelect').value;
@@ -122,6 +120,7 @@
         document.getElementById('fetchSpinner').style.display = '';
         document.getElementById('fetchError').style.display = 'none';
         document.getElementById('fetchBtn').disabled = true;
+        document.getElementById('resultsSection').style.display = 'none';
 
         try {
             const resp = await fetch(`/InvoiceLenders/FetchCompanies?companyType=${encodeURIComponent(type)}`);
@@ -136,22 +135,38 @@
                 return;
             }
 
-            companiesData = data;
-            const select = document.getElementById('companySelect');
-            select.innerHTML = '<option value="">— Pick a company —</option>';
-            data.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c.id;
-                opt.textContent = `${c.companyName}  [${c.deductionType}]`;
-                opt.dataset.name = c.companyName;
-                opt.dataset.code = c.deductionType;
-                select.appendChild(opt);
+            if (!data.length) {
+                document.getElementById('fetchError').textContent = `No companies found for type "${type}".`;
+                document.getElementById('fetchError').style.display = '';
+                return;
+            }
+
+            document.getElementById('hiddenCompanyType').value = type;
+            document.getElementById('resultCount').textContent = `${data.length} found`;
+
+            const tbody = document.getElementById('companiesBody');
+            tbody.innerHTML = '';
+            data.forEach((c, i) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="ps-3 align-middle">
+                        <input type="checkbox" class="form-check-input row-check"
+                               name="Lenders[${i}].Selected" value="true"
+                               onchange="updateSaveBtn()" />
+                        <input type="hidden" name="Lenders[${i}].Name" value="${escHtml(c.companyName)}" />
+                        <input type="hidden" name="Lenders[${i}].DeductionCode" value="${escHtml(c.deductionType)}" />
+                    </td>
+                    <td class="align-middle fw-semibold">${escHtml(c.companyName)}</td>
+                    <td class="align-middle text-muted">${escHtml(c.deductionType)}</td>
+                    <td class="align-middle">
+                        <input type="checkbox" class="form-check-input" name="Lenders[${i}].IsActive" value="true" checked />
+                    </td>`;
+                tbody.appendChild(row);
             });
 
-            document.getElementById('companyCount').textContent = `${data.length} company(ies) found`;
-            document.getElementById('companyPickerSection').style.display = '';
-            document.getElementById('lenderDetailsSection').style.display = 'none';
-            document.getElementById('saveBtn').disabled = true;
+            document.getElementById('resultsSection').style.display = '';
+            document.getElementById('selectAll').checked = false;
+            updateSaveBtn();
 
         } catch (e) {
             document.getElementById('fetchSpinner').style.display = 'none';
@@ -161,20 +176,21 @@
         }
     }
 
-    function populateFromCompany() {
-        const select = document.getElementById('companySelect');
-        const opt = select.options[select.selectedIndex];
-        if (!opt.value) {
-            document.getElementById('lenderDetailsSection').style.display = 'none';
-            document.getElementById('saveBtn').disabled = true;
-            return;
-        }
+    function toggleAll(master) {
+        document.querySelectorAll('.row-check').forEach(cb => {
+            cb.checked = master.checked;
+            toggleRowName(cb);
+        });
+        updateSaveBtn();
+    }
 
-        document.getElementById('nameInput').value          = opt.dataset.name;
-        document.getElementById('companyTypeInput').value   = document.getElementById('companyTypeSelect').value;
-        document.getElementById('deductionCodeInput').value = opt.dataset.code;
+    function updateSaveBtn() {
+        const checked = document.querySelectorAll('.row-check:checked').length;
+        document.getElementById('saveBtn').disabled = checked === 0;
+        document.getElementById('selectedCount').textContent = `${checked} selected`;
+    }
 
-        document.getElementById('lenderDetailsSection').style.display = '';
-        document.getElementById('saveBtn').disabled = false;
+    function escHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 </script>

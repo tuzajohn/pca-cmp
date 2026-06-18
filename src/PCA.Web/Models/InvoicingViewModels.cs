@@ -18,6 +18,20 @@ public class InvoiceLenderCreateViewModel
     public bool IsActive { get; set; } = true;
 }
 
+public class InvoiceLenderBulkCreateViewModel
+{
+    public string CompanyType { get; set; } = string.Empty;
+    public List<InvoiceLenderBulkItem> Lenders { get; set; } = new();
+}
+
+public class InvoiceLenderBulkItem
+{
+    public bool Selected { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string DeductionCode { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
+}
+
 public class InvoiceLenderEditViewModel : InvoiceLenderCreateViewModel
 {
     public int Id { get; set; }
