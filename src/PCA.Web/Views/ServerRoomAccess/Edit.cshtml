@@ -1,0 +1,82 @@
+@model PCA.Web.Models.ServerRoomEditViewModel
+@{
+    ViewData["Title"] = "Edit Server Room Request";
+}
+
+<div class="page-header">
+    <div><h1 class="page-header-title">Edit Server Room Request</h1></div>
+    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<form asp-action="Edit" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-person"></i> Visitor Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="VisitorName" class="form-label fw-semibold"></label>
+                            <input asp-for="VisitorName" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="VisitorTitle" class="form-label fw-semibold"></label>
+                            <input asp-for="VisitorTitle" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="VisitorCompany" class="form-label fw-semibold"></label>
+                            <input asp-for="VisitorCompany" class="form-control" />
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input asp-for="IsExternal" class="form-check-input" />
+                                <label asp-for="IsExternal" class="form-check-label fw-semibold"></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-server"></i> Visit Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="Purpose" class="form-label fw-semibold"></label>
+                            <textarea asp-for="Purpose" class="form-control" rows="3"></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="PlannedEntryDateTime" class="form-label fw-semibold"></label>
+                            <input asp-for="PlannedEntryDateTime" type="datetime-local" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="PlannedExitDateTime" class="form-label fw-semibold"></label>
+                            <input asp-for="PlannedExitDateTime" type="datetime-local" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EscortedBy" class="form-label fw-semibold"></label>
+                            <input asp-for="EscortedBy" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="WrittenRequestReference" class="form-label fw-semibold"></label>
+                            <input asp-for="WrittenRequestReference" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card position-sticky" style="top:80px;">
+                <div class="card-footer d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                        <i class="bi bi-save me-1"></i> Save Changes
+                    </button>
+                    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

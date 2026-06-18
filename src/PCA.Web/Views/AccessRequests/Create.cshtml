@@ -1,0 +1,129 @@
+@model PCA.Web.Models.AccessRequestCreateViewModel
+@using PCA.Shared.Enums
+@{
+    ViewData["Title"] = "New Access Request";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">New Access Request</h1>
+        <p class="page-header-sub mb-0">Request system or application access</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <div class="row g-3">
+        <div class="col-lg-8">
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-person"></i> Employee Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="EmployeeName" class="form-label fw-semibold"></label>
+                            <input asp-for="EmployeeName" class="form-control" />
+                            <span asp-validation-for="EmployeeName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EmployeeId" class="form-label fw-semibold"></label>
+                            <input asp-for="EmployeeId" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Department" class="form-label fw-semibold"></label>
+                            <input asp-for="Department" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="JobTitle" class="form-label fw-semibold"></label>
+                            <input asp-for="JobTitle" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-shield-lock"></i> Access Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label asp-for="SystemName" class="form-label fw-semibold"></label>
+                            <input asp-for="SystemName" class="form-control" placeholder="e.g. Active Directory, Core Banking System…" />
+                            <span asp-validation-for="SystemName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="AccessType" class="form-label fw-semibold"></label>
+                            <select asp-for="AccessType" class="form-select" asp-items="Html.GetEnumSelectList<AccessType>()"></select>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="AccessDetails" class="form-label fw-semibold"></label>
+                            <textarea asp-for="AccessDetails" class="form-control" rows="3"
+                                      placeholder="Describe the specific roles, permissions or groups being requested…"></textarea>
+                            <span asp-validation-for="AccessDetails" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Justification" class="form-label fw-semibold"></label>
+                            <textarea asp-for="Justification" class="form-control" rows="3"
+                                      placeholder="Business reason for this access…"></textarea>
+                            <span asp-validation-for="Justification" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="RequestedByDate" class="form-label fw-semibold"></label>
+                            <input asp-for="RequestedByDate" type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="AccessExpiryDate" class="form-label fw-semibold"></label>
+                            <input asp-for="AccessExpiryDate" type="date" class="form-control" />
+                            <div class="form-text">Leave blank for permanent access.</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input asp-for="IsPrivileged" class="form-check-input" id="isPrivileged" />
+                                <label class="form-check-label fw-semibold" for="isPrivileged">
+                                    This is privileged or sensitive access
+                                </label>
+                            </div>
+                            <div id="privilegedHint" class="alert alert-warning mt-2 py-2" style="font-size:13px;display:none;">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                Privileged access requests require <strong>3-step approval</strong>: Line Manager → Senior Systems Administrator → General Manager.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="col-lg-4">
+            <div class="card position-sticky" style="top:80px;">
+                <div class="card-header"><i class="bi bi-info-circle me-2"></i>Approval Process</div>
+                <div class="card-body" style="font-size:13px;">
+                    <p class="text-muted mb-3">Submitting this form will create a draft. You can review and submit for approval when ready.</p>
+                    <div class="mb-3">
+                        <div class="fw-semibold mb-1">Standard Access</div>
+                        <div class="text-muted">Line Manager → General Manager</div>
+                    </div>
+                    <div>
+                        <div class="fw-semibold mb-1">Privileged / Sensitive Access</div>
+                        <div class="text-muted">Line Manager → Senior Systems Administrator → General Manager</div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                        <i class="bi bi-save me-1"></i> Save as Draft
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+document.getElementById('isPrivileged')?.addEventListener('change', function () {
+    document.getElementById('privilegedHint').style.display = this.checked ? 'block' : 'none';
+});
+</script>
+}

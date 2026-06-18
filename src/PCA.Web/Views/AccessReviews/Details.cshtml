@@ -1,0 +1,165 @@
+@model PCA.Modules.AccessManagement.Models.AccessReview
+@using PCA.Shared.Enums
+@{
+    ViewData["Title"] = Model.Title;
+    var isAdmin = User.IsInRole("Admin");
+    var currentUserId = ViewBag.CurrentUserId as string;
+    var total = Model.Entries.Count;
+    var done  = Model.Entries.Count(e => e.Outcome != AccessReviewEntryOutcome.Pending);
+    var pct   = total > 0 ? (done * 100 / total) : 0;
+    var statusCls = Model.Status switch {
+        AccessReviewStatus.Completed  => "status-approved",
+        AccessReviewStatus.Overdue    => "status-rejected",
+        AccessReviewStatus.InProgress => "status-underreview",
+        _                             => "status-submitted"
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">@Model.Title</h1>
+        <p class="page-header-sub mb-0">
+            <span class="status-badge @statusCls me-2">@Model.Status</span>
+            @Model.Cycle · @Model.Year Q@Model.Quarter
+            · Due @Model.DueDate.ToString("dd MMM yyyy")
+        </p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+
+        <div class="form-section">
+            <div class="form-section-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-people me-2"></i>Review Entries</span>
+                <span class="text-muted" style="font-size:13px;">@done / @total reviewed</span>
+            </div>
+            @if (total > 0)
+            {
+                <div class="px-3 py-2 border-bottom">
+                    <div class="progress" style="height:8px;border-radius:4px;">
+                        <div class="progress-bar" role="progressbar" style="width:@pct%;background:var(--color-primary);border-radius:4px;"></div>
+                    </div>
+                </div>
+            }
+            <div class="form-section-body p-0">
+                @if (!Model.Entries.Any())
+                {
+                    <div class="text-center py-4 text-muted" style="font-size:13px;">No entries in this review.</div>
+                }
+                else
+                {
+                    <table class="table table-sm mb-0" style="font-size:13px;">
+                        <thead style="background:var(--bs-tertiary-bg);">
+                            <tr>
+                                <th class="ps-3">Employee</th>
+                                <th>System</th>
+                                <th>Current Access</th>
+                                <th>Outcome</th>
+                                <th>Reviewed By</th>
+                                <th class="pe-3">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var entry in Model.Entries.OrderBy(e => e.EmployeeName))
+                            {
+                                var outcomeCls = entry.Outcome switch {
+                                    AccessReviewEntryOutcome.Retain => "bg-success",
+                                    AccessReviewEntryOutcome.Revoke => "bg-danger",
+                                    AccessReviewEntryOutcome.Modify => "bg-warning text-dark",
+                                    _                               => "bg-secondary"
+                                };
+                                <tr>
+                                    <td class="ps-3 align-middle fw-semibold">
+                                        @entry.EmployeeName
+                                        @if (!string.IsNullOrEmpty(entry.Department))
+                                        {
+                                            <div class="text-muted fw-normal" style="font-size:11px;">@entry.Department</div>
+                                        }
+                                    </td>
+                                    <td class="align-middle">@entry.SystemName</td>
+                                    <td class="align-middle text-muted">@(string.IsNullOrEmpty(entry.CurrentAccessLevel) ? "—" : entry.CurrentAccessLevel)</td>
+                                    <td class="align-middle">
+                                        @if (Model.Status != AccessReviewStatus.Completed && (isAdmin || User.IsInRole("Approver")))
+                                        {
+                                            <form asp-action="UpdateEntry" asp-route-id="@Model.Id" method="post" class="d-flex gap-1">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="entryId" value="@entry.Id" />
+                                                <select name="outcome" class="form-select form-select-sm" style="width:auto;">
+                                                    @foreach (var o in Enum.GetValues<AccessReviewEntryOutcome>())
+                                                    {
+                                                        <option value="@o" @(entry.Outcome == o ? "selected" : "")>@o</option>
+                                                    }
+                                                </select>
+                                                <button type="submit" class="btn btn-outline-primary btn-sm" style="padding:2px 8px;">Save</button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge @outcomeCls" style="font-size:10px;">@entry.Outcome</span>
+                                        }
+                                    </td>
+                                    <td class="align-middle text-muted">
+                                        @(entry.ReviewedBy?.FullName ?? "—")
+                                        @if (entry.ReviewedAt.HasValue)
+                                        {
+                                            <div style="font-size:11px;">@entry.ReviewedAt.Value.ToString("dd MMM yyyy")</div>
+                                        }
+                                    </td>
+                                    <td class="pe-3 align-middle text-muted fst-italic" style="font-size:12px;">
+                                        @(string.IsNullOrEmpty(entry.ReviewerNotes) ? "—" : entry.ReviewerNotes)
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+    </div>
+    <div class="col-lg-4">
+        <div class="card position-sticky" style="top:80px;">
+            <div class="card-header"><i class="bi bi-info-circle me-2"></i>Campaign Info</div>
+            <div class="card-body" style="font-size:13px;">
+                <div class="mb-2">
+                    <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Period</div>
+                    <div>@Model.ReviewPeriodStart.ToString("dd MMM yyyy") – @Model.ReviewPeriodEnd.ToString("dd MMM yyyy")</div>
+                </div>
+                <div class="mb-2">
+                    <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Created By</div>
+                    <div>@(Model.CreatedBy?.FullName ?? "—")</div>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.Notes))
+                {
+                    <div class="mb-2">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Notes</div>
+                        <div style="white-space:pre-wrap;">@Model.Notes</div>
+                    </div>
+                }
+                @if (Model.CompletedAt.HasValue)
+                {
+                    <div class="mb-2">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Completed</div>
+                        <div>@Model.CompletedAt.Value.ToString("dd MMM yyyy HH:mm")</div>
+                    </div>
+                }
+            </div>
+            @if (isAdmin && Model.Status != AccessReviewStatus.Completed)
+            {
+                <div class="card-footer">
+                    <form asp-action="Complete" asp-route-id="@Model.Id" method="post"
+                          onsubmit="return confirm('Mark this review as complete?')">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-success btn-sm w-100">
+                            <i class="bi bi-check2-all me-1"></i> Mark as Completed
+                        </button>
+                    </form>
+                </div>
+            }
+        </div>
+    </div>
+</div>
