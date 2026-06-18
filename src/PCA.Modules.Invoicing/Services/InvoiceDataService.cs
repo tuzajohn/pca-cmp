@@ -33,10 +33,9 @@ public class InvoiceDataService
         var hcmRows  = await FetchDeductionsAsync(_hcmSettings, deductionCode, "HCM", ct);
 
         var merged = ippsRows.Concat(hcmRows)
-            .GroupBy(r => (r.EmployeeNumber, r.ReferenceCode))
+            .GroupBy(r => r.EmployeeNumber)
             .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
             .OrderBy(r => r.EmployeeNumber)
-            .ThenByDescending(r => r.InstallmentAmount)
             .ToList();
 
         return (merged, ippsRows.Count, hcmRows.Count);
