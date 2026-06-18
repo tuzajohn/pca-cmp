@@ -26,7 +26,7 @@
                             <select asp-for="LenderId" class="form-select">
                                 @foreach (var l in (List<PCA.Modules.Invoicing.Models.InvoiceLender>)ViewBag.Lenders)
                                 {
-                                    <option value="@l.Id" @(l.Id == Model.LenderId ? "selected" : "")>@l.Name (@l.CompanyType)</option>
+                                    <option value="@l.Id">@l.Name (@l.CompanyType)</option>
                                 }
                             </select>
                         </div>
@@ -41,21 +41,21 @@
                         <div class="col-md-4">
                             <label asp-for="Frequency" class="form-label fw-semibold"></label>
                             <select asp-for="Frequency" class="form-select" id="frequencySelect" onchange="updateDayFields()">
-                                <option value="Daily" @(Model.Frequency == InvoiceFrequency.Daily ? "selected" : "")>Daily</option>
-                                <option value="Weekly" @(Model.Frequency == InvoiceFrequency.Weekly ? "selected" : "")>Weekly</option>
-                                <option value="Monthly" @(Model.Frequency == InvoiceFrequency.Monthly ? "selected" : "")>Monthly</option>
+                                <option value="Daily">Daily</option>
+                                <option value="Weekly">Weekly</option>
+                                <option value="Monthly">Monthly</option>
                             </select>
                         </div>
                         <div class="col-md-4" id="dayOfWeekField">
                             <label asp-for="DayOfWeek" class="form-label fw-semibold"></label>
                             <select asp-for="DayOfWeek" class="form-select">
-                                <option value="1" @(Model.DayOfWeek == 1 ? "selected":"")>Monday</option>
-                                <option value="2" @(Model.DayOfWeek == 2 ? "selected":"")>Tuesday</option>
-                                <option value="3" @(Model.DayOfWeek == 3 ? "selected":"")>Wednesday</option>
-                                <option value="4" @(Model.DayOfWeek == 4 ? "selected":"")>Thursday</option>
-                                <option value="5" @(Model.DayOfWeek == 5 ? "selected":"")>Friday</option>
-                                <option value="6" @(Model.DayOfWeek == 6 ? "selected":"")>Saturday</option>
-                                <option value="0" @(Model.DayOfWeek == 0 ? "selected":"")>Sunday</option>
+                                <option value="1">Monday</option>
+                                <option value="2">Tuesday</option>
+                                <option value="3">Wednesday</option>
+                                <option value="4">Thursday</option>
+                                <option value="5">Friday</option>
+                                <option value="6">Saturday</option>
+                                <option value="0">Sunday</option>
                             </select>
                         </div>
                         <div class="col-md-4" id="dayOfMonthField">
@@ -63,7 +63,7 @@
                             <select asp-for="DayOfMonth" class="form-select">
                                 @for (int d = 1; d <= 31; d++)
                                 {
-                                    <option value="@d" @(Model.DayOfMonth == d ? "selected" : "")>Day @d</option>
+                                    <option value="@d">Day @d</option>
                                 }
                             </select>
                         </div>

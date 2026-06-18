@@ -68,7 +68,7 @@
                             <select asp-for="DayOfMonth" class="form-select">
                                 @for (int d = 1; d <= 31; d++)
                                 {
-                                    <option value="@d" @(d == 1 ? "selected" : "")>Day @d</option>
+                                    <option value="@d">Day @d</option>
                                 }
                             </select>
                         </div>
