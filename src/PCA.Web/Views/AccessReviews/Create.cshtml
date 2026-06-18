@@ -1,0 +1,146 @@
+@model PCA.Web.Models.AccessReviewCreateViewModel
+@using PCA.Shared.Enums
+@{
+    ViewData["Title"] = "New Access Review Campaign";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">New Access Review Campaign</h1>
+        <p class="page-header-sub mb-0">Schedule a quarterly or semi-annual access review</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<form asp-action="Create" method="post" id="reviewForm">
+    @Html.AntiForgeryToken()
+    <div class="row g-3">
+        <div class="col-lg-8">
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-info-circle"></i> Campaign Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="Title" class="form-label fw-semibold"></label>
+                            <input asp-for="Title" class="form-control" placeholder="e.g. Q2 2026 Employee Access Review" />
+                            <span asp-validation-for="Title" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Cycle" class="form-label fw-semibold"></label>
+                            <select asp-for="Cycle" class="form-select" asp-items="Html.GetEnumSelectList<AccessReviewCycle>()"></select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Year" class="form-label fw-semibold"></label>
+                            <input asp-for="Year" type="number" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Quarter" class="form-label fw-semibold"></label>
+                            <select asp-for="Quarter" class="form-select">
+                                <option value="1">Q1 / H1</option>
+                                <option value="2">Q2</option>
+                                <option value="3">Q3 / H2</option>
+                                <option value="4">Q4</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="ReviewPeriodStart" class="form-label fw-semibold"></label>
+                            <input asp-for="ReviewPeriodStart" type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="ReviewPeriodEnd" class="form-label fw-semibold"></label>
+                            <input asp-for="ReviewPeriodEnd" type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="DueDate" class="form-label fw-semibold"></label>
+                            <input asp-for="DueDate" type="date" class="form-control" />
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Notes" class="form-label fw-semibold"></label>
+                            <textarea asp-for="Notes" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-people me-2"></i>Review Entries</span>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="addEntry">
+                        <i class="bi bi-plus-lg me-1"></i> Add Entry
+                    </button>
+                </div>
+                <div class="form-section-body p-0">
+                    <table class="table table-sm mb-0" style="font-size:13px;" id="entriesTable">
+                        <thead style="background:var(--bs-tertiary-bg);">
+                            <tr>
+                                <th class="ps-3">Employee Name</th>
+                                <th>Department</th>
+                                <th>System</th>
+                                <th>Current Access</th>
+                                <th class="pe-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="entriesBody">
+                        </tbody>
+                    </table>
+                    <div id="noEntries" class="text-center py-3 text-muted" style="font-size:13px;">
+                        No entries yet. Add entries above.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="col-lg-4">
+            <div class="card position-sticky" style="top:80px;">
+                <div class="card-header"><i class="bi bi-info-circle me-2"></i>Guidance</div>
+                <div class="card-body" style="font-size:13px;">
+                    <p class="text-muted">Add one entry per user-system combination. Reviewers will mark each entry as Retain, Revoke, or Modify after the campaign is created.</p>
+                </div>
+                <div class="card-footer d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                        <i class="bi bi-save me-1"></i> Create Campaign
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+var entryIndex = 0;
+function renderEntries() {
+    document.getElementById('noEntries').style.display = entryIndex === 0 ? 'block' : 'none';
+}
+document.getElementById('addEntry').addEventListener('click', function () {
+    var tbody = document.getElementById('entriesBody');
+    var i = entryIndex++;
+    var tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td class="ps-3 align-middle">
+            <input type="text" name="Entries[${i}].EmployeeName" class="form-control form-control-sm" placeholder="Full name" required />
+        </td>
+        <td class="align-middle">
+            <input type="text" name="Entries[${i}].Department" class="form-control form-control-sm" placeholder="Department" />
+        </td>
+        <td class="align-middle">
+            <input type="text" name="Entries[${i}].SystemName" class="form-control form-control-sm" placeholder="System name" required />
+        </td>
+        <td class="align-middle">
+            <input type="text" name="Entries[${i}].CurrentAccessLevel" class="form-control form-control-sm" placeholder="e.g. Read-Write" />
+        </td>
+        <td class="pe-3 align-middle">
+            <button type="button" class="btn btn-outline-danger btn-sm" style="padding:2px 7px;" onclick="this.closest('tr').remove();renderEntries();">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>`;
+    tbody.appendChild(tr);
+    renderEntries();
+});
+renderEntries();
+</script>
+}

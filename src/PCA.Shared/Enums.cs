@@ -114,3 +114,74 @@ public enum IncidentUpdateType
     Resolution
 }
 
+// Access Management
+
+public enum AccessRequestStatus
+{
+    Draft,
+    Submitted,
+    UnderReview,
+    Approved,
+    Rejected,
+    Provisioned,
+    Cancelled
+}
+
+public enum AccessType
+{
+    ReadOnly,
+    ReadWrite,
+    Administrative,
+    Privileged,
+    ServiceAccount,
+    TemporaryAccess
+}
+
+public enum AccessReviewStatus
+{
+    Scheduled,
+    InProgress,
+    Completed,
+    Overdue
+}
+
+public enum AccessReviewCycle
+{
+    Quarterly,
+    SemiAnnual
+}
+
+public enum AccessReviewEntryOutcome
+{
+    Pending,
+    Retain,
+    Revoke,
+    Modify
+}
+
+public enum DeprovisioningStatus
+{
+    Notified,
+    InProgress,
+    Completed,
+    Overdue
+}
+
+public enum DeprovisioningTrigger
+{
+    Termination,
+    RoleChange,
+    LeaveOfAbsence,
+    Other
+}
+
+public enum ServerRoomAccessStatus
+{
+    Draft,
+    Submitted,
+    UnderReview,
+    Approved,
+    Rejected,
+    Cancelled
+}
+

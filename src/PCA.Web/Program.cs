@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using PCA.Modules.AccessManagement;
+using PCA.Modules.AccessManagement.Services;
 using PCA.Modules.Approvals;
 using PCA.Modules.Approvals.Services;
 using PCA.Modules.ChangeManagement;
@@ -28,6 +30,7 @@ builder.Services.AddScoped<IApplicationDbContextForCM>(sp => sp.GetRequiredServi
 builder.Services.AddScoped<IApplicationDbContextForApprovals>(sp => sp.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<IApplicationDbContextForDocuments>(sp => sp.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<IApplicationDbContextForIncidents>(sp => sp.GetRequiredService<ApplicationDbContext>());
+builder.Services.AddScoped<IApplicationDbContextForAccessManagement>(sp => sp.GetRequiredService<ApplicationDbContext>());
 
 // Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -53,6 +56,7 @@ new PCA.Modules.Identity.ModuleRegistration().Register(builder.Services, config)
 new PCA.Modules.ChangeManagement.ModuleRegistration().Register(builder.Services, config);
 new PCA.Modules.Approvals.ModuleRegistration().Register(builder.Services, config);
 new PCA.Modules.Incidents.ModuleRegistration().Register(builder.Services, config);
+new PCA.Modules.AccessManagement.ModuleRegistration().Register(builder.Services, config);
 
 // Document storage
 var docsStorageRoot = builder.Configuration["DocumentStoragePath"]
@@ -81,11 +85,15 @@ builder.Services.AddSingleton<IApprovalWorkflowRegistry>(_ =>
     registry.Register(new ChangeRequestApprovalWorkflow());
     registry.Register(new IncidentApprovalWorkflow());
     registry.Register(new DocumentApprovalWorkflow());
+    registry.Register(new AccessRequestApprovalWorkflow());
+    registry.Register(new ServerRoomAccessApprovalWorkflow());
     return registry;
 });
 
 // Document review alert background worker
 builder.Services.AddHostedService<DocumentReviewAlertWorker>();
+// Deprovisioning SLA alert background worker
+builder.Services.AddHostedService<DeprovisioningAlertWorker>();
 
 // Logging
 builder.Services.AddScoped<ILogService, LogService>();
@@ -94,7 +102,10 @@ builder.Logging.AddProvider(new DbLoggerProvider(
     builder.Services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>()));
 
 // MVC + API controllers
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add<PCA.Web.Filters.DeprovisioningOverdueBadgeFilter>();
+});
 builder.Services.AddControllers();
 
 var app = builder.Build();

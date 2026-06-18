@@ -1,0 +1,357 @@
+@model PCA.Modules.AccessManagement.Models.ServerRoomAccessRequest
+@using PCA.Shared.Enums
+@using PCA.Modules.Approvals.Models
+@{
+    ViewData["Title"] = string.IsNullOrEmpty(Model.SerialNumber) ? "Server Room Request" : Model.SerialNumber;
+    var approvalSteps = ViewBag.ApprovalSteps as List<ApprovalStep> ?? new();
+    var activeFlow    = ViewBag.ActiveFlow as ApprovalFlow;
+    var currentUserId = ViewBag.CurrentUserId as string;
+    var isAdmin       = User.IsInRole("Admin");
+
+    var statusCls = Model.Status switch {
+        ServerRoomAccessStatus.Approved    => "status-approved",
+        ServerRoomAccessStatus.Rejected    => "status-rejected",
+        ServerRoomAccessStatus.UnderReview => "status-underreview",
+        ServerRoomAccessStatus.Submitted   => "status-submitted",
+        _                                  => "status-draft"
+    };
+
+    var myStep = approvalSteps.FirstOrDefault(s =>
+        s.Status == ApprovalStatus.Pending && s.ApproverId == currentUserId &&
+        approvalSteps.Where(x => x.Order < s.Order).All(x => x.Status == ApprovalStatus.Approved));
+}
+
+@if (myStep != null)
+{
+    <div class="alert d-flex align-items-center justify-content-between gap-3 mb-3"
+         style="background:color-mix(in srgb,var(--color-primary) 6%,transparent);border:1px solid color-mix(in srgb,var(--color-primary) 20%,transparent);border-radius:10px;">
+        <div style="font-size:13px;">
+            <i class="bi bi-bell-fill me-2" style="color:var(--color-primary);"></i>
+            <strong>Your approval is required</strong> — Step @myStep.Order
+        </div>
+        <button type="button" class="btn btn-primary btn-sm flex-shrink-0"
+                data-bs-toggle="modal" data-bs-target="#approvalActionModal">
+            <i class="bi bi-check2-square me-1"></i> Take Action
+        </button>
+    </div>
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">@(string.IsNullOrEmpty(Model.SerialNumber) ? "Server Room Request (Draft)" : Model.SerialNumber)</h1>
+        <p class="page-header-sub mb-0">
+            <span class="status-badge @statusCls me-2">@Model.Status</span>
+            @Model.VisitorName
+            @if (Model.IsExternal) { <span class="badge bg-secondary ms-2" style="font-size:10px;">External</span> }
+        </p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-info-circle"></i> Request Details</div>
+            <div class="form-section-body">
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Visitor</div>
+                        <div style="font-size:13px;">@Model.VisitorName</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Title / Role</div>
+                        <div style="font-size:13px;">@(string.IsNullOrEmpty(Model.VisitorTitle) ? "—" : Model.VisitorTitle)</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Company / Department</div>
+                        <div style="font-size:13px;">@(string.IsNullOrEmpty(Model.VisitorCompany) ? "—" : Model.VisitorCompany)</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Escorted By</div>
+                        <div style="font-size:13px;">@(string.IsNullOrEmpty(Model.EscortedBy) ? "—" : Model.EscortedBy)</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Purpose</div>
+                        <div style="font-size:13px;white-space:pre-wrap;">@Model.Purpose</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Planned Entry</div>
+                        <div style="font-size:13px;">@Model.PlannedEntryDateTime.ToString("dd MMM yyyy HH:mm")</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Planned Exit</div>
+                        <div style="font-size:13px;">@Model.PlannedExitDateTime.ToString("dd MMM yyyy HH:mm")</div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(Model.WrittenRequestReference))
+                    {
+                        <div class="col-12">
+                            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Written Request Reference</div>
+                            <div style="font-size:13px;">@Model.WrittenRequestReference</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @* Actual entry/exit — shown after approval *@
+        @if (Model.Status == ServerRoomAccessStatus.Approved && isAdmin)
+        {
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-door-open"></i> Actual Entry / Exit</div>
+                <div class="form-section-body">
+                    <form asp-action="RecordEntry" asp-route-id="@Model.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Actual Entry</label>
+                                <input type="datetime-local" name="actualEntry" class="form-control"
+                                       value="@(Model.ActualEntryDateTime?.ToString("yyyy-MM-ddTHH:mm") ?? "")" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Actual Exit</label>
+                                <input type="datetime-local" name="actualExit" class="form-control"
+                                       value="@(Model.ActualExitDateTime?.ToString("yyyy-MM-ddTHH:mm") ?? "")" />
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-save me-1"></i> Save Entry / Exit Times
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+        else if (Model.ActualEntryDateTime.HasValue || Model.ActualExitDateTime.HasValue)
+        {
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-door-open"></i> Actual Entry / Exit</div>
+                <div class="form-section-body">
+                    <div class="row g-2">
+                        <div class="col-sm-6">
+                            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Actual Entry</div>
+                            <div style="font-size:13px;">@(Model.ActualEntryDateTime?.ToString("dd MMM yyyy HH:mm") ?? "—")</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Actual Exit</div>
+                            <div style="font-size:13px;">@(Model.ActualExitDateTime?.ToString("dd MMM yyyy HH:mm") ?? "—")</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (approvalSteps.Any())
+        {
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-check2-circle"></i> Approval</div>
+                <div class="form-section-body p-0">
+                    <table class="table table-sm mb-0" style="font-size:13px;">
+                        <thead style="background:var(--bs-tertiary-bg);">
+                            <tr>
+                                <th class="ps-3">Step</th>
+                                <th>Approver</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th class="pe-3">Comment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var step in approvalSteps.OrderBy(s => s.Order))
+                            {
+                                var badgeCls = step.Status switch {
+                                    ApprovalStatus.Approved        => "bg-success",
+                                    ApprovalStatus.Rejected        => "bg-danger",
+                                    ApprovalStatus.ReturnedForEdit => "bg-warning text-dark",
+                                    _                              => "bg-secondary"
+                                };
+                                var isActive = step.Status == ApprovalStatus.Pending &&
+                                    approvalSteps.Where(x => x.Order < step.Order).All(x => x.Status == ApprovalStatus.Approved);
+                                <tr class="@(isActive ? "table-active" : "")">
+                                    <td class="ps-3 align-middle fw-semibold">@step.Order</td>
+                                    <td class="align-middle">@(step.Approver?.FullName ?? "—")</td>
+                                    <td class="align-middle text-muted">@(string.IsNullOrEmpty(step.RoleName) ? "—" : step.RoleName)</td>
+                                    <td class="align-middle">
+                                        <span class="badge @badgeCls" style="font-size:10px;">@(isActive ? "Awaiting" : step.Status.ToString())</span>
+                                    </td>
+                                    <td class="align-middle text-muted" style="white-space:nowrap;">
+                                        @(step.ActedAt.HasValue ? step.ActedAt.Value.ToString("dd MMM yyyy") : "—")
+                                    </td>
+                                    <td class="align-middle pe-3 text-muted fst-italic" style="font-size:12px;">
+                                        @(string.IsNullOrEmpty(step.Comment) ? "" : $"\"{step.Comment}\"")
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @* Comments *@
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-chat-left-text"></i> Comments</div>
+            <div class="form-section-body">
+                @if (!Model.Comments.Any())
+                {
+                    <p class="text-muted mb-3" style="font-size:13px;">No comments yet.</p>
+                }
+                else
+                {
+                    @foreach (var c in Model.Comments.OrderBy(x => x.CreatedAt))
+                    {
+                        <div class="mb-3 pb-3 border-bottom">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <div class="avatar" style="width:28px;height:28px;font-size:11px;">@((c.Author?.FullName ?? "?")[0])</div>
+                                <span class="fw-semibold" style="font-size:13px;">@(c.Author?.FullName ?? "Unknown")</span>
+                                <span class="text-muted ms-auto" style="font-size:11px;">@c.CreatedAt.ToString("dd MMM yyyy HH:mm")</span>
+                            </div>
+                            <div style="font-size:13px;padding-left:36px;white-space:pre-wrap;">@c.Content</div>
+                        </div>
+                    }
+                }
+                <form asp-action="AddComment" asp-route-id="@Model.Id" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="d-flex gap-2">
+                        <textarea name="content" class="form-control form-control-sm" rows="2" placeholder="Add a comment…"></textarea>
+                        <button type="submit" class="btn btn-outline-primary btn-sm align-self-end">Post</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        @await Html.PartialAsync("_AttachmentsPanel", (object)null!, new ViewDataDictionary(ViewData)
+        {
+            ["Controller"]    = "ServerRoomAccess",
+            ["EntityId"]      = Model.Id,
+            ["Attachments"]   = ViewBag.Attachments,
+            ["CurrentUserId"] = currentUserId,
+            ["IsAdmin"]       = isAdmin
+        })
+
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card position-sticky" style="top:80px;">
+            <div class="card-header"><i class="bi bi-gear me-2"></i>Actions</div>
+            <div class="card-body">
+                @if (Model.Status == ServerRoomAccessStatus.Draft)
+                {
+                    @if (Model.RequestedById == currentUserId || isAdmin)
+                    {
+                        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-secondary w-100 mb-2">
+                            <i class="bi bi-pencil me-1"></i> Edit Request
+                        </a>
+                        <form asp-action="Submit" asp-route-id="@Model.Id" method="post">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-send me-1"></i> Submit for Approval
+                            </button>
+                        </form>
+                    }
+                }
+            </div>
+            <div class="card-footer" style="font-size:11px;color:var(--bs-secondary-color);">
+                <div><strong>Requested by:</strong> @(Model.RequestedBy?.FullName ?? "—")</div>
+                <div><strong>Created:</strong> @Model.CreatedAt.ToString("dd MMM yyyy HH:mm")</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (myStep != null)
+{
+    <div class="modal fade" id="approvalActionModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-check2-circle me-2"></i>Review Decision — Step @myStep.Order</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3" style="font-size:13px;">Select your decision. A comment is required for rejection or return.</p>
+                    <div class="d-flex gap-2 mb-3">
+                        <button type="button" class="btn btn-outline-success flex-fill action-choice" data-action="Approve">
+                            <i class="bi bi-check2-circle d-block fs-4 mb-1"></i>Approve
+                        </button>
+                        <button type="button" class="btn btn-outline-danger flex-fill action-choice" data-action="Reject">
+                            <i class="bi bi-x-circle d-block fs-4 mb-1"></i>Reject
+                        </button>
+                        <button type="button" class="btn btn-outline-warning flex-fill action-choice" data-action="ReturnForEdit">
+                            <i class="bi bi-arrow-return-left d-block fs-4 mb-1"></i>Return for Edit
+                        </button>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold" id="commentLabel">Comment <span class="text-muted">(optional)</span></label>
+                        <textarea id="approvalComment" class="form-control" rows="3" placeholder="Add a note…"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="submitApprovalAction" disabled>Confirm Decision</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form id="formApprove" asp-controller="Approvals" asp-action="Approve" method="post" class="d-none">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="stepId" value="@myStep.Id" />
+        <input type="hidden" name="entityType" value="ServerRoomAccessRequest" />
+        <input type="hidden" name="entityId" value="@Model.Id" />
+        <input type="hidden" name="comment" id="approveComment" />
+    </form>
+    <form id="formReject" asp-controller="Approvals" asp-action="Reject" method="post" class="d-none">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="stepId" value="@myStep.Id" />
+        <input type="hidden" name="entityType" value="ServerRoomAccessRequest" />
+        <input type="hidden" name="entityId" value="@Model.Id" />
+        <input type="hidden" name="comment" id="rejectComment" />
+    </form>
+    <form id="formReturn" asp-controller="Approvals" asp-action="ReturnForEdit" method="post" class="d-none">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="stepId" value="@myStep.Id" />
+        <input type="hidden" name="entityType" value="ServerRoomAccessRequest" />
+        <input type="hidden" name="entityId" value="@Model.Id" />
+        <input type="hidden" name="comment" id="returnComment" />
+    </form>
+}
+
+@section Scripts {
+<script>
+(function () {
+    var selected = null;
+    var requiresComment = { Reject: true, ReturnForEdit: true };
+    document.querySelectorAll('.action-choice').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.action-choice').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selected = btn.dataset.action;
+            var lbl = document.getElementById('commentLabel');
+            if (lbl) lbl.innerHTML = requiresComment[selected]
+                ? 'Comment <span class="text-danger">* required</span>'
+                : 'Comment <span class="text-muted">(optional)</span>';
+            updateSubmit();
+        });
+    });
+    var ta = document.getElementById('approvalComment');
+    if (ta) ta.addEventListener('input', updateSubmit);
+    function updateSubmit() {
+        var comment = (document.getElementById('approvalComment')?.value ?? '').trim();
+        var ok = selected && (!requiresComment[selected] || comment.length > 0);
+        var btn = document.getElementById('submitApprovalAction');
+        if (btn) btn.disabled = !ok;
+    }
+    document.getElementById('submitApprovalAction')?.addEventListener('click', function () {
+        var comment = (document.getElementById('approvalComment')?.value ?? '').trim();
+        if      (selected === 'Approve')       { document.getElementById('approveComment').value = comment; document.getElementById('formApprove').submit(); }
+        else if (selected === 'Reject')        { document.getElementById('rejectComment').value  = comment; document.getElementById('formReject').submit(); }
+        else if (selected === 'ReturnForEdit') { document.getElementById('returnComment').value  = comment; document.getElementById('formReturn').submit(); }
+    });
+})();
+</script>
+}
