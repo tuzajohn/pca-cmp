@@ -1667,6 +1667,48 @@ namespace PCA.Web.Migrations
                     b.ToTable("IncidentUpdates", (string)null);
                 });
 
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceHcmRefFile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("MonthYear")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("varchar(7)");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<int>("ScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UploadedById")
+                        .HasColumnType("varchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UploadedById");
+
+                    b.HasIndex("ScheduleId", "MonthYear")
+                        .IsUnique();
+
+                    b.ToTable("InvoiceHcmRefFiles");
+                });
+
             modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceLender", b =>
                 {
                     b.Property<int>("Id")
@@ -1835,6 +1877,9 @@ namespace PCA.Web.Migrations
 
                     b.Property<DateTime?>("NextRunAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("SplitSheets")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<TimeOnly>("TimeOfDay")
                         .HasColumnType("time(0)");
@@ -2536,6 +2581,24 @@ namespace PCA.Web.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("Incident");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceHcmRefFile", b =>
+                {
+                    b.HasOne("PCA.Modules.Invoicing.Models.InvoiceSchedule", "Schedule")
+                        .WithMany()
+                        .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Schedule");
+
+                    b.Navigation("UploadedBy");
                 });
 
             modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceLender", b =>
