@@ -177,10 +177,7 @@
     }
 
     function toggleAll(master) {
-        document.querySelectorAll('.row-check').forEach(cb => {
-            cb.checked = master.checked;
-            toggleRowName(cb);
-        });
+        document.querySelectorAll('.row-check').forEach(cb => cb.checked = master.checked);
         updateSaveBtn();
     }
 
