@@ -1,0 +1,125 @@
+@model PCA.Web.Models.InvoiceLenderEditViewModel
+@{ ViewData["Title"] = "Edit Lender"; }
+
+<div class="page-header">
+    <div><h1 class="page-header-title">Edit Lender</h1></div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i> Back</a>
+</div>
+
+<form asp-action="Edit" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-building"></i> Lender Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="Name" class="form-label fw-semibold"></label>
+                            <input asp-for="Name" class="form-control" id="nameInput" />
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="CompanyType" class="form-label fw-semibold"></label>
+                            <select asp-for="CompanyType" class="form-select" id="companyTypeSelect">
+                                <option value="MFI">MFI</option>
+                                <option value="BANK">BANK</option>
+                                <option value="SACCO">SACCO</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="DeductionCode" class="form-label fw-semibold"></label>
+                            <input asp-for="DeductionCode" class="form-control" id="deductionCodeInput" />
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input asp-for="IsActive" class="form-check-input" />
+                                <label asp-for="IsActive" class="form-check-label fw-semibold"></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-arrow-repeat"></i> Refresh from IPPS</div>
+                <div class="form-section-body">
+                    <p class="text-muted small mb-3">Re-query IPPS to update the name or deduction code if they have changed.</p>
+                    <div class="row g-3">
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="button" class="btn btn-outline-secondary btn-sm w-100" onclick="fetchCompanies()">
+                                <i class="bi bi-cloud-download me-1"></i> Fetch from IPPS
+                            </button>
+                        </div>
+                        <div class="col-12" id="fetchStatus" style="display:none;">
+                            <div id="fetchSpinner" class="text-muted small" style="display:none;">
+                                <span class="spinner-border spinner-border-sm me-1"></span> Querying IPPS…
+                            </div>
+                            <div id="fetchError" class="text-danger small" style="display:none;"></div>
+                        </div>
+                        <div class="col-12" id="companyPickerSection" style="display:none;">
+                            <label class="form-label fw-semibold small">Select company to update from</label>
+                            <select id="companySelect" class="form-select" onchange="populateFromCompany()">
+                                <option value="">— Pick a company —</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card position-sticky" style="top:80px;">
+                <div class="card-footer d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-save me-1"></i> Save Changes</button>
+                    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    async function fetchCompanies() {
+        const type = document.getElementById('companyTypeSelect').value;
+        document.getElementById('fetchStatus').style.display = '';
+        document.getElementById('fetchSpinner').style.display = '';
+        document.getElementById('fetchError').style.display = 'none';
+
+        try {
+            const resp = await fetch(`/InvoiceLenders/FetchCompanies?companyType=${encodeURIComponent(type)}`);
+            const data = await resp.json();
+            document.getElementById('fetchSpinner').style.display = 'none';
+
+            if (data.error) {
+                document.getElementById('fetchError').textContent = 'Error: ' + data.error;
+                document.getElementById('fetchError').style.display = '';
+                return;
+            }
+
+            const select = document.getElementById('companySelect');
+            select.innerHTML = '<option value="">— Pick a company —</option>';
+            data.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = `${c.companyName}  [${c.deductionType}]`;
+                opt.dataset.name = c.companyName;
+                opt.dataset.code = c.deductionType;
+                select.appendChild(opt);
+            });
+            document.getElementById('companyPickerSection').style.display = '';
+        } catch (e) {
+            document.getElementById('fetchSpinner').style.display = 'none';
+            document.getElementById('fetchError').textContent = 'Failed to reach IPPS.';
+            document.getElementById('fetchError').style.display = '';
+        }
+    }
+
+    function populateFromCompany() {
+        const select = document.getElementById('companySelect');
+        const opt = select.options[select.selectedIndex];
+        if (!opt.value) return;
+        document.getElementById('nameInput').value          = opt.dataset.name;
+        document.getElementById('deductionCodeInput').value = opt.dataset.code;
+    }
+</script>

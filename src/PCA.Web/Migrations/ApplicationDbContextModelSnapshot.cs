@@ -1667,6 +1667,247 @@ namespace PCA.Web.Migrations
                     b.ToTable("IncidentUpdates", (string)null);
                 });
 
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceHcmRefFile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("MonthYear")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("varchar(7)");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<int>("ScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UploadedById")
+                        .HasColumnType("varchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UploadedById");
+
+                    b.HasIndex("ScheduleId", "MonthYear")
+                        .IsUnique();
+
+                    b.ToTable("InvoiceHcmRefFiles");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceLender", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CompanyType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedById")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("DeductionCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.ToTable("InvoiceLenders");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceRecipient", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedById")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.ToTable("InvoiceRecipients");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<string>("FilePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("FinalRowCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("HcmRowCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("IppsRowCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("TriggeredAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("TriggeredById")
+                        .HasColumnType("varchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScheduleId");
+
+                    b.HasIndex("TriggeredById");
+
+                    b.ToTable("InvoiceRuns");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceSchedule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedById")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int?>("DayOfMonth")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DayOfWeek")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("LastRunAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("LenderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("NextRunAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("SplitSheets")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<TimeOnly>("TimeOfDay")
+                        .HasColumnType("time(0)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("LenderId");
+
+                    b.ToTable("InvoiceSchedules");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceScheduleRecipient", b =>
+                {
+                    b.Property<int>("InvoiceScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InvoiceRecipientId")
+                        .HasColumnType("int");
+
+                    b.HasKey("InvoiceScheduleId", "InvoiceRecipientId");
+
+                    b.HasIndex("InvoiceRecipientId");
+
+                    b.ToTable("InvoiceScheduleRecipients");
+                });
+
             modelBuilder.Entity("PCA.Web.Models.ApiKey", b =>
                 {
                     b.Property<int>("Id")
@@ -2342,6 +2583,99 @@ namespace PCA.Web.Migrations
                     b.Navigation("Incident");
                 });
 
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceHcmRefFile", b =>
+                {
+                    b.HasOne("PCA.Modules.Invoicing.Models.InvoiceSchedule", "Schedule")
+                        .WithMany()
+                        .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Schedule");
+
+                    b.Navigation("UploadedBy");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceLender", b =>
+                {
+                    b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedBy");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceRecipient", b =>
+                {
+                    b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedBy");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceRun", b =>
+                {
+                    b.HasOne("PCA.Modules.Invoicing.Models.InvoiceSchedule", "Schedule")
+                        .WithMany("Runs")
+                        .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "TriggeredBy")
+                        .WithMany()
+                        .HasForeignKey("TriggeredById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Schedule");
+
+                    b.Navigation("TriggeredBy");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceSchedule", b =>
+                {
+                    b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("PCA.Modules.Invoicing.Models.InvoiceLender", "Lender")
+                        .WithMany("Schedules")
+                        .HasForeignKey("LenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Lender");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceScheduleRecipient", b =>
+                {
+                    b.HasOne("PCA.Modules.Invoicing.Models.InvoiceRecipient", "Recipient")
+                        .WithMany("ScheduleRecipients")
+                        .HasForeignKey("InvoiceRecipientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PCA.Modules.Invoicing.Models.InvoiceSchedule", "Schedule")
+                        .WithMany("ScheduleRecipients")
+                        .HasForeignKey("InvoiceScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recipient");
+
+                    b.Navigation("Schedule");
+                });
+
             modelBuilder.Entity("PCA.Web.Models.Attachment", b =>
                 {
                     b.HasOne("PCA.Modules.Identity.Models.ApplicationUser", "UploadedBy")
@@ -2409,6 +2743,23 @@ namespace PCA.Web.Migrations
                     b.Navigation("LinkedDocuments");
 
                     b.Navigation("Updates");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceLender", b =>
+                {
+                    b.Navigation("Schedules");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceRecipient", b =>
+                {
+                    b.Navigation("ScheduleRecipients");
+                });
+
+            modelBuilder.Entity("PCA.Modules.Invoicing.Models.InvoiceSchedule", b =>
+                {
+                    b.Navigation("Runs");
+
+                    b.Navigation("ScheduleRecipients");
                 });
 #pragma warning restore 612, 618
         }

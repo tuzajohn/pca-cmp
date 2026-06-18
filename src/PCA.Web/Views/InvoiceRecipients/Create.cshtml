@@ -1,0 +1,47 @@
+@model PCA.Web.Models.InvoiceRecipientCreateViewModel
+@{ ViewData["Title"] = "Add Recipient"; }
+
+<div class="page-header">
+    <div><h1 class="page-header-title">Add Recipient</h1></div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i> Back</a>
+</div>
+
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-person-lines-fill"></i> Recipient Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="Name" class="form-label fw-semibold"></label>
+                            <input asp-for="Name" class="form-control" />
+                            <span asp-validation-for="Name" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Email" class="form-label fw-semibold"></label>
+                            <input asp-for="Email" class="form-control" type="email" />
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input asp-for="IsDefault" class="form-check-input" />
+                                <label asp-for="IsDefault" class="form-check-label fw-semibold"></label>
+                            </div>
+                            <div class="text-muted small mt-1">Default recipients are pre-selected when creating a new invoice schedule.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card position-sticky" style="top:80px;">
+                <div class="card-footer d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-save me-1"></i> Save</button>
+                    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

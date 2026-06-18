@@ -1,0 +1,79 @@
+@model List<PCA.Modules.Invoicing.Models.InvoiceLender>
+@{ ViewData["Title"] = "Invoice Lenders"; }
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Invoice Lenders</h1>
+        <p class="page-header-sub mb-0">Configure lenders for invoice generation</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i> New Lender</a>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Success"] <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="card">
+    <div class="card-body p-0">
+        @if (!Model.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-building" style="font-size:40px;opacity:.3;"></i>
+                <p class="mt-3">No lenders configured yet.</p>
+            </div>
+        }
+        else
+        {
+            <table class="table table-hover mb-0" style="font-size:13px;">
+                <thead style="background:var(--bs-tertiary-bg);">
+                    <tr>
+                        <th class="ps-3">Name</th>
+                        <th>Company Type</th>
+                        <th>Deduction Code</th>
+                        <th>Status</th>
+                        <th>Added By</th>
+                        <th class="pe-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var l in Model)
+                    {
+                        <tr>
+                            <td class="ps-3 align-middle fw-semibold">@l.Name</td>
+                            <td class="align-middle">
+                                <span class="badge" style="background:var(--bs-secondary-bg);color:var(--bs-body-color);font-size:11px;">@l.CompanyType</span>
+                            </td>
+                            <td class="align-middle text-muted">@l.DeductionCode</td>
+                            <td class="align-middle">
+                                @if (l.IsActive)
+                                {
+                                    <span class="status-badge status-approved" style="font-size:10px;">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="status-badge status-draft" style="font-size:10px;">Inactive</span>
+                                }
+                            </td>
+                            <td class="align-middle text-muted" style="font-size:11px;">@(l.CreatedBy?.FullName ?? "—")</td>
+                            <td class="pe-3 align-middle text-end">
+                                <a asp-action="Edit" asp-route-id="@l.Id" class="btn btn-outline-secondary btn-sm me-1" style="padding:2px 8px;font-size:11px;">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form asp-action="Delete" asp-route-id="@l.Id" method="post" class="d-inline"
+                                      onsubmit="return confirm('Delete this lender?')">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-outline-danger btn-sm" style="padding:2px 8px;font-size:11px;">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

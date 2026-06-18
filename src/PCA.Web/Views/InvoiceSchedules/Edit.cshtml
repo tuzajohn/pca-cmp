@@ -1,0 +1,166 @@
+@model PCA.Web.Models.InvoiceScheduleEditViewModel
+@using PCA.Modules.Invoicing.Models
+@{ ViewData["Title"] = "Edit Invoice Schedule"; }
+
+<div class="page-header">
+    <div><h1 class="page-header-title">Edit Invoice Schedule</h1></div>
+    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i> Back</a>
+</div>
+
+<form asp-action="Edit" method="post" id="scheduleForm">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div class="row g-3">
+        <div class="col-lg-8">
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-building"></i> Lender</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label asp-for="Name" class="form-label fw-semibold"></label>
+                            <input asp-for="Name" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="LenderId" class="form-label fw-semibold"></label>
+                            <select asp-for="LenderId" class="form-select">
+                                @foreach (var l in (List<PCA.Modules.Invoicing.Models.InvoiceLender>)ViewBag.Lenders)
+                                {
+                                    <option value="@l.Id">@l.Name (@l.CompanyType)</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-calendar-event"></i> Schedule</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label asp-for="Frequency" class="form-label fw-semibold"></label>
+                            <select asp-for="Frequency" class="form-select" id="frequencySelect" onchange="updateDayFields()">
+                                <option value="Daily">Daily</option>
+                                <option value="Weekly">Weekly</option>
+                                <option value="Monthly">Monthly</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4" id="dayOfWeekField">
+                            <label asp-for="DayOfWeek" class="form-label fw-semibold"></label>
+                            <select asp-for="DayOfWeek" class="form-select">
+                                <option value="1">Monday</option>
+                                <option value="2">Tuesday</option>
+                                <option value="3">Wednesday</option>
+                                <option value="4">Thursday</option>
+                                <option value="5">Friday</option>
+                                <option value="6">Saturday</option>
+                                <option value="0">Sunday</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4" id="dayOfMonthField">
+                            <label asp-for="DayOfMonth" class="form-label fw-semibold"></label>
+                            <select asp-for="DayOfMonth" class="form-select">
+                                @for (int d = 1; d <= 31; d++)
+                                {
+                                    <option value="@d">Day @d</option>
+                                }
+                                <option value="-1">Last day of month</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="TimeOfDay" class="form-label fw-semibold"></label>
+                            <input asp-for="TimeOfDay" type="time" class="form-control" id="timeInput" />
+                        </div>
+                        <div class="col-12">
+                            <div class="alert alert-info py-2 px-3 mb-0" style="font-size:13px;border-radius:8px;">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <span id="scheduleDescription"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-envelope"></i> Recipients</div>
+                <div class="form-section-body">
+                    @{
+                        var recipients = (List<PCA.Modules.Invoicing.Models.InvoiceRecipient>)ViewBag.Recipients;
+                    }
+                    <div class="row g-2">
+                        @foreach (var r in recipients)
+                        {
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="SelectedRecipientIds" value="@r.Id"
+                                           id="rec_@r.Id"
+                                           @(Model.SelectedRecipientIds.Contains(r.Id) ? "checked" : "") />
+                                    <label class="form-check-label" for="rec_@r.Id">
+                                        <span class="fw-semibold">@r.Name</span>
+                                        <span class="text-muted small ms-1">@r.Email</span>
+                                    </label>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="col-lg-4">
+            <div class="card position-sticky" style="top:80px;">
+                <div class="card-body" style="font-size:13px;">
+                    <div class="form-check mb-3">
+                        <input asp-for="IsEnabled" class="form-check-input" />
+                        <label asp-for="IsEnabled" class="form-check-label fw-semibold"></label>
+                        <div class="text-muted mt-1" style="font-size:11px;">Disabled schedules will not run automatically but can still be triggered manually.</div>
+                    </div>
+                    <hr class="my-2" />
+                    <div class="form-check">
+                        <input asp-for="SplitSheets" class="form-check-input" />
+                        <label asp-for="SplitSheets" class="form-check-label fw-semibold"></label>
+                        <div class="text-muted mt-1" style="font-size:11px;">When enabled, IPPS and HCM data are written to separate sheets. Requires uploading a monthly HCM ref file on the schedule details page.</div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-save me-1"></i> Save Changes</button>
+                    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    function updateDayFields() {
+        const freq = document.getElementById('frequencySelect').value;
+        document.getElementById('dayOfWeekField').style.display  = freq === 'Weekly'  ? '' : 'none';
+        document.getElementById('dayOfMonthField').style.display = freq === 'Monthly' ? '' : 'none';
+        updateDescription();
+    }
+    function updateDescription() {
+        const freq = document.getElementById('frequencySelect').value;
+        const time = document.getElementById('timeInput').value || '06:00';
+        let desc = '';
+        if (freq === 'Daily') { desc = `Every day at ${time}`; }
+        else if (freq === 'Weekly') {
+            const dow = parseInt(document.querySelector('[name="DayOfWeek"]').value || '1');
+            desc = `Every ${dayNames[dow]} at ${time}`;
+        } else {
+            const dom = document.querySelector('[name="DayOfMonth"]').value || '1';
+            desc = dom === '-1'
+                ? `Monthly on last day of month at ${time}`
+                : `Monthly on day ${dom} at ${time}`;
+        }
+        document.getElementById('scheduleDescription').textContent = desc;
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        updateDayFields();
+        document.getElementById('timeInput').addEventListener('change', updateDescription);
+        document.querySelector('[name="DayOfWeek"]')?.addEventListener('change', updateDescription);
+        document.querySelector('[name="DayOfMonth"]')?.addEventListener('change', updateDescription);
+    });
+</script>

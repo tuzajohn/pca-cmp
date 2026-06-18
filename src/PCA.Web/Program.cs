@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PCA.Modules.AccessManagement;
 using PCA.Modules.AccessManagement.Services;
+using PCA.Modules.Invoicing;
+using PCA.Modules.Invoicing.Services;
+using PCA.Web.Services;
 using PCA.Modules.Approvals;
 using PCA.Modules.Approvals.Services;
 using PCA.Modules.ChangeManagement;
@@ -31,6 +34,7 @@ builder.Services.AddScoped<IApplicationDbContextForApprovals>(sp => sp.GetRequir
 builder.Services.AddScoped<IApplicationDbContextForDocuments>(sp => sp.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<IApplicationDbContextForIncidents>(sp => sp.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<IApplicationDbContextForAccessManagement>(sp => sp.GetRequiredService<ApplicationDbContext>());
+builder.Services.AddScoped<IApplicationDbContextForInvoicing>(sp => sp.GetRequiredService<ApplicationDbContext>());
 
 // Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
@@ -57,6 +61,7 @@ new PCA.Modules.ChangeManagement.ModuleRegistration().Register(builder.Services,
 new PCA.Modules.Approvals.ModuleRegistration().Register(builder.Services, config);
 new PCA.Modules.Incidents.ModuleRegistration().Register(builder.Services, config);
 new PCA.Modules.AccessManagement.ModuleRegistration().Register(builder.Services, config);
+new PCA.Modules.Invoicing.ModuleRegistration().Register(builder.Services, config);
 
 // Document storage
 var docsStorageRoot = builder.Configuration["DocumentStoragePath"]
@@ -94,6 +99,18 @@ builder.Services.AddSingleton<IApprovalWorkflowRegistry>(_ =>
 builder.Services.AddHostedService<DocumentReviewAlertWorker>();
 // Deprovisioning SLA alert background worker
 builder.Services.AddHostedService<DeprovisioningAlertWorker>();
+
+// Invoice scheduler background worker
+builder.Services.AddScoped<IInvoiceEmailSender, InvoiceEmailSender>();
+var invoiceStorageRoot = builder.Configuration["InvoiceStoragePath"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "uploads", "documents");
+builder.Services.AddScoped<InvoiceRunOrchestrator>(sp => new InvoiceRunOrchestrator(
+    sp.GetRequiredService<IInvoicingService>(),
+    sp.GetRequiredService<InvoiceDataService>(),
+    sp.GetRequiredService<IInvoiceEmailSender>(),
+    invoiceStorageRoot,
+    sp.GetRequiredService<ILogger<InvoiceRunOrchestrator>>()));
+builder.Services.AddHostedService<InvoiceSchedulerWorker>();
 
 // Logging
 builder.Services.AddScoped<ILogService, LogService>();

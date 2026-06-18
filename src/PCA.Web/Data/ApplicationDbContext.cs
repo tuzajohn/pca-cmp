@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using PCA.Modules.AccessManagement.Data;
 using PCA.Modules.AccessManagement.Models;
 using PCA.Modules.AccessManagement.Services;
+using PCA.Modules.Invoicing.Data;
+using PCA.Modules.Invoicing.Models;
+using PCA.Modules.Invoicing.Services;
 using PCA.Modules.Approvals.Data;
 using PCA.Modules.Approvals.Models;
 using PCA.Modules.Approvals.Services;
@@ -25,7 +28,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     IApplicationDbContextForApprovals,
     IApplicationDbContextForDocuments,
     IApplicationDbContextForIncidents,
-    IApplicationDbContextForAccessManagement
+    IApplicationDbContextForAccessManagement,
+    IApplicationDbContextForInvoicing
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
@@ -65,6 +69,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     public DbSet<ServerRoomAccessRequest> ServerRoomAccessRequests => Set<ServerRoomAccessRequest>();
     public DbSet<ServerRoomAccessComment> ServerRoomAccessComments => Set<ServerRoomAccessComment>();
     public DbSet<AccessSequence> AccessSequences => Set<AccessSequence>();
+
+    // Invoicing
+    public DbSet<InvoiceLender> InvoiceLenders => Set<InvoiceLender>();
+    public DbSet<InvoiceRecipient> InvoiceRecipients => Set<InvoiceRecipient>();
+    public DbSet<InvoiceSchedule> InvoiceSchedules => Set<InvoiceSchedule>();
+    public DbSet<InvoiceScheduleRecipient> InvoiceScheduleRecipients => Set<InvoiceScheduleRecipient>();
+    public DbSet<InvoiceRun> InvoiceRuns => Set<InvoiceRun>();
+    public DbSet<InvoiceHcmRefFile> InvoiceHcmRefFiles => Set<InvoiceHcmRefFile>();
 
     // Attachments
     public DbSet<Attachment> Attachments => Set<Attachment>();
@@ -107,6 +119,13 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
         builder.ApplyConfiguration(new DeprovisioningSystemEntryConfiguration());
         builder.ApplyConfiguration(new ServerRoomAccessRequestConfiguration());
         builder.ApplyConfiguration(new ServerRoomAccessCommentConfiguration());
+
+        builder.ApplyConfiguration(new InvoiceLenderConfiguration());
+        builder.ApplyConfiguration(new InvoiceRecipientConfiguration());
+        builder.ApplyConfiguration(new InvoiceScheduleConfiguration());
+        builder.ApplyConfiguration(new InvoiceScheduleRecipientConfiguration());
+        builder.ApplyConfiguration(new InvoiceRunConfiguration());
+        builder.ApplyConfiguration(new InvoiceHcmRefFileConfiguration());
 
         builder.Entity<AccessSequence>().ToTable("AccessSequences").HasKey(x => x.Id);
         builder.Entity<AccessSequence>().HasIndex(x => new { x.Prefix, x.Year, x.Month }).IsUnique();

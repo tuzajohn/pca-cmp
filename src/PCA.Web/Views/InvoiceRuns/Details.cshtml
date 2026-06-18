@@ -1,0 +1,107 @@
+@model PCA.Modules.Invoicing.Models.InvoiceRun
+@using PCA.Modules.Invoicing.Models
+@{
+    ViewData["Title"] = $"Run #{Model.Id}";
+    var statusCls = Model.Status switch {
+        InvoiceRunStatus.Completed => "status-approved",
+        InvoiceRunStatus.Failed    => "status-rejected",
+        InvoiceRunStatus.Running   => "status-underreview",
+        _                          => "status-draft"
+    };
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Invoice Run #@Model.Id</h1>
+        <p class="page-header-sub mb-0">
+            <span class="status-badge @statusCls me-2" style="font-size:10px;">@Model.Status</span>
+            @Model.Schedule?.Name · @Model.TriggeredAt.ToString("dd MMM yyyy HH:mm") UTC
+        </p>
+    </div>
+    <a asp-controller="InvoiceSchedules" asp-action="Details" asp-route-id="@Model.ScheduleId"
+       class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+
+        @if (Model.Status == InvoiceRunStatus.Failed && !string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger d-flex align-items-start gap-2 mb-3" style="border-radius:10px;">
+                <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0 mt-1"></i>
+                <div>
+                    <strong>Run Failed</strong>
+                    <div style="font-size:13px;white-space:pre-wrap;margin-top:4px;">@Model.ErrorMessage</div>
+                </div>
+            </div>
+        }
+
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-bar-chart"></i> Row Summary</div>
+            <div class="form-section-body">
+                <div class="row g-3">
+                    <div class="col-sm-4 text-center">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">IPPS Rows</div>
+                        <div style="font-size:22px;font-weight:700;">@Model.IppsRowCount</div>
+                    </div>
+                    <div class="col-sm-4 text-center">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">HCM Rows</div>
+                        <div style="font-size:22px;font-weight:700;">@Model.HcmRowCount</div>
+                    </div>
+                    <div class="col-sm-4 text-center">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Final (after dedup)</div>
+                        <div style="font-size:22px;font-weight:700;color:var(--bs-success);">@Model.FinalRowCount</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <div class="col-lg-4">
+        <div class="card position-sticky" style="top:80px;">
+            <div class="card-header"><i class="bi bi-info-circle me-2"></i>Run Details</div>
+            <div class="card-body" style="font-size:13px;">
+                <div class="mb-2">
+                    <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Schedule</div>
+                    <div>@Model.Schedule?.Name</div>
+                </div>
+                <div class="mb-2">
+                    <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Lender</div>
+                    <div>@Model.Schedule?.Lender?.Name</div>
+                </div>
+                <div class="mb-2">
+                    <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Triggered At</div>
+                    <div>@Model.TriggeredAt.ToString("dd MMM yyyy HH:mm") UTC</div>
+                </div>
+                <div class="mb-2">
+                    <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Triggered By</div>
+                    <div>@(Model.TriggeredBy?.FullName ?? "Scheduler (automatic)")</div>
+                </div>
+                @if (Model.CompletedAt.HasValue)
+                {
+                    <div class="mb-2">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Completed At</div>
+                        <div>@Model.CompletedAt.Value.ToString("dd MMM yyyy HH:mm") UTC</div>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Model.FileName))
+                {
+                    <div class="mb-2">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Output File</div>
+                        <div style="word-break:break-all;">@Model.FileName</div>
+                    </div>
+                }
+            </div>
+            @if (Model.Status == InvoiceRunStatus.Completed && !string.IsNullOrEmpty(Model.FilePath))
+            {
+                <div class="card-footer">
+                    <a asp-action="Download" asp-route-id="@Model.Id" class="btn btn-success btn-sm w-100">
+                        <i class="bi bi-download me-1"></i> Download Excel
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+</div>
