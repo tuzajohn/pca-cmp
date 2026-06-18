@@ -116,7 +116,6 @@ public class InvoiceDataService
         _logger.LogInformation("FetchCompaniesByType [{CompanyType}]: opening tunnel to {DbHost}/{Database}",
             companyType, IppsSettings.DbHost, IppsSettings.Database);
 
-        using var tunnel = await SshTunnelService.OpenAsync(IppsSettings);
         using var tunnel = await SshTunnelService.OpenAsync(IppsSettings, _logger);
         var rows = new List<CompanyRow>();
 
