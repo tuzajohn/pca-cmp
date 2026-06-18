@@ -41,11 +41,13 @@ public class InvoiceRunOrchestrator
         {
             var lender = schedule.Lender!;
 
-            // 1. Lookup deduction code from IPPS companies table
-            var deductionCode = await InvoiceDataService.LookupDeductionCodeAsync(
-                _dataSvc.IppsSettings, lender.CompanyType, ct);
+            // Use the deduction code stored on the lender (set at lender creation from the companies query)
+            var deductionCode = lender.DeductionCode;
+            if (string.IsNullOrWhiteSpace(deductionCode))
+                throw new InvalidOperationException(
+                    $"Lender '{lender.Name}' has no deduction code. Re-save the lender to fetch it from IPPS.");
 
-            // 2. Fetch + merge
+            // Fetch + merge from IPPS and HCM
             var (rows, ippsCount, hcmCount) = await _dataSvc.FetchMergedDataAsync(deductionCode, ct);
 
             // 3. Build Excel
