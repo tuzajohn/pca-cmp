@@ -14,15 +14,18 @@ public class InvoiceLendersController : Controller
     private readonly IInvoicingService _svc;
     private readonly InvoiceDataService _dataSvc;
     private readonly UserManager<ApplicationUser> _users;
+    private readonly ILogger<InvoiceLendersController> _logger;
 
     public InvoiceLendersController(
         IInvoicingService svc,
         InvoiceDataService dataSvc,
-        UserManager<ApplicationUser> users)
+        UserManager<ApplicationUser> users,
+        ILogger<InvoiceLendersController> logger)
     {
         _svc     = svc;
         _dataSvc = dataSvc;
         _users   = users;
+        _logger  = logger;
     }
 
     public async Task<IActionResult> Index() => View(await _svc.GetLendersAsync());
@@ -51,6 +54,7 @@ public class InvoiceLendersController : Controller
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "FetchCompanies [{CompanyType}]: error occurred", companyType);
             return Json(new { error = ex.Message });
         }
     }

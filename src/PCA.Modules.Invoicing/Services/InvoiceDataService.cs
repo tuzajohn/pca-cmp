@@ -38,7 +38,11 @@ public class InvoiceDataService
         var ippsRows = await FetchDeductionsFromSourceAsync(IppsSettings, deductionCode, "IPPS", ct);
         var hcmRows  = await FetchDeductionsFromSourceAsync(HcmSettings,  deductionCode, "HCM",  ct);
 
-        var merged = DedupRows(ippsRows.Concat(hcmRows));
+        var merged = ippsRows.Concat(hcmRows)
+            .GroupBy(r => r.EmployeeNumber)
+            .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
+            .OrderBy(r => r.EmployeeNumber)
+            .ToList();
 
         _logger.LogInformation(
             "FetchMergedData: IPPS={IppsCount} rows, HCM={HcmCount} rows, merged={MergedCount} rows after dedup",
@@ -53,7 +57,7 @@ public class InvoiceDataService
         _logger.LogInformation("FetchDeductions [{Source}]: opening tunnel to {DbHost}/{Database}",
             source, cfg.DbHost, cfg.Database);
 
-        using var tunnel = await SshTunnelService.OpenAsync(cfg, _logger);
+        using var tunnel = await SshTunnelService.OpenAsync(cfg);
         var rows = new List<DeductionRow>();
 
         const string sql = @"
@@ -102,10 +106,17 @@ public class InvoiceDataService
         return rows;
     }
 
+    /// <summary>
+    /// Returns all companies of a given type from the IPPS companies table.
+    /// Used to populate the lender creation form before saving.
+    /// </summary>
     public async Task<List<CompanyRow>> FetchCompaniesByTypeAsync(
         string companyType, CancellationToken ct = default)
     {
-        using var tunnel = await SshTunnelService.OpenAsync(IppsSettings, _logger);
+        _logger.LogInformation("FetchCompaniesByType [{CompanyType}]: opening tunnel to {DbHost}/{Database}",
+            companyType, IppsSettings.DbHost, IppsSettings.Database);
+
+        using var tunnel = await SshTunnelService.OpenAsync(IppsSettings);
         var rows = new List<CompanyRow>();
 
         const string sql = @"
@@ -125,10 +136,16 @@ public class InvoiceDataService
                 reader.GetString("companyname"),
                 reader.GetString("deductiontype")));
         }
-
+        
+        _logger.LogInformation("FetchCompaniesByType [{CompanyType}]: fetched {Count} rows", companyType, rows.Count);
         return rows;
     }
 
+    /// <summary>
+    /// Returns the deduction code for a lender during an invoice run.
+    /// Uses the lender's stored DeductionCode — no DB lookup needed at run time.
+    /// Kept for cases where a direct lookup is required.
+    /// </summary>
     public static async Task<string> LookupDeductionCodeAsync(
         ExternalDbSettings cfg, string companyType, CancellationToken ct = default)
     {
@@ -159,8 +176,17 @@ public class InvoiceDataService
             "SplitRows: trueHCM={TrueHcm}, tempIPPS={TempIpps}, keptIPPS={KeptIpps}, droppedFromIPPS={Dropped}",
             trueHcm.Count, tempIpps.Count, keptIpps.Count, droppedFromIpps);
 
-        var ippsSheet = DedupRows(keptIpps.Concat(tempIpps));
-        var hcmSheet  = DedupRows(trueHcm);
+        var ippsSheet = keptIpps.Concat(tempIpps)
+            .GroupBy(r => r.EmployeeNumber)
+            .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
+            .OrderBy(r => r.EmployeeNumber)
+            .ToList();
+
+        var hcmSheet = trueHcm
+            .GroupBy(r => r.EmployeeNumber)
+            .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
+            .OrderBy(r => r.EmployeeNumber)
+            .ToList();
 
         _logger.LogInformation(
             "SplitRows: final IPPS sheet={IppsSheet} rows, HCM sheet={HcmSheet} rows",
@@ -168,12 +194,6 @@ public class InvoiceDataService
 
         return (ippsSheet, hcmSheet);
     }
-
-    private static List<DeductionRow> DedupRows(IEnumerable<DeductionRow> source) =>
-        source.GroupBy(r => r.EmployeeNumber)
-              .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
-              .OrderBy(r => r.EmployeeNumber)
-              .ToList();
 
     private static HashSet<long> ReadHcmRefNumbers(string filePath)
     {
