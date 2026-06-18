@@ -67,13 +67,20 @@ public class InvoiceDataService
         using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
+            var amountRaw = reader.GetValue(reader.GetOrdinal("installmentamount"));
+            var amount = amountRaw == DBNull.Value
+                ? 0m
+                : decimal.TryParse(amountRaw.ToString(), System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+                    ? parsed : 0m;
+
             rows.Add(new DeductionRow(
-                EmployeeNumber:   reader.GetString("employeenumber"),
-                ReferenceCode:    reader.GetString("referencecode"),
-                DeductionType:    reader.GetString("deductiontype"),
-                InstallmentAmount: reader.GetDecimal("installmentamount"),
-                DateCreated:      reader.GetDateTime("datecreated"),
-                Source:           source));
+                EmployeeNumber:    reader.GetString("employeenumber"),
+                ReferenceCode:     reader.GetString("referencecode"),
+                DeductionType:     reader.GetString("deductiontype"),
+                InstallmentAmount: amount,
+                DateCreated:       reader.GetDateTime("datecreated"),
+                Source:            source));
         }
 
         return rows;
