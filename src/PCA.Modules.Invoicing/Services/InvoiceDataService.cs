@@ -6,7 +6,7 @@ using System.Drawing;
 namespace PCA.Modules.Invoicing.Services;
 
 public record DeductionRow(
-    string EmployeeNumber,
+    long EmployeeNumber,
     string ReferenceCode,
     string DeductionType,
     decimal InstallmentAmount,
@@ -74,8 +74,11 @@ public class InvoiceDataService
                     System.Globalization.CultureInfo.InvariantCulture, out var parsed)
                     ? parsed : 0m;
 
+            var empRaw = reader.GetString("employeenumber");
+            long.TryParse(empRaw, out var empNumber);
+
             rows.Add(new DeductionRow(
-                EmployeeNumber:    reader.GetString("employeenumber"),
+                EmployeeNumber:    empNumber,
                 ReferenceCode:     reader.GetString("referencecode"),
                 DeductionType:     reader.GetString("deductiontype"),
                 InstallmentAmount: amount,
@@ -169,6 +172,7 @@ public class InvoiceDataService
         {
             var row = rows[r];
             ws.Cells[r + 2, 1].Value = row.EmployeeNumber;
+            ws.Cells[r + 2, 1].Style.Numberformat.Format = "0";
             ws.Cells[r + 2, 2].Value = row.ReferenceCode;
             ws.Cells[r + 2, 3].Value = row.DeductionType;
             ws.Cells[r + 2, 4].Value = row.InstallmentAmount;
