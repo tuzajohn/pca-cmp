@@ -35,9 +35,16 @@
         <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
             <select name="status" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Statuses</option>
-                @foreach (var s in Enum.GetValues<DeprovisioningStatus>())
+                @foreach (var status in Enum.GetValues<DeprovisioningStatus>())
                 {
-                    <option value="@s" @(s.ToString() == statusFilter ? "selected" : "")>@s</option>
+                    if (status.ToString() == statusFilter)
+                    {
+                        <option value="@status" selected>@status</option>
+                    }
+                    else
+                    {
+                        <option value="@status">@status</option>
+                    }
                 }
             </select>
             <div class="form-check ms-2 mb-0">

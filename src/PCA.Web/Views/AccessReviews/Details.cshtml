@@ -89,9 +89,16 @@
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="entryId" value="@entry.Id" />
                                                 <select name="outcome" class="form-select form-select-sm" style="width:auto;">
-                                                    @foreach (var o in Enum.GetValues<AccessReviewEntryOutcome>())
+                                                    @foreach (var outcome in Enum.GetValues<AccessReviewEntryOutcome>())
                                                     {
-                                                        <option value="@o" @(entry.Outcome == o ? "selected" : "")>@o</option>
+                                                        if (entry.Outcome == outcome)
+                                                        {
+                                                            <option value="@outcome" selected>@outcome</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="@outcome">@outcome</option>
+                                                        }
                                                     }
                                                 </select>
                                                 <button type="submit" class="btn btn-outline-primary btn-sm" style="padding:2px 8px;">Save</button>

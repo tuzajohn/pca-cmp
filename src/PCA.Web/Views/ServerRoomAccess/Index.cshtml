@@ -20,9 +20,16 @@
         <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
             <select name="status" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Statuses</option>
-                @foreach (var s in Enum.GetValues<ServerRoomAccessStatus>())
+                @foreach (var status in Enum.GetValues<ServerRoomAccessStatus>())
                 {
-                    <option value="@s" @(s.ToString() == statusFilter ? "selected" : "")>@s</option>
+                    if (status.ToString() == statusFilter)
+                    {
+                        <option value="@status" selected>@status</option>
+                    }
+                    else
+                    {
+                        <option value="@status">@status</option>
+                    }
                 }
             </select>
             <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
@@ -60,13 +67,14 @@
                 <tbody>
                     @foreach (var req in Model)
                     {
-                        var statusCls = req.Status switch {
-                            ServerRoomAccessStatus.Approved    => "status-approved",
-                            ServerRoomAccessStatus.Rejected    => "status-rejected",
+                        var statusCls = req.Status switch
+                        {
+                            ServerRoomAccessStatus.Approved => "status-approved",
+                            ServerRoomAccessStatus.Rejected => "status-rejected",
                             ServerRoomAccessStatus.UnderReview => "status-underreview",
-                            ServerRoomAccessStatus.Submitted   => "status-submitted",
-                            ServerRoomAccessStatus.Cancelled   => "status-draft",
-                            _                                  => "status-draft"
+                            ServerRoomAccessStatus.Submitted => "status-submitted",
+                            ServerRoomAccessStatus.Cancelled => "status-draft",
+                            _ => "status-draft"
                         };
                         <tr>
                             <td class="ps-3 align-middle text-muted" style="white-space:nowrap;">
@@ -78,7 +86,10 @@
                                 </a>
                                 <div class="text-muted fw-normal" style="font-size:11px;">
                                     @(string.IsNullOrEmpty(req.VisitorCompany) ? "" : req.VisitorCompany)
-                                    @if (req.IsExternal) { <span class="badge bg-secondary ms-1" style="font-size:9px;">External</span> }
+                                    @if (req.IsExternal)
+                                    {
+                                        <span class="badge bg-secondary ms-1" style="font-size:9px;">External</span>
+                                    }
                                 </div>
                             </td>
                             <td class="align-middle text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">

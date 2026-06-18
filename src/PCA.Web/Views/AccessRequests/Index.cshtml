@@ -23,7 +23,14 @@
                 <option value="">All Statuses</option>
                 @foreach (var s in Enum.GetValues<AccessRequestStatus>())
                 {
-                    <option value="@s" @(s.ToString() == statusFilter ? "selected" : "")>@s</option>
+                    if (s.ToString() == statusFilter)
+                    {
+                        <option value="@s" selected>@s</option>
+                    }
+                    else
+                    {
+                        <option value="@s">@s</option>
+                    }
                 }
             </select>
             <input type="text" name="system" class="form-control form-control-sm" style="width:180px;"
@@ -66,14 +73,15 @@
                 <tbody>
                     @foreach (var req in Model)
                     {
-                        var statusCls = req.Status switch {
-                            AccessRequestStatus.Approved    => "status-approved",
-                            AccessRequestStatus.Rejected    => "status-rejected",
+                        var statusCls = req.Status switch
+                        {
+                            AccessRequestStatus.Approved => "status-approved",
+                            AccessRequestStatus.Rejected => "status-rejected",
                             AccessRequestStatus.Provisioned => "status-implemented",
                             AccessRequestStatus.UnderReview => "status-underreview",
-                            AccessRequestStatus.Submitted   => "status-submitted",
-                            AccessRequestStatus.Cancelled   => "status-draft",
-                            _                               => "status-draft"
+                            AccessRequestStatus.Submitted => "status-submitted",
+                            AccessRequestStatus.Cancelled => "status-draft",
+                            _ => "status-draft"
                         };
                         <tr>
                             <td class="ps-3 align-middle text-muted" style="white-space:nowrap;">
