@@ -1,0 +1,213 @@
+@model PCA.Modules.AccessManagement.Models.DeprovisioningEvent
+@using PCA.Shared.Enums
+@{
+    ViewData["Title"] = Model.SerialNumber;
+    var isAdmin = User.IsInRole("Admin");
+    var canAct  = isAdmin || User.IsInRole("Approver");
+    var remaining = (TimeSpan)ViewBag.SlaRemaining;
+    var slaBreached = (bool)ViewBag.SlaBreached;
+    var allDone = Model.SystemEntries.Any() && Model.SystemEntries.All(s => s.IsDeactivated);
+    var statusCls = Model.Status switch {
+        DeprovisioningStatus.Completed  => "status-approved",
+        DeprovisioningStatus.Overdue    => "status-rejected",
+        DeprovisioningStatus.InProgress => "status-underreview",
+        _                               => "status-submitted"
+    };
+}
+
+@if (slaBreached && Model.Status != DeprovisioningStatus.Completed)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
+        <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
+        <div>
+            <strong>SLA Breached</strong> — The 24-hour deprovisioning deadline has passed.
+            All systems must be deactivated immediately.
+        </div>
+    </div>
+}
+else if (!slaBreached && Model.Status != DeprovisioningStatus.Completed)
+{
+    var h = (int)remaining.TotalHours;
+    var m = remaining.Minutes;
+    var alertClass = h < 4 ? "alert-danger" : h < 12 ? "alert-warning" : "alert-info";
+    <div class="alert @alertClass d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
+        <i class="bi bi-clock fs-5 flex-shrink-0"></i>
+        <div>
+            <strong>SLA Remaining: @h h @m m</strong> — Deadline: @Model.SlaDeadline.ToString("dd MMM yyyy HH:mm") UTC
+        </div>
+    </div>
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">@Model.SerialNumber</h1>
+        <p class="page-header-sub mb-0">
+            <span class="status-badge @statusCls me-2">@Model.Status</span>
+            @Model.EmployeeName · @Model.Trigger
+        </p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-8">
+
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-person-dash"></i> Employee Details</div>
+            <div class="form-section-body">
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Name</div>
+                        <div style="font-size:13px;">@Model.EmployeeName</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Employee ID</div>
+                        <div style="font-size:13px;">@(string.IsNullOrEmpty(Model.EmployeeId) ? "—" : Model.EmployeeId)</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Department</div>
+                        <div style="font-size:13px;">@(string.IsNullOrEmpty(Model.Department) ? "—" : Model.Department)</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Job Title</div>
+                        <div style="font-size:13px;">@(string.IsNullOrEmpty(Model.JobTitle) ? "—" : Model.JobTitle)</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Trigger</div>
+                        <div style="font-size:13px;">@Model.Trigger</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">HR Notified</div>
+                        <div style="font-size:13px;">@Model.HrNotificationReceivedAt.ToString("dd MMM yyyy HH:mm") UTC</div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(Model.TriggerDetails))
+                    {
+                        <div class="col-12">
+                            <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Details</div>
+                            <div style="font-size:13px;white-space:pre-wrap;">@Model.TriggerDetails</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <div class="form-section-header"><i class="bi bi-hdd-network"></i> System Deactivation Checklist</div>
+            <div class="form-section-body p-0">
+                @if (!Model.SystemEntries.Any())
+                {
+                    <div class="text-center py-4 text-muted" style="font-size:13px;">No system entries recorded.</div>
+                }
+                else
+                {
+                    <table class="table table-sm mb-0" style="font-size:13px;">
+                        <thead style="background:var(--bs-tertiary-bg);">
+                            <tr>
+                                <th class="ps-3">System</th>
+                                <th>Access Revoked</th>
+                                <th>Deactivated By</th>
+                                <th>Deactivated At</th>
+                                <th class="pe-3">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var entry in Model.SystemEntries)
+                            {
+                                <tr class="@(entry.IsDeactivated ? "table-success" : "")">
+                                    <td class="ps-3 align-middle fw-semibold">@entry.SystemName</td>
+                                    <td class="align-middle text-muted">@(string.IsNullOrEmpty(entry.AccessDescription) ? "—" : entry.AccessDescription)</td>
+                                    <td class="align-middle text-muted">@(entry.DeactivatedBy?.FullName ?? "—")</td>
+                                    <td class="align-middle text-muted" style="white-space:nowrap;">
+                                        @(entry.DeactivatedAt.HasValue ? entry.DeactivatedAt.Value.ToString("dd MMM yyyy HH:mm") : "—")
+                                    </td>
+                                    <td class="pe-3 align-middle">
+                                        @if (canAct && Model.Status != DeprovisioningStatus.Completed)
+                                        {
+                                            <form asp-action="UpdateSystemEntry" asp-route-id="@Model.Id" method="post">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="entryId" value="@entry.Id" />
+                                                <input type="hidden" name="isDeactivated" value="@(!entry.IsDeactivated)" />
+                                                @if (!entry.IsDeactivated)
+                                                {
+                                                    <button type="submit" class="btn btn-success btn-sm" style="padding:2px 10px;font-size:11px;">
+                                                        <i class="bi bi-check2 me-1"></i>Deactivate
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button type="submit" class="btn btn-outline-secondary btn-sm" style="padding:2px 10px;font-size:11px;">
+                                                        Undo
+                                                    </button>
+                                                }
+                                            </form>
+                                        }
+                                        else if (entry.IsDeactivated)
+                                        {
+                                            <span class="badge bg-success" style="font-size:10px;"><i class="bi bi-check2"></i> Done</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+    </div>
+    <div class="col-lg-4">
+        <div class="card position-sticky" style="top:80px;">
+            <div class="card-header"><i class="bi bi-clock me-2"></i>SLA Status</div>
+            <div class="card-body" style="font-size:13px;">
+                <div class="mb-2">
+                    <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Notified At</div>
+                    <div>@Model.HrNotificationReceivedAt.ToString("dd MMM yyyy HH:mm") UTC</div>
+                </div>
+                <div class="mb-2">
+                    <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">SLA Deadline</div>
+                    <div class="@(slaBreached ? "text-danger fw-semibold" : "")">@Model.SlaDeadline.ToString("dd MMM yyyy HH:mm") UTC</div>
+                </div>
+                @if (Model.CompletedAt.HasValue)
+                {
+                    <div class="mb-2">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Completed At</div>
+                        <div class="text-success">@Model.CompletedAt.Value.ToString("dd MMM yyyy HH:mm") UTC</div>
+                    </div>
+                    <div class="mb-2">
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Completed By</div>
+                        <div>@(Model.CompletedBy?.FullName ?? "—")</div>
+                    </div>
+                }
+                <div class="mb-2">
+                    <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Logged By</div>
+                    <div>@(Model.NotifiedBy?.FullName ?? "—")</div>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.Notes))
+                {
+                    <div>
+                        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Notes</div>
+                        <div style="white-space:pre-wrap;">@Model.Notes</div>
+                    </div>
+                }
+            </div>
+            @if (isAdmin && Model.Status != DeprovisioningStatus.Completed)
+            {
+                <div class="card-footer">
+                    <form asp-action="Complete" asp-route-id="@Model.Id" method="post"
+                          onsubmit="return confirm('Mark all systems as deactivated and close this event?')">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-success btn-sm w-100" @(!allDone ? "disabled" : "")>
+                            <i class="bi bi-check2-all me-1"></i> Mark Complete
+                        </button>
+                    </form>
+                    @if (!allDone)
+                    {
+                        <div class="text-muted mt-2" style="font-size:11px;">All systems must be deactivated first.</div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>

@@ -99,6 +99,39 @@ else
                 <span>Incidents</span>
             </a>
 
+            <div class="sidebar-section-label">Access Management</div>
+
+            <a asp-controller="AccessRequests" asp-action="Index"
+               class="sidebar-link @ActiveIf("AccessRequests")">
+                <i class="bi bi-person-check"></i>
+                <span>Access Requests</span>
+            </a>
+
+            <a asp-controller="AccessReviews" asp-action="Index"
+               class="sidebar-link @ActiveIf("AccessReviews")">
+                <i class="bi bi-clipboard-check"></i>
+                <span>Access Reviews</span>
+            </a>
+
+            <a asp-controller="Deprovisioning" asp-action="Index"
+               class="sidebar-link @ActiveIf("Deprovisioning")">
+                <i class="bi bi-person-dash"></i>
+                <span>Deprovisioning</span>
+                @{
+                    var overdueCount = ViewBag.DeprovisioningOverdueCount as int?;
+                }
+                @if (overdueCount.HasValue && overdueCount.Value > 0)
+                {
+                    <span class="badge bg-danger ms-auto" style="font-size:10px;">@overdueCount</span>
+                }
+            </a>
+
+            <a asp-controller="ServerRoomAccess" asp-action="Index"
+               class="sidebar-link @ActiveIf("ServerRoomAccess")">
+                <i class="bi bi-server"></i>
+                <span>Server Room Access</span>
+            </a>
+
             <div class="sidebar-section-label">Documents</div>
 
             <a asp-controller="Documents" asp-action="Index"
@@ -173,6 +206,18 @@ else
                         <li>
                             <a class="dropdown-item" asp-controller="ChangeRequests" asp-action="Create">
                                 <i class="bi bi-ticket-detailed me-2"></i>New Change Request
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider my-1" /></li>
+                        <li><span class="dropdown-item-text text-muted" style="font-size:10px;padding:8px 16px 4px;text-transform:uppercase;letter-spacing:.06em;">Access Management</span></li>
+                        <li>
+                            <a class="dropdown-item" asp-controller="AccessRequests" asp-action="Create">
+                                <i class="bi bi-person-check me-2"></i>New Access Request
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" asp-controller="ServerRoomAccess" asp-action="Create">
+                                <i class="bi bi-server me-2"></i>New Server Room Request
                             </a>
                         </li>
                         <li><hr class="dropdown-divider my-1" /></li>

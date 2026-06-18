@@ -102,7 +102,10 @@ builder.Logging.AddProvider(new DbLoggerProvider(
     builder.Services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>()));
 
 // MVC + API controllers
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add<PCA.Web.Filters.DeprovisioningOverdueBadgeFilter>();
+});
 builder.Services.AddControllers();
 
 var app = builder.Build();

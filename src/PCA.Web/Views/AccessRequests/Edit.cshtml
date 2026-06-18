@@ -1,0 +1,100 @@
+@model PCA.Web.Models.AccessRequestEditViewModel
+@using PCA.Shared.Enums
+@{
+    ViewData["Title"] = "Edit Access Request";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Edit Access Request</h1>
+    </div>
+    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<form asp-action="Edit" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div class="row g-3">
+        <div class="col-lg-8">
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-person"></i> Employee Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="EmployeeName" class="form-label fw-semibold"></label>
+                            <input asp-for="EmployeeName" class="form-control" />
+                            <span asp-validation-for="EmployeeName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EmployeeId" class="form-label fw-semibold"></label>
+                            <input asp-for="EmployeeId" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Department" class="form-label fw-semibold"></label>
+                            <input asp-for="Department" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="JobTitle" class="form-label fw-semibold"></label>
+                            <input asp-for="JobTitle" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-header"><i class="bi bi-shield-lock"></i> Access Details</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label asp-for="SystemName" class="form-label fw-semibold"></label>
+                            <input asp-for="SystemName" class="form-control" />
+                            <span asp-validation-for="SystemName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="AccessType" class="form-label fw-semibold"></label>
+                            <select asp-for="AccessType" class="form-select" asp-items="Html.GetEnumSelectList<AccessType>()"></select>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="AccessDetails" class="form-label fw-semibold"></label>
+                            <textarea asp-for="AccessDetails" class="form-control" rows="3"></textarea>
+                            <span asp-validation-for="AccessDetails" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Justification" class="form-label fw-semibold"></label>
+                            <textarea asp-for="Justification" class="form-control" rows="3"></textarea>
+                            <span asp-validation-for="Justification" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="RequestedByDate" class="form-label fw-semibold"></label>
+                            <input asp-for="RequestedByDate" type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="AccessExpiryDate" class="form-label fw-semibold"></label>
+                            <input asp-for="AccessExpiryDate" type="date" class="form-control" />
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input asp-for="IsPrivileged" class="form-check-input" />
+                                <label asp-for="IsPrivileged" class="form-check-label fw-semibold"></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="col-lg-4">
+            <div class="card position-sticky" style="top:80px;">
+                <div class="card-footer d-flex gap-2 mt-0">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                        <i class="bi bi-save me-1"></i> Save Changes
+                    </button>
+                    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
