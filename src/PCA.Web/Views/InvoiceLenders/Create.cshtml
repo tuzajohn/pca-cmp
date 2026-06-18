@@ -11,31 +11,67 @@
     <div class="row g-3">
         <div class="col-lg-8">
             <div class="form-section">
-                <div class="form-section-header"><i class="bi bi-building"></i> Lender Details</div>
+                <div class="form-section-header"><i class="bi bi-building"></i> Step 1 — Select Company Type</div>
                 <div class="form-section-body">
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label asp-for="Name" class="form-label fw-semibold"></label>
-                            <input asp-for="Name" class="form-control" />
-                            <span asp-validation-for="Name" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="CompanyType" class="form-label fw-semibold"></label>
-                            <select asp-for="CompanyType" class="form-select">
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold">Company Type</label>
+                            <select id="companyTypeSelect" class="form-select">
                                 <option value="">— Select type —</option>
                                 <option value="MFI">MFI</option>
                                 <option value="BANK">BANK</option>
                                 <option value="SACCO">SACCO</option>
                             </select>
-                            <span asp-validation-for="CompanyType" class="text-danger small"></span>
                         </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" id="fetchBtn" class="btn btn-outline-primary btn-sm w-100" onclick="fetchCompanies()" disabled>
+                                <i class="bi bi-cloud-download me-1"></i> Fetch from IPPS
+                            </button>
+                        </div>
+                        <div class="col-12" id="fetchStatus" style="display:none;">
+                            <div id="fetchSpinner" class="text-muted small" style="display:none;">
+                                <span class="spinner-border spinner-border-sm me-1"></span> Querying IPPS database…
+                            </div>
+                            <div id="fetchError" class="text-danger small" style="display:none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section" id="companyPickerSection" style="display:none;">
+                <div class="form-section-header"><i class="bi bi-list-ul"></i> Step 2 — Select Company</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Companies found in IPPS</label>
+                            <select id="companySelect" class="form-select" onchange="populateFromCompany()">
+                                <option value="">— Pick a company —</option>
+                            </select>
+                            <div class="text-muted small mt-1" id="companyCount"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section" id="lenderDetailsSection" style="display:none;">
+                <div class="form-section-header"><i class="bi bi-check-circle"></i> Step 3 — Confirm & Save</div>
+                <div class="form-section-body">
+                    <div class="row g-3">
                         <div class="col-md-6">
-                            <label asp-for="DeductionCode" class="form-label fw-semibold"></label>
-                            <input asp-for="DeductionCode" class="form-control" placeholder="e.g. 278" />
-                            <span asp-validation-for="DeductionCode" class="text-danger small"></span>
+                            <label asp-for="Name" class="form-label fw-semibold"></label>
+                            <input asp-for="Name" class="form-control" id="nameInput" readonly />
+                            <span asp-validation-for="Name" class="text-danger small"></span>
                         </div>
-                        <div class="col-md-6 d-flex align-items-end">
-                            <div class="form-check mb-2">
+                        <div class="col-md-3">
+                            <label asp-for="CompanyType" class="form-label fw-semibold"></label>
+                            <input asp-for="CompanyType" class="form-control" id="companyTypeInput" readonly />
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="DeductionCode" class="form-label fw-semibold"></label>
+                            <input asp-for="DeductionCode" class="form-control" id="deductionCodeInput" readonly />
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
                                 <input asp-for="IsActive" class="form-check-input" />
                                 <label asp-for="IsActive" class="form-check-label fw-semibold"></label>
                             </div>
@@ -44,13 +80,101 @@
                 </div>
             </div>
         </div>
+
         <div class="col-lg-4">
             <div class="card position-sticky" style="top:80px;">
+                <div class="card-header"><i class="bi bi-info-circle me-2"></i>How it works</div>
+                <div class="card-body text-muted" style="font-size:13px;">
+                    <ol class="ps-3 mb-0">
+                        <li class="mb-1">Select a company type</li>
+                        <li class="mb-1">Click <strong>Fetch from IPPS</strong> to query the live database</li>
+                        <li class="mb-1">Pick the specific company from the results</li>
+                        <li>Save — the deduction code is stored automatically</li>
+                    </ol>
+                </div>
                 <div class="card-footer d-flex gap-2">
-                    <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-save me-1"></i> Save</button>
+                    <button type="submit" id="saveBtn" class="btn btn-primary btn-sm flex-fill" disabled>
+                        <i class="bi bi-save me-1"></i> Save Lender
+                    </button>
                     <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Cancel</a>
                 </div>
             </div>
         </div>
     </div>
 </form>
+
+<script>
+    let companiesData = [];
+
+    document.getElementById('companyTypeSelect').addEventListener('change', function () {
+        document.getElementById('fetchBtn').disabled = !this.value;
+        document.getElementById('companyPickerSection').style.display = 'none';
+        document.getElementById('lenderDetailsSection').style.display = 'none';
+        document.getElementById('saveBtn').disabled = true;
+        companiesData = [];
+    });
+
+    async function fetchCompanies() {
+        const type = document.getElementById('companyTypeSelect').value;
+        if (!type) return;
+
+        document.getElementById('fetchStatus').style.display = '';
+        document.getElementById('fetchSpinner').style.display = '';
+        document.getElementById('fetchError').style.display = 'none';
+        document.getElementById('fetchBtn').disabled = true;
+
+        try {
+            const resp = await fetch(`/InvoiceLenders/FetchCompanies?companyType=${encodeURIComponent(type)}`);
+            const data = await resp.json();
+
+            document.getElementById('fetchSpinner').style.display = 'none';
+            document.getElementById('fetchBtn').disabled = false;
+
+            if (data.error) {
+                document.getElementById('fetchError').textContent = 'Error: ' + data.error;
+                document.getElementById('fetchError').style.display = '';
+                return;
+            }
+
+            companiesData = data;
+            const select = document.getElementById('companySelect');
+            select.innerHTML = '<option value="">— Pick a company —</option>';
+            data.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = `${c.companyName}  [${c.deductionType}]`;
+                opt.dataset.name = c.companyName;
+                opt.dataset.code = c.deductionType;
+                select.appendChild(opt);
+            });
+
+            document.getElementById('companyCount').textContent = `${data.length} company(ies) found`;
+            document.getElementById('companyPickerSection').style.display = '';
+            document.getElementById('lenderDetailsSection').style.display = 'none';
+            document.getElementById('saveBtn').disabled = true;
+
+        } catch (e) {
+            document.getElementById('fetchSpinner').style.display = 'none';
+            document.getElementById('fetchBtn').disabled = false;
+            document.getElementById('fetchError').textContent = 'Failed to reach IPPS. Check connection settings.';
+            document.getElementById('fetchError').style.display = '';
+        }
+    }
+
+    function populateFromCompany() {
+        const select = document.getElementById('companySelect');
+        const opt = select.options[select.selectedIndex];
+        if (!opt.value) {
+            document.getElementById('lenderDetailsSection').style.display = 'none';
+            document.getElementById('saveBtn').disabled = true;
+            return;
+        }
+
+        document.getElementById('nameInput').value          = opt.dataset.name;
+        document.getElementById('companyTypeInput').value   = document.getElementById('companyTypeSelect').value;
+        document.getElementById('deductionCodeInput').value = opt.dataset.code;
+
+        document.getElementById('lenderDetailsSection').style.display = '';
+        document.getElementById('saveBtn').disabled = false;
+    }
+</script>

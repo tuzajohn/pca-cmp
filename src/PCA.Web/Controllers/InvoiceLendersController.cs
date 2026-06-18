@@ -12,17 +12,48 @@ namespace PCA.Web.Controllers;
 public class InvoiceLendersController : Controller
 {
     private readonly IInvoicingService _svc;
+    private readonly InvoiceDataService _dataSvc;
     private readonly UserManager<ApplicationUser> _users;
 
-    public InvoiceLendersController(IInvoicingService svc, UserManager<ApplicationUser> users)
+    public InvoiceLendersController(
+        IInvoicingService svc,
+        InvoiceDataService dataSvc,
+        UserManager<ApplicationUser> users)
     {
-        _svc = svc;
-        _users = users;
+        _svc     = svc;
+        _dataSvc = dataSvc;
+        _users   = users;
     }
 
     public async Task<IActionResult> Index() => View(await _svc.GetLendersAsync());
 
     public IActionResult Create() => View(new InvoiceLenderCreateViewModel());
+
+    /// <summary>
+    /// AJAX endpoint — queries IPPS companies table for the selected company type
+    /// and returns the results so the form can populate Name and DeductionCode.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> FetchCompanies(string companyType)
+    {
+        if (string.IsNullOrWhiteSpace(companyType))
+            return Json(new List<object>());
+
+        try
+        {
+            var companies = await _dataSvc.FetchCompaniesByTypeAsync(companyType);
+            return Json(companies.Select(c => new
+            {
+                id            = c.Id,
+                companyName   = c.CompanyName,
+                deductionType = c.DeductionType
+            }));
+        }
+        catch (Exception ex)
+        {
+            return Json(new { error = ex.Message });
+        }
+    }
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(InvoiceLenderCreateViewModel vm)

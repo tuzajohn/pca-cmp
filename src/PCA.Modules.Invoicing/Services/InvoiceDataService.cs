@@ -13,6 +13,8 @@ public record DeductionRow(
     DateTime DateCreated,
     string Source);
 
+public record CompanyRow(int Id, string CompanyName, string DeductionType);
+
 public class InvoiceDataService
 {
     public ExternalDbSettings IppsSettings { get; }
@@ -77,6 +79,42 @@ public class InvoiceDataService
         return rows;
     }
 
+    /// <summary>
+    /// Returns all companies of a given type from the IPPS companies table.
+    /// Used to populate the lender creation form before saving.
+    /// </summary>
+    public async Task<List<CompanyRow>> FetchCompaniesByTypeAsync(
+        string companyType, CancellationToken ct = default)
+    {
+        using var tunnel = await SshTunnelService.OpenAsync(IppsSettings);
+        var rows = new List<CompanyRow>();
+
+        const string sql = @"
+            SELECT id, companyname, deductiontype
+            FROM companies
+            WHERE companytype = @type
+            ORDER BY companyname";
+
+        using var cmd = new MySqlCommand(sql, tunnel.Connection);
+        cmd.Parameters.AddWithValue("@type", companyType);
+
+        using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            rows.Add(new CompanyRow(
+                reader.GetInt32("id"),
+                reader.GetString("companyname"),
+                reader.GetString("deductiontype")));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// Returns the deduction code for a lender during an invoice run.
+    /// Uses the lender's stored DeductionCode — no DB lookup needed at run time.
+    /// Kept for cases where a direct lookup is required.
+    /// </summary>
     public static async Task<string> LookupDeductionCodeAsync(
         ExternalDbSettings cfg, string companyType, CancellationToken ct = default)
     {
