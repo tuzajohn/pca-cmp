@@ -65,6 +65,7 @@
                                 {
                                     <option value="@d">Day @d</option>
                                 }
+                                <option value="-1">Last day of month</option>
                             </select>
                         </div>
                         <div class="col-md-4">
@@ -143,7 +144,9 @@
             desc = `Every ${dayNames[dow]} at ${time}`;
         } else {
             const dom = document.querySelector('[name="DayOfMonth"]').value || '1';
-            desc = `Monthly on day ${dom} at ${time}`;
+            desc = dom === '-1'
+                ? `Monthly on last day of month at ${time}`
+                : `Monthly on day ${dom} at ${time}`;
         }
         document.getElementById('scheduleDescription').textContent = desc;
     }

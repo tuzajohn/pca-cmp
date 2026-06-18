@@ -11,11 +11,13 @@ public static class ScheduleCronHelper
         var hour = s.TimeOfDay.Hour;
         var min  = s.TimeOfDay.Minute;
 
+        var dom = s.DayOfMonth == -1 ? "L" : (s.DayOfMonth ?? 1).ToString();
+
         return s.Frequency switch
         {
             InvoiceFrequency.Daily   => $"{min} {hour} * * *",
             InvoiceFrequency.Weekly  => $"{min} {hour} * * {s.DayOfWeek ?? 1}",
-            InvoiceFrequency.Monthly => $"{min} {hour} {s.DayOfMonth ?? 1} * *",
+            InvoiceFrequency.Monthly => $"{min} {hour} {dom} * *",
             _ => throw new ArgumentOutOfRangeException()
         };
     }
@@ -30,7 +32,9 @@ public static class ScheduleCronHelper
     {
         InvoiceFrequency.Daily   => $"Every day at {s.TimeOfDay:HH\\:mm}",
         InvoiceFrequency.Weekly  => $"Every {(DayOfWeek)(s.DayOfWeek ?? 1)} at {s.TimeOfDay:HH\\:mm}",
-        InvoiceFrequency.Monthly => $"Monthly on day {s.DayOfMonth ?? 1} at {s.TimeOfDay:HH\\:mm}",
+        InvoiceFrequency.Monthly => s.DayOfMonth == -1
+            ? $"Monthly on last day of month at {s.TimeOfDay:HH\\:mm}"
+            : $"Monthly on day {s.DayOfMonth ?? 1} at {s.TimeOfDay:HH\\:mm}",
         _ => "Unknown"
     };
 }
