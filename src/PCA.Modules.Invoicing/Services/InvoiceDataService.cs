@@ -57,7 +57,7 @@ public class InvoiceDataService
         _logger.LogInformation("FetchDeductions [{Source}]: opening tunnel to {DbHost}/{Database}",
             source, cfg.DbHost, cfg.Database);
 
-        using var tunnel = await SshTunnelService.OpenAsync(cfg);
+        using var tunnel = await SshTunnelService.OpenAsync(cfg, _logger);
         var rows = new List<DeductionRow>();
 
         const string sql = @"
@@ -117,6 +117,7 @@ public class InvoiceDataService
             companyType, IppsSettings.DbHost, IppsSettings.Database);
 
         using var tunnel = await SshTunnelService.OpenAsync(IppsSettings);
+        using var tunnel = await SshTunnelService.OpenAsync(IppsSettings, _logger);
         var rows = new List<CompanyRow>();
 
         const string sql = @"
