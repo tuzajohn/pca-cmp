@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using PCA.Modules.AccessManagement.Data;
+using PCA.Modules.AccessManagement.Models;
+using PCA.Modules.AccessManagement.Services;
 using PCA.Modules.Approvals.Data;
 using PCA.Modules.Approvals.Models;
 using PCA.Modules.Approvals.Services;
@@ -21,7 +24,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     IApplicationDbContextForCM,
     IApplicationDbContextForApprovals,
     IApplicationDbContextForDocuments,
-    IApplicationDbContextForIncidents
+    IApplicationDbContextForIncidents,
+    IApplicationDbContextForAccessManagement
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
@@ -50,6 +54,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     public DbSet<IncidentUpdate> IncidentUpdates => Set<IncidentUpdate>();
     public DbSet<IncidentDocument> IncidentDocuments => Set<IncidentDocument>();
     public DbSet<IncidentSequence> IncidentSequences => Set<IncidentSequence>();
+
+    // Access Management
+    public DbSet<AccessRequest> AccessRequests => Set<AccessRequest>();
+    public DbSet<AccessRequestComment> AccessRequestComments => Set<AccessRequestComment>();
+    public DbSet<AccessReview> AccessReviews => Set<AccessReview>();
+    public DbSet<AccessReviewEntry> AccessReviewEntries => Set<AccessReviewEntry>();
+    public DbSet<DeprovisioningEvent> DeprovisioningEvents => Set<DeprovisioningEvent>();
+    public DbSet<DeprovisioningSystemEntry> DeprovisioningSystemEntries => Set<DeprovisioningSystemEntry>();
+    public DbSet<ServerRoomAccessRequest> ServerRoomAccessRequests => Set<ServerRoomAccessRequest>();
+    public DbSet<ServerRoomAccessComment> ServerRoomAccessComments => Set<ServerRoomAccessComment>();
+    public DbSet<AccessSequence> AccessSequences => Set<AccessSequence>();
 
     // Attachments
     public DbSet<Attachment> Attachments => Set<Attachment>();
@@ -83,6 +98,18 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
         builder.ApplyConfiguration(new IncidentConfiguration());
         builder.ApplyConfiguration(new IncidentUpdateConfiguration());
         builder.ApplyConfiguration(new IncidentDocumentConfiguration());
+
+        builder.ApplyConfiguration(new AccessRequestConfiguration());
+        builder.ApplyConfiguration(new AccessRequestCommentConfiguration());
+        builder.ApplyConfiguration(new AccessReviewConfiguration());
+        builder.ApplyConfiguration(new AccessReviewEntryConfiguration());
+        builder.ApplyConfiguration(new DeprovisioningEventConfiguration());
+        builder.ApplyConfiguration(new DeprovisioningSystemEntryConfiguration());
+        builder.ApplyConfiguration(new ServerRoomAccessRequestConfiguration());
+        builder.ApplyConfiguration(new ServerRoomAccessCommentConfiguration());
+
+        builder.Entity<AccessSequence>().ToTable("AccessSequences").HasKey(x => x.Id);
+        builder.Entity<AccessSequence>().HasIndex(x => new { x.Prefix, x.Year, x.Month }).IsUnique();
 
         builder.Entity<DocumentSequence>().ToTable("DocumentSequences").HasKey(x => x.Id);
         builder.Entity<IncidentSequence>().ToTable("IncidentSequences").HasKey(x => x.Id);
