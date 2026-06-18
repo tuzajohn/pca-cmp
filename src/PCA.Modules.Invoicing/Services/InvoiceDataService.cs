@@ -18,19 +18,19 @@ public record CompanyRow(int Id, string CompanyName, string DeductionType);
 public class InvoiceDataService
 {
     public ExternalDbSettings IppsSettings { get; }
-    private readonly ExternalDbSettings _hcmSettings;
+    public ExternalDbSettings HcmSettings { get; }
 
     public InvoiceDataService(ExternalDbSettings ippsSettings, ExternalDbSettings hcmSettings)
     {
         IppsSettings = ippsSettings;
-        _hcmSettings = hcmSettings;
+        HcmSettings  = hcmSettings;
     }
 
     public async Task<(List<DeductionRow> Rows, int IppsCount, int HcmCount)> FetchMergedDataAsync(
         string deductionCode, CancellationToken ct = default)
     {
-        var ippsRows = await FetchDeductionsAsync(IppsSettings, deductionCode, "IPPS", ct);
-        var hcmRows  = await FetchDeductionsAsync(_hcmSettings, deductionCode, "HCM", ct);
+        var ippsRows = await FetchDeductionsFromSourceAsync(IppsSettings, deductionCode, "IPPS", ct);
+        var hcmRows  = await FetchDeductionsFromSourceAsync(HcmSettings,  deductionCode, "HCM",  ct);
 
         var merged = ippsRows.Concat(hcmRows)
             .GroupBy(r => r.EmployeeNumber)
@@ -41,7 +41,7 @@ public class InvoiceDataService
         return (merged, ippsRows.Count, hcmRows.Count);
     }
 
-    private static async Task<List<DeductionRow>> FetchDeductionsAsync(
+    public async Task<List<DeductionRow>> FetchDeductionsFromSourceAsync(
         ExternalDbSettings cfg, string deductionCode, string source, CancellationToken ct)
     {
         using var tunnel = await SshTunnelService.OpenAsync(cfg);
@@ -138,13 +138,56 @@ public class InvoiceDataService
             $"No company found with companytype '{companyType}'.");
     }
 
-    public static string BuildExcel(List<DeductionRow> rows, string lenderName, string storageRoot)
+    public (List<DeductionRow> IppsSheet, List<DeductionRow> HcmSheet) SplitRows(
+        List<DeductionRow> ippsRows, List<DeductionRow> hcmRows, string refFilePath)
+    {
+        var refNumbers = ReadHcmRefNumbers(refFilePath);
+
+        var trueHcm  = hcmRows.Where(r => refNumbers.Contains(r.EmployeeNumber)).ToList();
+        var tempIpps = hcmRows.Where(r => !refNumbers.Contains(r.EmployeeNumber)).ToList();
+        var keptIpps = ippsRows.Where(r => !refNumbers.Contains(r.EmployeeNumber)).ToList();
+
+        var ippsSheet = keptIpps.Concat(tempIpps)
+            .GroupBy(r => r.EmployeeNumber)
+            .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
+            .OrderBy(r => r.EmployeeNumber)
+            .ToList();
+
+        var hcmSheet = trueHcm
+            .GroupBy(r => r.EmployeeNumber)
+            .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
+            .OrderBy(r => r.EmployeeNumber)
+            .ToList();
+
+        return (ippsSheet, hcmSheet);
+    }
+
+    private static HashSet<long> ReadHcmRefNumbers(string filePath)
+    {
+        ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+        var result = new HashSet<long>();
+        using var pkg = new ExcelPackage(new FileInfo(filePath));
+        var ws = pkg.Workbook.Worksheets.FirstOrDefault();
+        if (ws == null) return result;
+
+        int rows = ws.Dimension?.Rows ?? 0;
+        for (int r = 1; r <= rows; r++)
+        {
+            var raw = ws.Cells[r, 1].Text?.Trim();
+            if (long.TryParse(raw, out var num))
+                result.Add(num);
+        }
+        return result;
+    }
+
+    public static string BuildExcel(List<DeductionRow> rows, string lenderName, string storageRoot,
+        List<DeductionRow>? hcmRows = null)
     {
         ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
         var now = DateTime.UtcNow;
         var monthFolder = now.ToString("yyyy-MM");
-        var monthYear   = now.ToString("MMMMyyyy");           // e.g. June2026
+        var monthYear   = now.ToString("MMMMyyyy");
         var fileName    = $"{SanitizeFileName(lenderName)}_Invoice_Breakdown_{monthYear}.xlsx";
 
         var dir = Path.Combine(storageRoot, "invoices", monthFolder);
@@ -152,9 +195,19 @@ public class InvoiceDataService
         var filePath = Path.Combine(dir, fileName);
 
         using var pkg = new ExcelPackage();
-        var ws = pkg.Workbook.Worksheets.Add("Invoice");
 
-        // Headers
+        WriteSheet(pkg, "IPPS", rows);
+        if (hcmRows != null)
+            WriteSheet(pkg, "HCM", hcmRows);
+
+        pkg.SaveAs(new FileInfo(filePath));
+        return filePath;
+    }
+
+    private static void WriteSheet(ExcelPackage pkg, string sheetName, List<DeductionRow> rows)
+    {
+        var ws = pkg.Workbook.Worksheets.Add(sheetName);
+
         string[] headers = { "IPPS", "RefCode", "DedCode", "Amount", "DateCreated" };
         for (int i = 0; i < headers.Length; i++)
         {
@@ -166,7 +219,6 @@ public class InvoiceDataService
             cell.Style.Font.Color.SetColor(Color.White);
         }
 
-        // Data
         for (int r = 0; r < rows.Count; r++)
         {
             var row = rows[r];
@@ -180,11 +232,11 @@ public class InvoiceDataService
             ws.Cells[r + 2, 5].Style.Numberformat.Format = "dd-mmm-yyyy";
         }
 
-        ws.Cells[ws.Dimension.Address].AutoFitColumns();
-        ws.View.FreezePanes(2, 1);
-
-        pkg.SaveAs(new FileInfo(filePath));
-        return filePath;
+        if (ws.Dimension != null)
+        {
+            ws.Cells[ws.Dimension.Address].AutoFitColumns();
+            ws.View.FreezePanes(2, 1);
+        }
     }
 
     private static string SanitizeFileName(string name) =>

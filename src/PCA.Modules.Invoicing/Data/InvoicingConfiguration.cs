@@ -56,6 +56,22 @@ public class InvoiceScheduleRecipientConfiguration : IEntityTypeConfiguration<In
     }
 }
 
+public class InvoiceHcmRefFileConfiguration : IEntityTypeConfiguration<InvoiceHcmRefFile>
+{
+    public void Configure(EntityTypeBuilder<InvoiceHcmRefFile> b)
+    {
+        b.HasKey(e => e.Id);
+        b.Property(e => e.MonthYear).HasMaxLength(7).IsRequired();
+        b.Property(e => e.FilePath).HasMaxLength(500).IsRequired();
+        b.Property(e => e.OriginalFileName).HasMaxLength(300).IsRequired();
+        b.HasOne(e => e.Schedule).WithMany().HasForeignKey(e => e.ScheduleId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(e => e.UploadedBy).WithMany().HasForeignKey(e => e.UploadedById)
+            .OnDelete(DeleteBehavior.SetNull);
+        b.HasIndex(e => new { e.ScheduleId, e.MonthYear }).IsUnique();
+    }
+}
+
 public class InvoiceRunConfiguration : IEntityTypeConfiguration<InvoiceRun>
 {
     public void Configure(EntityTypeBuilder<InvoiceRun> b)

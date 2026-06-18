@@ -121,6 +121,43 @@ public class InvoicingService : IInvoicingService
         await _db.SaveChangesAsync();
     }
 
+    // HCM Ref Files
+    public Task<List<InvoiceHcmRefFile>> GetHcmRefFilesAsync(int scheduleId) =>
+        _db.InvoiceHcmRefFiles
+            .Include(f => f.UploadedBy)
+            .Where(f => f.ScheduleId == scheduleId)
+            .OrderByDescending(f => f.MonthYear)
+            .ToListAsync();
+
+    public Task<InvoiceHcmRefFile?> GetHcmRefFileForMonthAsync(int scheduleId, string monthYear) =>
+        _db.InvoiceHcmRefFiles
+            .FirstOrDefaultAsync(f => f.ScheduleId == scheduleId && f.MonthYear == monthYear);
+
+    public async Task<InvoiceHcmRefFile> SaveHcmRefFileAsync(InvoiceHcmRefFile refFile)
+    {
+        var existing = await _db.InvoiceHcmRefFiles
+            .FirstOrDefaultAsync(f => f.ScheduleId == refFile.ScheduleId && f.MonthYear == refFile.MonthYear);
+        if (existing != null)
+        {
+            existing.FilePath = refFile.FilePath;
+            existing.OriginalFileName = refFile.OriginalFileName;
+            existing.UploadedAt = refFile.UploadedAt;
+            existing.UploadedById = refFile.UploadedById;
+            _db.InvoiceHcmRefFiles.Update(existing);
+            await _db.SaveChangesAsync();
+            return existing;
+        }
+        _db.InvoiceHcmRefFiles.Add(refFile);
+        await _db.SaveChangesAsync();
+        return refFile;
+    }
+
+    public async Task DeleteHcmRefFileAsync(int id)
+    {
+        var f = await _db.InvoiceHcmRefFiles.FindAsync(id);
+        if (f != null) { _db.InvoiceHcmRefFiles.Remove(f); await _db.SaveChangesAsync(); }
+    }
+
     // Runs
     public Task<List<InvoiceRun>> GetRunsForScheduleAsync(int scheduleId) =>
         _db.InvoiceRuns

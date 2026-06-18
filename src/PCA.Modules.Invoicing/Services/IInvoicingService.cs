@@ -27,6 +27,12 @@ public interface IInvoicingService
     Task<List<InvoiceSchedule>> GetDueSchedulesAsync();
     Task UpdateScheduleNextRunAsync(int scheduleId, DateTime? lastRunAt, DateTime? nextRunAt);
 
+    // HCM Ref Files
+    Task<List<InvoiceHcmRefFile>> GetHcmRefFilesAsync(int scheduleId);
+    Task<InvoiceHcmRefFile?> GetHcmRefFileForMonthAsync(int scheduleId, string monthYear);
+    Task<InvoiceHcmRefFile> SaveHcmRefFileAsync(InvoiceHcmRefFile refFile);
+    Task DeleteHcmRefFileAsync(int id);
+
     // Runs
     Task<List<InvoiceRun>> GetRunsForScheduleAsync(int scheduleId);
     Task<InvoiceRun?> GetRunByIdAsync(int id);

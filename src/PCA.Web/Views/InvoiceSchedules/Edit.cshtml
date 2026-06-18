@@ -112,9 +112,16 @@
         <div class="col-lg-4">
             <div class="card position-sticky" style="top:80px;">
                 <div class="card-body" style="font-size:13px;">
-                    <div class="form-check">
+                    <div class="form-check mb-3">
                         <input asp-for="IsEnabled" class="form-check-input" />
                         <label asp-for="IsEnabled" class="form-check-label fw-semibold"></label>
+                        <div class="text-muted mt-1" style="font-size:11px;">Disabled schedules will not run automatically but can still be triggered manually.</div>
+                    </div>
+                    <hr class="my-2" />
+                    <div class="form-check">
+                        <input asp-for="SplitSheets" class="form-check-input" />
+                        <label asp-for="SplitSheets" class="form-check-label fw-semibold"></label>
+                        <div class="text-muted mt-1" style="font-size:11px;">When enabled, IPPS and HCM data are written to separate sheets. Requires uploading a monthly HCM ref file on the schedule details page.</div>
                     </div>
                 </div>
                 <div class="card-footer d-flex gap-2">

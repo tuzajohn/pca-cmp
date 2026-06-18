@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using PCA.Modules.Identity.Models;
 using PCA.Modules.Invoicing.Models;
 using PCA.Modules.Invoicing.Services;
@@ -14,15 +16,20 @@ public class InvoiceSchedulesController : Controller
     private readonly IInvoicingService _svc;
     private readonly UserManager<ApplicationUser> _users;
     private readonly InvoiceRunOrchestrator _orchestrator;
+    private readonly string _storageRoot;
 
     public InvoiceSchedulesController(
         IInvoicingService svc,
         UserManager<ApplicationUser> users,
-        InvoiceRunOrchestrator orchestrator)
+        InvoiceRunOrchestrator orchestrator,
+        IConfiguration config,
+        IWebHostEnvironment env)
     {
         _svc = svc;
         _users = users;
         _orchestrator = orchestrator;
+        _storageRoot = config["InvoiceStoragePath"]
+            ?? Path.Combine(env.ContentRootPath, "uploads", "documents");
     }
 
     public async Task<IActionResult> Index() => View(await _svc.GetSchedulesAsync());
@@ -58,6 +65,7 @@ public class InvoiceSchedulesController : Controller
             DayOfMonth  = vm.DayOfMonth,
             TimeOfDay   = vm.TimeOfDay,
             IsEnabled   = vm.IsEnabled,
+            SplitSheets = vm.SplitSheets,
             CreatedById = user?.Id
         };
         schedule.NextRunAt = ScheduleCronHelper.NextOccurrence(schedule);
@@ -71,7 +79,8 @@ public class InvoiceSchedulesController : Controller
     {
         var schedule = await _svc.GetScheduleByIdAsync(id);
         if (schedule == null) return NotFound();
-        ViewBag.Description = ScheduleCronHelper.Describe(schedule);
+        ViewBag.Description  = ScheduleCronHelper.Describe(schedule);
+        ViewBag.HcmRefFiles  = await _svc.GetHcmRefFilesAsync(id);
         return View(schedule);
     }
 
@@ -91,6 +100,7 @@ public class InvoiceSchedulesController : Controller
             DayOfMonth           = s.DayOfMonth,
             TimeOfDay            = s.TimeOfDay,
             IsEnabled            = s.IsEnabled,
+            SplitSheets          = s.SplitSheets,
             SelectedRecipientIds = s.ScheduleRecipients.Select(sr => sr.InvoiceRecipientId).ToList()
         });
     }
@@ -107,14 +117,15 @@ public class InvoiceSchedulesController : Controller
 
         var s = await _svc.GetScheduleByIdAsync(vm.Id);
         if (s == null) return NotFound();
-        s.Name       = vm.Name;
-        s.LenderId   = vm.LenderId;
-        s.Frequency  = vm.Frequency;
-        s.DayOfWeek  = vm.DayOfWeek;
-        s.DayOfMonth = vm.DayOfMonth;
-        s.TimeOfDay  = vm.TimeOfDay;
-        s.IsEnabled  = vm.IsEnabled;
-        s.NextRunAt  = ScheduleCronHelper.NextOccurrence(s);
+        s.Name        = vm.Name;
+        s.LenderId    = vm.LenderId;
+        s.Frequency   = vm.Frequency;
+        s.DayOfWeek   = vm.DayOfWeek;
+        s.DayOfMonth  = vm.DayOfMonth;
+        s.TimeOfDay   = vm.TimeOfDay;
+        s.IsEnabled   = vm.IsEnabled;
+        s.SplitSheets = vm.SplitSheets;
+        s.NextRunAt   = ScheduleCronHelper.NextOccurrence(s);
 
         await _svc.UpdateScheduleAsync(s, vm.SelectedRecipientIds);
         TempData["Success"] = "Schedule updated.";
@@ -139,6 +150,55 @@ public class InvoiceSchedulesController : Controller
         await _orchestrator.ExecuteAsync(schedule, user?.Id, HttpContext.RequestAborted);
 
         TempData["Success"] = "Invoice run triggered.";
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> UploadHcmRef(int id, IFormFile refFile, string monthYear)
+    {
+        var schedule = await _svc.GetScheduleByIdAsync(id);
+        if (schedule == null) return NotFound();
+
+        if (refFile == null || refFile.Length == 0)
+        {
+            TempData["Error"] = "Please select an Excel file to upload.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        var dir = Path.Combine(_storageRoot, "invoices", "hcm-ref");
+        Directory.CreateDirectory(dir);
+        var safeMonth = monthYear.Replace("/", "-").Replace("\\", "-");
+        var fileName  = $"hcm_ref_{id}_{safeMonth}.xlsx";
+        var filePath  = Path.Combine(dir, fileName);
+
+        using (var fs = System.IO.File.Create(filePath))
+            await refFile.CopyToAsync(fs);
+
+        var user = await _users.GetUserAsync(User);
+        await _svc.SaveHcmRefFileAsync(new InvoiceHcmRefFile
+        {
+            ScheduleId       = id,
+            MonthYear        = safeMonth,
+            FilePath         = filePath,
+            OriginalFileName = refFile.FileName,
+            UploadedAt       = DateTime.UtcNow,
+            UploadedById     = user?.Id
+        });
+
+        TempData["Success"] = $"HCM ref file uploaded for {safeMonth}.";
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteHcmRef(int id, int refFileId)
+    {
+        var refFile = await _svc.GetHcmRefFilesAsync(id)
+            .ContinueWith(t => t.Result.FirstOrDefault(f => f.Id == refFileId));
+        if (refFile != null && System.IO.File.Exists(refFile.FilePath))
+            System.IO.File.Delete(refFile.FilePath);
+
+        await _svc.DeleteHcmRefFileAsync(refFileId);
+        TempData["Success"] = "HCM ref file deleted.";
         return RedirectToAction(nameof(Details), new { id });
     }
 }

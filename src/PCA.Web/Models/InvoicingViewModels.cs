@@ -78,6 +78,9 @@ public class InvoiceScheduleCreateViewModel
     [Display(Name = "Enabled")]
     public bool IsEnabled { get; set; } = true;
 
+    [Display(Name = "Split IPPS and HCM into separate sheets")]
+    public bool SplitSheets { get; set; }
+
     public List<int> SelectedRecipientIds { get; set; } = new();
 }
 

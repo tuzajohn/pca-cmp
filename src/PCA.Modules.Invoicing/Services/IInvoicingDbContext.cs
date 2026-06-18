@@ -10,6 +10,7 @@ public interface IApplicationDbContextForInvoicing
     DbSet<InvoiceSchedule> InvoiceSchedules { get; }
     DbSet<InvoiceScheduleRecipient> InvoiceScheduleRecipients { get; }
     DbSet<InvoiceRun> InvoiceRuns { get; }
+    DbSet<InvoiceHcmRefFile> InvoiceHcmRefFiles { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
