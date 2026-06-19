@@ -1,9 +1,8 @@
-@model PCA.Shared.PagedResult<PCA.Modules.Incidents.Models.Incident>
 @using PCA.Shared.Enums
 @using PCA.Web.Helpers
 @{
     ViewData["Title"] = "Incidents";
-    var statusFilter = ViewBag.StatusFilter as string;
+    var statusFilter   = ViewBag.StatusFilter as string;
     var severityFilter = ViewBag.SeverityFilter as string;
     var categoryFilter = ViewBag.CategoryFilter as string;
 }
@@ -20,22 +19,22 @@
 
 <div class="card mb-3">
     <div class="card-body py-2">
-        <form id="filter-form" method="get" class="d-flex flex-wrap gap-2 align-items-center">
-            <select name="status" class="form-select form-select-sm" style="width:auto;">
+        <form id="filter-form" class="d-flex flex-wrap gap-2 align-items-center">
+            <select name="status" id="f-status" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Statuses</option>
                 @foreach (var s in Enum.GetValues<IncidentStatus>())
                 {
                     <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
                 }
             </select>
-            <select name="severity" class="form-select form-select-sm" style="width:auto;">
+            <select name="severity" id="f-severity" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Severities</option>
                 @foreach (var sv in Enum.GetValues<IncidentSeverity>())
                 {
                     <option value="@sv" selected="@(sv.ToString() == severityFilter)">@IncidentViewHelpers.SeverityLabel(sv)</option>
                 }
             </select>
-            <select name="category" class="form-select form-select-sm" style="width:auto;">
+            <select name="category" id="f-category" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Categories</option>
                 @foreach (var cat in Enum.GetValues<IncidentCategory>())
                 {
@@ -43,55 +42,69 @@
                 }
             </select>
             <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
-            @if (!string.IsNullOrEmpty(statusFilter) || !string.IsNullOrEmpty(severityFilter) || !string.IsNullOrEmpty(categoryFilter))
-            {
-                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear</a>
-            }
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="btn-clear">Clear</button>
         </form>
     </div>
 </div>
 
 <div class="card">
-    <div class="card-body p-0" id="list-container">
-        @await Html.PartialAsync("_IncidentList", Model)
+    <div class="card-body p-0">
+        <table id="dt-inc" class="table mb-0" style="font-size:13px;">
+            <thead>
+                <tr>
+                    <th class="ps-3">Serial</th>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Severity</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Assigned To</th>
+                    <th>Detected</th>
+                    <th class="pe-3"></th>
+                </tr>
+            </thead>
+        </table>
     </div>
 </div>
 
 @section Scripts {
 <script>
 (function () {
-    const form = document.getElementById('filter-form');
-    const container = document.getElementById('list-container');
+    const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    async function loadPage(url) {
-        container.style.opacity = '0.5';
-        const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-        container.innerHTML = await resp.text();
-        container.style.opacity = '1';
-        history.pushState(null, '', url);
-        bindPagination();
-    }
-
-    function bindPagination() {
-        container.querySelectorAll('.pagination-link').forEach(a => {
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                const url = new URL(window.location.href);
-                url.searchParams.set('page', a.dataset.page);
-                loadPage(url.toString());
-            });
-        });
-    }
-
-    form.addEventListener('submit', e => {
-        e.preventDefault();
-        const url = new URL(window.location.pathname, window.location.origin);
-        new FormData(form).forEach((v, k) => { if (v) url.searchParams.set(k, v); });
-        url.searchParams.set('page', '1');
-        loadPage(url.toString());
+    const table = new DataTable('#dt-inc', {
+        serverSide: true,
+        processing: true,
+        searching: false,
+        pageLength: 25,
+        order: [[7, 'desc']],
+        ajax: {
+            url: '/Incidents/Data',
+            data: d => {
+                d.status   = document.getElementById('f-status').value;
+                d.severity = document.getElementById('f-severity').value;
+                d.category = document.getElementById('f-category').value;
+            }
+        },
+        columns: [
+            { data: 'serial',     className: 'ps-3', render: (v, _, r) => `<a href="/Incidents/Details/${r.id}" class="fw-semibold text-decoration-none">${v}</a>` },
+            { data: 'title' },
+            { data: 'category',   render: badge },
+            { data: 'severity',   render: badge },
+            { data: 'priority',   render: badge },
+            { data: 'status',     render: badge },
+            { data: 'assignedTo', defaultContent: '<span class="text-muted">Unassigned</span>' },
+            { data: 'detected' },
+            { data: 'id', orderable: false, className: 'pe-3 text-end',
+              render: id => `<a href="/Incidents/Details/${id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
+        ]
     });
 
-    bindPagination();
+    document.getElementById('filter-form').addEventListener('submit', e => { e.preventDefault(); table.ajax.reload(); });
+    document.getElementById('btn-clear').addEventListener('click', () => {
+        ['f-status', 'f-severity', 'f-category'].forEach(id => document.getElementById(id).value = '');
+        table.ajax.reload();
+    });
 })();
 </script>
 }

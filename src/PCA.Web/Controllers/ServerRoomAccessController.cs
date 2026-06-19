@@ -40,6 +40,37 @@ public class ServerRoomAccessController : Controller
         return View(result);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> Data(
+        int draw, int start, int length,
+        string? status,
+        [FromQuery(Name = "order[0][column]")] int orderCol = 4,
+        [FromQuery(Name = "order[0][dir]")] string orderDir = "desc")
+    {
+        string[] cols = { "serial", "visitor", "purpose", "entry", "status" };
+        var sortCol = orderCol < cols.Length ? cols[orderCol] : null;
+        int page = length > 0 ? (start / length) + 1 : 1;
+
+        var result = await _svc.GetServerRoomRequestsPagedAsync(status, page, length, sortCol, orderDir);
+
+        return Json(new {
+            draw,
+            recordsTotal    = result.TotalCount,
+            recordsFiltered = result.TotalCount,
+            data = result.Items.Select(r => new {
+                id             = r.Id,
+                serial         = r.SerialNumber,
+                visitorName    = r.VisitorName,
+                visitorCompany = r.VisitorCompany ?? "",
+                isExternal     = r.IsExternal,
+                purpose        = r.Purpose,
+                plannedEntry   = r.PlannedEntryDateTime.ToString("dd MMM yyyy HH:mm"),
+                plannedExit    = r.PlannedExitDateTime?.ToString("dd MMM yyyy HH:mm") ?? "",
+                status         = r.Status.ToString()
+            })
+        });
+    }
+
     public IActionResult Create() => View(new ServerRoomCreateViewModel());
 
     [HttpPost, ValidateAntiForgeryToken]

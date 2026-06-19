@@ -30,7 +30,7 @@
     }
     else
     {
-        <table class="table mb-0" style="font-size:13px;">
+        <table id="dt-templates" class="table mb-0" style="font-size:13px;">
             <thead>
                 <tr>
                     <th class="ps-3">Name</th>
@@ -99,3 +99,8 @@
         </table>
     }
 </div>
+
+
+@section Scripts {
+<script>new DataTable('#dt-templates', { pageLength: 25, order: [[0, 'asc']] });</script>
+}

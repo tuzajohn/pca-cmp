@@ -28,7 +28,7 @@
         }
         else
         {
-            <table class="table table-hover mb-0" style="font-size:13px;">
+            <table id="dt-reviews" class="table table-hover mb-0" style="font-size:13px;">
                 <thead style="background:var(--bs-tertiary-bg);">
                     <tr>
                         <th class="ps-3">Title</th>
@@ -101,3 +101,7 @@
         }
     </div>
 </div>
+
+@section Scripts {
+<script>new DataTable('#dt-reviews', { pageLength: 25, order: [[3, 'asc']], columnDefs: [{ orderable: false, targets: [4, -1] }] });</script>
+}

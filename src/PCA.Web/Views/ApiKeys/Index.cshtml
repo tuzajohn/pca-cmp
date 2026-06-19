@@ -37,7 +37,7 @@
 
 <div class="card">
     <div class="card-body p-0">
-        <table class="table table-sm mb-0" style="font-size:13px;">
+        <table id="dt-apikeys" class="table table-sm mb-0" style="font-size:13px;">
             <thead>
                 <tr>
                     <th class="ps-3">Application</th>
@@ -128,3 +128,7 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+<script>new DataTable('#dt-apikeys', { pageLength: 25, order: [[3, 'desc']], columnDefs: [{ orderable: false, targets: -1 }] });</script>
+}

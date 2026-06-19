@@ -368,5 +368,7 @@
         else if (selected === 'ReturnForEdit') { document.getElementById('returnComment').value  = comment; document.getElementById('formReturn').submit(); }
     });
 })();
+
+document.querySelectorAll('.card table.table').forEach((t,i)=>{ t.id=t.id||'dt-sub-'+i; new DataTable(t,{paging:false,searching:false,ordering:true,info:false}); });
 </script>
 }

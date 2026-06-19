@@ -1,4 +1,3 @@
-@model PCA.Shared.PagedResult<PCA.Modules.AccessManagement.Models.AccessRequest>
 @using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Access Requests";
@@ -18,68 +17,78 @@
 
 <div class="card mb-3">
     <div class="card-body py-2">
-        <form id="filter-form" method="get" class="d-flex flex-wrap gap-2 align-items-center">
-            <select name="status" class="form-select form-select-sm" style="width:auto;">
+        <form id="filter-form" class="d-flex flex-wrap gap-2 align-items-center">
+            <select name="status" id="f-status" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Statuses</option>
                 @foreach (var s in Enum.GetValues<AccessRequestStatus>())
                 {
                     <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
                 }
             </select>
-            <input type="text" name="system" class="form-control form-control-sm" style="width:180px;"
+            <input type="text" id="f-system" class="form-control form-control-sm" style="width:180px;"
                    placeholder="System name…" value="@systemFilter" />
-            <input type="date" name="from" class="form-control form-control-sm" style="width:auto;" value="@ViewBag.FromFilter" />
-            <input type="date" name="to" class="form-control form-control-sm" style="width:auto;" value="@ViewBag.ToFilter" />
             <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
-            @if (!string.IsNullOrEmpty(statusFilter) || !string.IsNullOrEmpty(systemFilter))
-            {
-                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear</a>
-            }
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="btn-clear">Clear</button>
         </form>
     </div>
 </div>
 
 <div class="card">
-    <div class="card-body p-0" id="list-container">
-        @await Html.PartialAsync("_AccessRequestList", Model)
+    <div class="card-body p-0">
+        <table id="dt-ar" class="table mb-0" style="font-size:13px;">
+            <thead>
+                <tr>
+                    <th class="ps-3">Serial</th>
+                    <th>Employee</th>
+                    <th>System</th>
+                    <th>Type</th>
+                    <th>Privileged</th>
+                    <th>Status</th>
+                    <th>Requested</th>
+                    <th class="pe-3"></th>
+                </tr>
+            </thead>
+        </table>
     </div>
 </div>
 
 @section Scripts {
 <script>
 (function () {
-    const form = document.getElementById('filter-form');
-    const container = document.getElementById('list-container');
+    const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    async function loadPage(url) {
-        container.style.opacity = '0.5';
-        const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-        container.innerHTML = await resp.text();
-        container.style.opacity = '1';
-        history.pushState(null, '', url);
-        bindPagination();
-    }
-
-    function bindPagination() {
-        container.querySelectorAll('.pagination-link').forEach(a => {
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                const url = new URL(window.location.href);
-                url.searchParams.set('page', a.dataset.page);
-                loadPage(url.toString());
-            });
-        });
-    }
-
-    form.addEventListener('submit', e => {
-        e.preventDefault();
-        const url = new URL(window.location.pathname, window.location.origin);
-        new FormData(form).forEach((v, k) => { if (v) url.searchParams.set(k, v); });
-        url.searchParams.set('page', '1');
-        loadPage(url.toString());
+    const table = new DataTable('#dt-ar', {
+        serverSide: true,
+        processing: true,
+        searching: false,
+        pageLength: 25,
+        order: [[6, 'desc']],
+        ajax: {
+            url: '/AccessRequests/Data',
+            data: d => {
+                d.status = document.getElementById('f-status').value;
+                d.system = document.getElementById('f-system').value;
+            }
+        },
+        columns: [
+            { data: 'serial',     className: 'ps-3', render: (v, _, r) => `<a href="/AccessRequests/Details/${r.id}" class="fw-semibold text-decoration-none">${v || 'Draft'}</a>` },
+            { data: 'employee' },
+            { data: 'system' },
+            { data: 'type' },
+            { data: 'privileged', render: v => v ? '<span class="status-badge status-closed">Privileged</span>' : '' },
+            { data: 'status',     render: badge },
+            { data: 'createdAt' },
+            { data: 'id', orderable: false, className: 'pe-3 text-end',
+              render: id => `<a href="/AccessRequests/Details/${id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
+        ]
     });
 
-    bindPagination();
+    document.getElementById('filter-form').addEventListener('submit', e => { e.preventDefault(); table.ajax.reload(); });
+    document.getElementById('btn-clear').addEventListener('click', () => {
+        document.getElementById('f-status').value = '';
+        document.getElementById('f-system').value = '';
+        table.ajax.reload();
+    });
 })();
 </script>
 }

@@ -67,3 +67,12 @@ else
         </div>
     }
 }
+
+@section Scripts {
+<script>
+document.querySelectorAll('table.table').forEach((t, i) => {
+    t.id = 'dt-approvals-' + i;
+    new DataTable(t, { paging: false, searching: false, ordering: true, info: false });
+});
+</script>
+}

@@ -91,7 +91,7 @@
 else
 {
     <div class="card">
-        <table class="table mb-0" style="font-size:12px;">
+        <table id="dt-logs" class="table mb-0" style="font-size:12px;">
             <thead>
                 <tr>
                     <th style="width:150px;">Timestamp</th>
@@ -173,6 +173,14 @@ else
             </ul>
         </nav>
     }
+}
+
+
+@section Scripts {
+<script>
+if (document.getElementById('dt-logs'))
+    new DataTable('#dt-logs', { paging: false, searching: false, ordering: true, info: false });
+</script>
 }
 
 <!-- Clear modal -->
