@@ -229,6 +229,39 @@ public class EmailService : IEmailService
         await SendAsync(toEmail, toName, subject, body);
     }
 
+    public async Task SendDeprovisioningNoticeAsync(string toEmail, string toName, string employeeName,
+        string employeeId, string department, string trigger, DateTime slaDeadline, string viewLink)
+    {
+        var subject = $"⚠️ Deprovisioning Required: {employeeName}";
+        var body = $"""
+            <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;color:#111827;">
+              <div style="background:#dc2626;padding:28px 32px;border-radius:12px 12px 0 0;">
+                <h1 style="color:#fff;margin:0;font-size:22px;font-weight:700;">PCA Management Portal</h1>
+              </div>
+              <div style="background:#fff;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+                <h2 style="font-size:18px;font-weight:700;margin:0 0 8px;">Action Required: Deprovisioning</h2>
+                <p style="color:#6b7280;margin:0 0 16px;">Hi {toName}, a deprovisioning event has been logged and requires your action.</p>
+                <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:16px;margin:0 0 20px;border-radius:4px;">
+                  <table style="width:100%;font-size:14px;border-collapse:collapse;">
+                    <tr><td style="color:#6b7280;padding:3px 0;width:120px;">Employee</td><td style="font-weight:600;color:#111827;">{employeeName}</td></tr>
+                    <tr><td style="color:#6b7280;padding:3px 0;">Employee ID</td><td style="color:#111827;">{employeeId}</td></tr>
+                    <tr><td style="color:#6b7280;padding:3px 0;">Department</td><td style="color:#111827;">{department}</td></tr>
+                    <tr><td style="color:#6b7280;padding:3px 0;">Trigger</td><td style="color:#111827;">{trigger}</td></tr>
+                    <tr><td style="color:#6b7280;padding:3px 0;">SLA Deadline</td><td style="font-weight:700;color:#dc2626;">{slaDeadline:dd MMM yyyy HH:mm} UTC</td></tr>
+                  </table>
+                </div>
+                <p style="color:#374151;font-size:14px;margin:0 0 20px;">All system access must be revoked before the SLA deadline. Please log in to the portal to action this event.</p>
+                <a href="{viewLink}"
+                   style="display:inline-block;background:#dc2626;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;">
+                  View Deprovisioning Event
+                </a>
+              </div>
+            </div>
+            """;
+
+        await SendAsync(toEmail, toName, subject, body);
+    }
+
     private async Task SendAsync(string toEmail, string toName, string subject, string htmlBody)
     {
         try
