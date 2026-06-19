@@ -17,7 +17,9 @@ public class InvoiceSchedulerWorker : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+            try { await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken); }
+            catch (OperationCanceledException) { break; }
+
             if (stoppingToken.IsCancellationRequested) break;
 
             try
