@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PCA.Modules.AccessManagement;
+using PCA.Modules.Identity.Models;
 using PCA.Modules.AccessManagement.Services;
 using PCA.Modules.Invoicing;
 using PCA.Modules.Invoicing.Services;
@@ -35,6 +36,18 @@ builder.Services.AddScoped<IApplicationDbContextForDocuments>(sp => sp.GetRequir
 builder.Services.AddScoped<IApplicationDbContextForIncidents>(sp => sp.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<IApplicationDbContextForAccessManagement>(sp => sp.GetRequiredService<ApplicationDbContext>());
 builder.Services.AddScoped<IApplicationDbContextForInvoicing>(sp => sp.GetRequiredService<ApplicationDbContext>());
+
+// Authorization policies — Admin always has access; others need the matching Module claim
+builder.Services.AddAuthorization(options =>
+{
+    foreach (var (key, _, _) in AppModules.All)
+    {
+        options.AddPolicy($"Module:{key}", policy =>
+            policy.RequireAssertion(ctx =>
+                ctx.User.IsInRole("Admin") ||
+                ctx.User.HasClaim(AppModules.ClaimType, key)));
+    }
+});
 
 // Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>

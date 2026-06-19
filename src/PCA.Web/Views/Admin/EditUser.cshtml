@@ -1,4 +1,5 @@
 @model EditUserViewModel
+@using PCA.Modules.Identity.Models
 @{
     ViewData["Title"] = "Edit User";
 }
@@ -51,7 +52,7 @@
         </div>
 
         <div class="col-lg-5">
-            <div class="card">
+            <div class="card mb-3">
                 <div class="card-header"><i class="bi bi-person-badge me-2"></i>Roles</div>
                 <div class="card-body">
                     @foreach (var role in Model.AllRoles)
@@ -65,16 +66,8 @@
                         var checkId = $"role_{role}";
                         var isChecked = Model.SelectedRoles.Contains(role);
                         <div class="role-option mb-2">
-                            @if (isChecked)
-                            {
-                                <input type="checkbox" name="SelectedRoles" value="@role"
-                                       id="@checkId" class="role-checkbox d-none" checked />
-                            }
-                            else
-                            {
-                                <input type="checkbox" name="SelectedRoles" value="@role"
-                                       id="@checkId" class="role-checkbox d-none" />
-                            }
+                            <input type="checkbox" name="SelectedRoles" value="@role"
+                                   id="@checkId" class="role-checkbox d-none" @(isChecked ? "checked" : "") />
                             <label for="@checkId" class="d-flex align-items-start gap-3 p-3 rounded w-100 mb-0"
                                    style="border:1.5px solid var(--bs-border-color);cursor:pointer;transition:border-color .15s,background .15s;">
                                 <div class="role-check-icon flex-shrink-0 mt-1" style="width:16px;height:16px;border:2px solid var(--bs-border-color);border-radius:4px;display:flex;align-items:center;justify-content:center;transition:all .15s;">
@@ -86,6 +79,32 @@
                                     {
                                         <div class="text-muted" style="font-size:12px;">@desc</div>
                                     }
+                                </div>
+                            </label>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-grid me-2"></i>Module Access</div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Admin users have access to all modules regardless of selection.</p>
+                    @foreach (var (key, label, description) in AppModules.All)
+                    {
+                        var checkId  = $"mod_{key}";
+                        var isChecked = Model.SelectedModules.Contains(key);
+                        <div class="role-option mb-2">
+                            <input type="checkbox" name="SelectedModules" value="@key"
+                                   id="@checkId" class="role-checkbox d-none" @(isChecked ? "checked" : "") />
+                            <label for="@checkId" class="d-flex align-items-start gap-3 p-3 rounded w-100 mb-0"
+                                   style="border:1.5px solid var(--bs-border-color);cursor:pointer;transition:border-color .15s,background .15s;">
+                                <div class="role-check-icon flex-shrink-0 mt-1" style="width:16px;height:16px;border:2px solid var(--bs-border-color);border-radius:4px;display:flex;align-items:center;justify-content:center;transition:all .15s;">
+                                    <i class="bi bi-check2" style="font-size:10px;color:#fff;display:none;"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-semibold" style="font-size:13.5px;">@label</div>
+                                    <div class="text-muted" style="font-size:12px;">@description</div>
                                 </div>
                             </label>
                         </div>

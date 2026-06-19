@@ -61,6 +61,14 @@ else
             </div>
         </div>
 
+        @{
+            bool isAdmin    = User.IsInRole("Admin");
+            bool canCM      = isAdmin || User.HasClaim("Module", "ChangeManagement");
+            bool canInc     = isAdmin || User.HasClaim("Module", "Incidents");
+            bool canAM      = isAdmin || User.HasClaim("Module", "AccessManagement");
+            bool canInv     = isAdmin || User.HasClaim("Module", "Invoicing");
+            bool canDocs    = isAdmin || User.HasClaim("Module", "Documents");
+        }
         <nav class="sidebar-nav">
             <div class="sidebar-section-label">Main</div>
 
@@ -70,95 +78,110 @@ else
                 <span>Dashboard</span>
             </a>
 
-            <div class="sidebar-section-label">Change Management</div>
-
-            <a asp-controller="ChangeRequests" asp-action="Index"
-               class="sidebar-link @ActiveIf("ChangeRequests")">
-                <i class="bi bi-ticket-detailed"></i>
-                <span>Change Requests</span>
-            </a>
-
-            @if (User.IsInRole("Admin") || User.IsInRole("Approver"))
+            @if (canCM)
             {
-                <a asp-controller="Approvals" asp-action="Index"
-                   class="sidebar-link @ActiveIf("Approvals")">
-                    <i class="bi bi-check2-circle"></i>
-                    <span>Approvals</span>
-                    @if (ViewBag.PendingCount is int cnt && cnt > 0)
-                    {
-                        <span class="sidebar-badge">@cnt</span>
-                    }
+                <div class="sidebar-section-label">Change Management</div>
+
+                <a asp-controller="ChangeRequests" asp-action="Index"
+                   class="sidebar-link @ActiveIf("ChangeRequests")">
+                    <i class="bi bi-ticket-detailed"></i>
+                    <span>Change Requests</span>
+                </a>
+
+                @if (isAdmin || User.IsInRole("Approver"))
+                {
+                    <a asp-controller="Approvals" asp-action="Index"
+                       class="sidebar-link @ActiveIf("Approvals")">
+                        <i class="bi bi-check2-circle"></i>
+                        <span>Approvals</span>
+                        @if (ViewBag.PendingCount is int cnt && cnt > 0)
+                        {
+                            <span class="sidebar-badge">@cnt</span>
+                        }
+                    </a>
+                }
+            }
+
+            @if (canInc)
+            {
+                <div class="sidebar-section-label">Incident Management</div>
+
+                <a asp-controller="Incidents" asp-action="Index"
+                   class="sidebar-link @ActiveIf("Incidents")">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <span>Incidents</span>
                 </a>
             }
 
-            <div class="sidebar-section-label">Incident Management</div>
+            @if (canAM)
+            {
+                <div class="sidebar-section-label">Access Management</div>
 
-            <a asp-controller="Incidents" asp-action="Index"
-               class="sidebar-link @ActiveIf("Incidents")">
-                <i class="bi bi-exclamation-triangle"></i>
-                <span>Incidents</span>
-            </a>
+                <a asp-controller="AccessRequests" asp-action="Index"
+                   class="sidebar-link @ActiveIf("AccessRequests")">
+                    <i class="bi bi-person-check"></i>
+                    <span>Access Requests</span>
+                </a>
 
-            <div class="sidebar-section-label">Access Management</div>
+                <a asp-controller="AccessReviews" asp-action="Index"
+                   class="sidebar-link @ActiveIf("AccessReviews")">
+                    <i class="bi bi-clipboard-check"></i>
+                    <span>Access Reviews</span>
+                </a>
 
-            <a asp-controller="AccessRequests" asp-action="Index"
-               class="sidebar-link @ActiveIf("AccessRequests")">
-                <i class="bi bi-person-check"></i>
-                <span>Access Requests</span>
-            </a>
+                <a asp-controller="Deprovisioning" asp-action="Index"
+                   class="sidebar-link @ActiveIf("Deprovisioning")">
+                    <i class="bi bi-person-dash"></i>
+                    <span>Deprovisioning</span>
+                    @{
+                        var overdueCount = ViewBag.DeprovisioningOverdueCount as int?;
+                    }
+                    @if (overdueCount.HasValue && overdueCount.Value > 0)
+                    {
+                        <span class="badge bg-danger ms-auto" style="font-size:10px;">@overdueCount</span>
+                    }
+                </a>
 
-            <a asp-controller="AccessReviews" asp-action="Index"
-               class="sidebar-link @ActiveIf("AccessReviews")">
-                <i class="bi bi-clipboard-check"></i>
-                <span>Access Reviews</span>
-            </a>
+                <a asp-controller="ServerRoomAccess" asp-action="Index"
+                   class="sidebar-link @ActiveIf("ServerRoomAccess")">
+                    <i class="bi bi-server"></i>
+                    <span>Server Room Access</span>
+                </a>
+            }
 
-            <a asp-controller="Deprovisioning" asp-action="Index"
-               class="sidebar-link @ActiveIf("Deprovisioning")">
-                <i class="bi bi-person-dash"></i>
-                <span>Deprovisioning</span>
-                @{
-                    var overdueCount = ViewBag.DeprovisioningOverdueCount as int?;
-                }
-                @if (overdueCount.HasValue && overdueCount.Value > 0)
-                {
-                    <span class="badge bg-danger ms-auto" style="font-size:10px;">@overdueCount</span>
-                }
-            </a>
+            @if (canInv)
+            {
+                <div class="sidebar-section-label">Invoicing</div>
 
-            <a asp-controller="ServerRoomAccess" asp-action="Index"
-               class="sidebar-link @ActiveIf("ServerRoomAccess")">
-                <i class="bi bi-server"></i>
-                <span>Server Room Access</span>
-            </a>
+                <a asp-controller="InvoiceSchedules" asp-action="Index"
+                   class="sidebar-link @ActiveIf("InvoiceSchedules")">
+                    <i class="bi bi-calendar-check"></i>
+                    <span>Invoice Schedules</span>
+                </a>
 
-            <div class="sidebar-section-label">Invoicing</div>
+                <a asp-controller="InvoiceLenders" asp-action="Index"
+                   class="sidebar-link @ActiveIf("InvoiceLenders")">
+                    <i class="bi bi-building"></i>
+                    <span>Lenders</span>
+                </a>
 
-            <a asp-controller="InvoiceSchedules" asp-action="Index"
-               class="sidebar-link @ActiveIf("InvoiceSchedules")">
-                <i class="bi bi-calendar-check"></i>
-                <span>Invoice Schedules</span>
-            </a>
+                <a asp-controller="InvoiceRecipients" asp-action="Index"
+                   class="sidebar-link @ActiveIf("InvoiceRecipients")">
+                    <i class="bi bi-envelope-at"></i>
+                    <span>Recipients</span>
+                </a>
+            }
 
-            <a asp-controller="InvoiceLenders" asp-action="Index"
-               class="sidebar-link @ActiveIf("InvoiceLenders")">
-                <i class="bi bi-building"></i>
-                <span>Lenders</span>
-            </a>
+            @if (canDocs)
+            {
+                <div class="sidebar-section-label">Documents</div>
 
-            <a asp-controller="InvoiceRecipients" asp-action="Index"
-               class="sidebar-link @ActiveIf("InvoiceRecipients")">
-                <i class="bi bi-envelope-at"></i>
-                <span>Recipients</span>
-            </a>
-
-            <div class="sidebar-section-label">Documents</div>
-
-            <a asp-controller="Documents" asp-action="Index"
-               class="sidebar-link @ActiveIf("Documents")">
-                <i class="bi bi-folder2"></i>
-                <span>Document Repository</span>
-            </a>
+                <a asp-controller="Documents" asp-action="Index"
+                   class="sidebar-link @ActiveIf("Documents")">
+                    <i class="bi bi-folder2"></i>
+                    <span>Document Repository</span>
+                </a>
+            }
 
             @if (User.IsInRole("Admin"))
             {

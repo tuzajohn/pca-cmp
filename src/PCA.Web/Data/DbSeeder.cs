@@ -40,6 +40,10 @@ public static class DbSeeder
             if (result.Succeeded)
             {
                 await userManager.AddToRolesAsync(admin, new[] { "Admin", "Approver" });
+                // Admin gets all module claims so existing installs work correctly
+                foreach (var (key, _, _) in AppModules.All)
+                    await userManager.AddClaimAsync(admin,
+                        new System.Security.Claims.Claim(AppModules.ClaimType, key));
             }
         }
 

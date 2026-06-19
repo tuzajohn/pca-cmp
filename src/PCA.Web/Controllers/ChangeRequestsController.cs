@@ -12,7 +12,7 @@ using PCA.Web.Services;
 
 namespace PCA.Web.Controllers;
 
-[Authorize]
+[Authorize(Policy = "Module:ChangeManagement")]
 public class ChangeRequestsController : Controller
 {
     private readonly IChangeRequestService _crService;
