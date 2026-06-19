@@ -31,6 +31,11 @@ public class ApprovalService : IApprovalService
             .ToListAsync();
     }
 
+    public Task<ApprovalTemplate?> GetTemplateByIdAsync(int id) =>
+        _db.ApprovalTemplates
+            .Include(t => t.Steps).ThenInclude(s => s.Approver)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
     public async Task<ApprovalTemplate?> GetTemplateForEntityAsync(string entityType, string? entitySubType)
     {
         return await _db.ApprovalTemplates

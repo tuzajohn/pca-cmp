@@ -6,6 +6,7 @@ namespace PCA.Modules.Approvals.Services;
 public interface IApprovalService
 {
     Task<List<ApprovalTemplate>> GetTemplatesAsync();
+    Task<ApprovalTemplate?> GetTemplateByIdAsync(int id);
     Task<ApprovalTemplate?> GetTemplateForEntityAsync(string entityType, string? entitySubType);
     Task<ApprovalTemplate> CreateTemplateAsync(ApprovalTemplate template);
     Task<ApprovalTemplate> UpdateTemplateAsync(ApprovalTemplate template);
