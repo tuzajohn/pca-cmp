@@ -36,12 +36,12 @@ public class InvoiceSchedulesController : Controller
 
     public async Task<IActionResult> Create()
     {
+        var recipients = await _svc.GetRecipientsAsync();
         ViewBag.Lenders    = await _svc.GetLendersAsync();
-        ViewBag.Recipients = await _svc.GetRecipientsAsync();
+        ViewBag.Recipients = recipients;
         return View(new InvoiceScheduleCreateViewModel
         {
-            SelectedRecipientIds = (await _svc.GetRecipientsAsync())
-                .Where(r => r.IsDefault).Select(r => r.Id).ToList()
+            SelectedRecipientIds = recipients.Where(r => r.IsDefault).Select(r => r.Id).ToList()
         });
     }
 
@@ -192,8 +192,8 @@ public class InvoiceSchedulesController : Controller
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteHcmRef(int id, int refFileId)
     {
-        var refFile = await _svc.GetHcmRefFilesAsync(id)
-            .ContinueWith(t => t.Result.FirstOrDefault(f => f.Id == refFileId));
+        var files = await _svc.GetHcmRefFilesAsync(id);
+        var refFile = files.FirstOrDefault(f => f.Id == refFileId);
         if (refFile != null && System.IO.File.Exists(refFile.FilePath))
             System.IO.File.Delete(refFile.FilePath);
 

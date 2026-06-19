@@ -272,12 +272,7 @@ public class EmailService : IEmailService
             message.Subject = subject;
             message.Body = new BodyBuilder { HtmlBody = htmlBody }.ToMessageBody();
 
-            using var client = new SmtpClient();
-            await client.ConnectAsync(_settings.Host, _settings.Port,
-                _settings.Port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(_settings.Username, _settings.Password);
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
+            await DispatchAsync(message);
         }
         catch (Exception ex)
         {
@@ -304,17 +299,22 @@ public class EmailService : IEmailService
                 MimeKit.ContentType.Parse(mimeType));
             message.Body = builder.ToMessageBody();
 
-            using var client = new SmtpClient();
-            await client.ConnectAsync(_settings.Host, _settings.Port,
-                _settings.Port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls);
-            await client.AuthenticateAsync(_settings.Username, _settings.Password);
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
+            await DispatchAsync(message);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send invoice email — subject: {Subject}", subject);
             throw;
         }
+    }
+
+    private async Task DispatchAsync(MimeMessage message)
+    {
+        using var client = new SmtpClient();
+        await client.ConnectAsync(_settings.Host, _settings.Port,
+            _settings.Port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls);
+        await client.AuthenticateAsync(_settings.Username, _settings.Password);
+        await client.SendAsync(message);
+        await client.DisconnectAsync(true);
     }
 }
