@@ -65,7 +65,7 @@ public class ServerRoomAccessController : Controller
                 isExternal     = r.IsExternal,
                 purpose        = r.Purpose,
                 plannedEntry   = r.PlannedEntryDateTime.ToString("dd MMM yyyy HH:mm"),
-                plannedExit    = r.PlannedExitDateTime?.ToString("dd MMM yyyy HH:mm") ?? "",
+                plannedExit    = r.PlannedExitDateTime.ToString("dd MMM yyyy HH:mm") ?? "",
                 status         = r.Status.ToString()
             })
         });
