@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -177,6 +178,9 @@ public class AdminController : Controller
         if (vm.SelectedRoles.Any())
             await _userManager.AddToRolesAsync(user, vm.SelectedRoles);
 
+        foreach (var module in vm.SelectedModules)
+            await _userManager.AddClaimAsync(user, new Claim(AppModules.ClaimType, module));
+
         var inviteLink = await GenerateSetPasswordLinkAsync(user);
         try
         {
@@ -197,14 +201,16 @@ public class AdminController : Controller
         var user = await _userManager.FindByIdAsync(id);
         if (user == null) return NotFound();
 
+        var claims = await _userManager.GetClaimsAsync(user);
         var vm = new EditUserViewModel
         {
-            Id = user.Id,
-            Email = user.Email ?? string.Empty,
-            FullName = user.FullName,
-            Department = user.Department,
-            SelectedRoles = (await _userManager.GetRolesAsync(user)).ToList(),
-            AllRoles = await _roleManager.Roles.Select(r => r.Name!).ToListAsync()
+            Id              = user.Id,
+            Email           = user.Email ?? string.Empty,
+            FullName        = user.FullName,
+            Department      = user.Department,
+            SelectedRoles   = (await _userManager.GetRolesAsync(user)).ToList(),
+            AllRoles        = await _roleManager.Roles.Select(r => r.Name!).ToListAsync(),
+            SelectedModules = claims.Where(c => c.Type == AppModules.ClaimType).Select(c => c.Value).ToList()
         };
         return View(vm);
     }
@@ -215,7 +221,7 @@ public class AdminController : Controller
         var user = await _userManager.FindByIdAsync(vm.Id);
         if (user == null) return NotFound();
 
-        user.FullName = vm.FullName;
+        user.FullName   = vm.FullName;
         user.Department = vm.Department ?? string.Empty;
         await _userManager.UpdateAsync(user);
 
@@ -223,6 +229,13 @@ public class AdminController : Controller
         await _userManager.RemoveFromRolesAsync(user, currentRoles);
         if (vm.SelectedRoles.Any())
             await _userManager.AddToRolesAsync(user, vm.SelectedRoles);
+
+        var currentClaims = (await _userManager.GetClaimsAsync(user))
+            .Where(c => c.Type == AppModules.ClaimType).ToList();
+        foreach (var c in currentClaims)
+            await _userManager.RemoveClaimAsync(user, c);
+        foreach (var module in vm.SelectedModules)
+            await _userManager.AddClaimAsync(user, new Claim(AppModules.ClaimType, module));
 
         TempData["Success"] = $"User {user.Email} updated.";
         return RedirectToAction(nameof(Users));

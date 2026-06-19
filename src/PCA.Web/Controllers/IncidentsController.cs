@@ -13,7 +13,7 @@ using PCA.Web.Services;
 
 namespace PCA.Web.Controllers;
 
-[Authorize]
+[Authorize(Policy = "Module:Incidents")]
 public class IncidentsController : Controller
 {
     private readonly IIncidentService _incidentService;

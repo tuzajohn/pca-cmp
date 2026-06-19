@@ -27,7 +27,8 @@ public class CreateUserViewModel
     [MaxLength(100)]
     public string? Department { get; set; }
 
-    public List<string> SelectedRoles { get; set; } = new();
+    public List<string> SelectedRoles   { get; set; } = new();
+    public List<string> SelectedModules { get; set; } = new();
 }
 
 public class EditUserViewModel
@@ -41,8 +42,9 @@ public class EditUserViewModel
     [MaxLength(100)]
     public string? Department { get; set; }
 
-    public List<string> SelectedRoles { get; set; } = new();
-    public List<string> AllRoles { get; set; } = new();
+    public List<string> SelectedRoles   { get; set; } = new();
+    public List<string> AllRoles        { get; set; } = new();
+    public List<string> SelectedModules { get; set; } = new();
 }
 
 public class UserListItemViewModel

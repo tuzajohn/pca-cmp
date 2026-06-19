@@ -14,7 +14,7 @@ using PCA.Web.Services;
 
 namespace PCA.Web.Controllers;
 
-[Authorize]
+[Authorize(Policy = "Module:Documents")]
 public class DocumentsController : Controller
 {
     private readonly IDocumentService _docService;

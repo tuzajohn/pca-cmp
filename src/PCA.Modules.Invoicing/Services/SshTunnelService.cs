@@ -43,6 +43,15 @@ public static class SshTunnelService
 {
     public static async Task<SshTunneledConnection> OpenAsync(ExternalDbSettings cfg, ILogger? logger = null)
     {
+        if (string.IsNullOrWhiteSpace(cfg.SshKeyPath))
+            throw new InvalidOperationException(
+                $"SSH key path is not configured for {cfg.SshHost}. " +
+                "Set the Invoicing__IppsDb__SshKeyPath (or HcmDb) environment variable on the server.");
+
+        if (string.IsNullOrWhiteSpace(cfg.SshHost))
+            throw new InvalidOperationException(
+                "SSH host is not configured. Check the Invoicing:IppsDb / HcmDb settings.");
+
         logger?.LogInformation("SSH tunnel: connecting to {SshHost}:{SshPort} as {SshUser}",
             cfg.SshHost, cfg.SshPort, cfg.SshUsername);
 

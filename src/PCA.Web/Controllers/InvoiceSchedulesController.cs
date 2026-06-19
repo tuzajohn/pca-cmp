@@ -10,7 +10,7 @@ using PCA.Web.Models;
 
 namespace PCA.Web.Controllers;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = "Module:Invoicing")]
 public class InvoiceSchedulesController : Controller
 {
     private readonly IInvoicingService _svc;

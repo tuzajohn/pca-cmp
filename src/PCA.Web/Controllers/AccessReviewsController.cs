@@ -9,7 +9,7 @@ using PCA.Web.Models;
 
 namespace PCA.Web.Controllers;
 
-[Authorize]
+[Authorize(Policy = "Module:AccessManagement")]
 public class AccessReviewsController : Controller
 {
     private readonly IAccessManagementService _svc;

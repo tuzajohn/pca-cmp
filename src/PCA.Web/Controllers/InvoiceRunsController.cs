@@ -4,7 +4,7 @@ using PCA.Modules.Invoicing.Services;
 
 namespace PCA.Web.Controllers;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = "Module:Invoicing")]
 public class InvoiceRunsController : Controller
 {
     private readonly IInvoicingService _svc;

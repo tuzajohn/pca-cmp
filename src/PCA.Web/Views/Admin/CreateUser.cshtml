@@ -1,4 +1,5 @@
 @model CreateUserViewModel
+@using PCA.Modules.Identity.Models
 @{
     ViewData["Title"] = "Add User";
     var allRoles = ViewBag.AllRoles as List<string> ?? new();
@@ -14,7 +15,7 @@
     </a>
 </div>
 
-<form asp-action="CreateUser" method="post">
+<form asp-action="CreateUser" method="post" novalidate>
     @Html.AntiForgeryToken()
     <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-4 small"></div>
 
@@ -53,7 +54,7 @@
         </div>
 
         <div class="col-lg-5">
-            <div class="card">
+            <div class="card mb-3">
                 <div class="card-header"><i class="bi bi-person-badge me-2"></i>Assign Roles</div>
                 <div class="card-body">
                     @foreach (var role in allRoles)
@@ -83,13 +84,39 @@
                             </label>
                         </div>
                     }
-                    <div class="d-grid mt-3 gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-person-check me-1"></i> Create User &amp; Generate Invite
-                        </button>
-                        <a asp-action="Users" class="btn btn-outline-secondary">Cancel</a>
-                    </div>
                 </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-grid me-2"></i>Module Access</div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Admin users have access to all modules regardless of selection.</p>
+                    @foreach (var (key, label, description) in AppModules.All)
+                    {
+                        var checkId = $"mod_{key}";
+                        <div class="role-option mb-2">
+                            <input type="checkbox" name="SelectedModules" value="@key"
+                                   id="@checkId" class="role-checkbox d-none" />
+                            <label for="@checkId" class="d-flex align-items-start gap-3 p-3 rounded w-100 mb-0"
+                                   style="border:1.5px solid var(--bs-border-color);cursor:pointer;transition:border-color .15s,background .15s;">
+                                <div class="role-check-icon flex-shrink-0 mt-1" style="width:16px;height:16px;border:2px solid var(--bs-border-color);border-radius:4px;display:flex;align-items:center;justify-content:center;transition:all .15s;">
+                                    <i class="bi bi-check2" style="font-size:10px;color:#fff;display:none;"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-semibold" style="font-size:13.5px;">@label</div>
+                                    <div class="text-muted" style="font-size:12px;">@description</div>
+                                </div>
+                            </label>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-person-check me-1"></i> Create User &amp; Generate Invite
+                </button>
+                <a asp-action="Users" class="btn btn-outline-secondary">Cancel</a>
             </div>
         </div>
     </div>
