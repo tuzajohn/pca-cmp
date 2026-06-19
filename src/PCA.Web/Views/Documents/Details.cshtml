@@ -790,6 +790,6 @@ document.querySelector('[name="SubjectType"]')?.addEventListener('change', funct
     });
 })();
 
-document.querySelectorAll('.card table.table').forEach((t,i)=>{ t.id=t.id||'dt-sub-'+i; new DataTable(t,{paging:false,searching:false,ordering:true,info:false}); });
+document.querySelectorAll('.card table.table').forEach((t,i)=>{ if (!t.querySelector('thead')) return; t.id=t.id||'dt-sub-'+i; new DataTable(t,{paging:false,searching:false,ordering:true,info:false}); });
 </script>
 }
