@@ -25,21 +25,21 @@
                 <option value="">All Statuses</option>
                 @foreach (var s in Enum.GetValues<IncidentStatus>())
                 {
-                    <option value="@s" @(s.ToString() == statusFilter ? "selected" : "")>@s</option>
+                    <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
                 }
             </select>
             <select name="severity" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Severities</option>
                 @foreach (var sv in Enum.GetValues<IncidentSeverity>())
                 {
-                    <option value="@sv" @(sv.ToString() == severityFilter ? "selected" : "")>@IncidentViewHelpers.SeverityLabel(sv)</option>
+                    <option value="@sv" selected="@(sv.ToString() == severityFilter)">@IncidentViewHelpers.SeverityLabel(sv)</option>
                 }
             </select>
             <select name="category" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Categories</option>
                 @foreach (var cat in Enum.GetValues<IncidentCategory>())
                 {
-                    <option value="@cat" @(cat.ToString() == categoryFilter ? "selected" : "")>@cat</option>
+                    <option value="@cat" selected="@(cat.ToString() == categoryFilter)">@cat</option>
                 }
             </select>
             <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>

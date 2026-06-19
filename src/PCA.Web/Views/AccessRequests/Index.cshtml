@@ -23,7 +23,7 @@
                 <option value="">All Statuses</option>
                 @foreach (var s in Enum.GetValues<AccessRequestStatus>())
                 {
-                    <option value="@s" @(s.ToString() == statusFilter ? "selected" : "")>@s</option>
+                    <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
                 }
             </select>
             <input type="text" name="system" class="form-control form-control-sm" style="width:180px;"

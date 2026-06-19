@@ -37,7 +37,7 @@
                 <option value="">All Statuses</option>
                 @foreach (var status in Enum.GetValues<DeprovisioningStatus>())
                 {
-                    <option value="@status" @(status.ToString() == statusFilter ? "selected" : "")>@status</option>
+                    <option value="@status" selected="@(status.ToString() == statusFilter)">@status</option>
                 }
             </select>
             <div class="form-check ms-2 mb-0">

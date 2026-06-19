@@ -22,7 +22,7 @@
                 <option value="">All Statuses</option>
                 @foreach (var s in Enum.GetValues<ChangeStatus>())
                 {
-                    <option value="@s" @(s.ToString() == statusFilter ? "selected" : "")>@s</option>
+                    <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
                 }
             </select>
             <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
