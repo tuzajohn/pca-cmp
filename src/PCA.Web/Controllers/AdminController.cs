@@ -43,14 +43,14 @@ public class AdminController : Controller
 
     public async Task<IActionResult> TemplateDetails(int id)
     {
-        var template = (await _approvalService.GetTemplatesAsync()).FirstOrDefault(t => t.Id == id);
+        var template = await _approvalService.GetTemplateByIdAsync(id);
         if (template == null) return NotFound();
         return View(template);
     }
 
     public async Task<IActionResult> EditTemplate(int id)
     {
-        var template = (await _approvalService.GetTemplatesAsync()).FirstOrDefault(t => t.Id == id);
+        var template = await _approvalService.GetTemplateByIdAsync(id);
         if (template == null) return NotFound();
         ViewBag.Users = await _userManager.Users.ToListAsync();
         return View(template);
@@ -61,7 +61,7 @@ public class AdminController : Controller
         string approvalMode, string autoTriggerOn, string? conditionField, string? conditionValue,
         List<string> approverIds, List<string> roleNames)
     {
-        var template = (await _approvalService.GetTemplatesAsync()).FirstOrDefault(t => t.Id == id);
+        var template = await _approvalService.GetTemplateByIdAsync(id);
         if (template == null) return NotFound();
 
         template.Name = name;
@@ -178,8 +178,9 @@ public class AdminController : Controller
         if (vm.SelectedRoles.Any())
             await _userManager.AddToRolesAsync(user, vm.SelectedRoles);
 
-        foreach (var module in vm.SelectedModules)
-            await _userManager.AddClaimAsync(user, new Claim(AppModules.ClaimType, module));
+        if (vm.SelectedModules.Any())
+            await _userManager.AddClaimsAsync(user,
+                vm.SelectedModules.Select(m => new Claim(AppModules.ClaimType, m)));
 
         var inviteLink = await GenerateSetPasswordLinkAsync(user);
         try
@@ -230,12 +231,13 @@ public class AdminController : Controller
         if (vm.SelectedRoles.Any())
             await _userManager.AddToRolesAsync(user, vm.SelectedRoles);
 
-        var currentClaims = (await _userManager.GetClaimsAsync(user))
+        var currentModuleClaims = (await _userManager.GetClaimsAsync(user))
             .Where(c => c.Type == AppModules.ClaimType).ToList();
-        foreach (var c in currentClaims)
-            await _userManager.RemoveClaimAsync(user, c);
-        foreach (var module in vm.SelectedModules)
-            await _userManager.AddClaimAsync(user, new Claim(AppModules.ClaimType, module));
+        await _userManager.RemoveClaimsAsync(user, currentModuleClaims);
+        var newModuleClaims = vm.SelectedModules
+            .Select(m => new Claim(AppModules.ClaimType, m)).ToList();
+        if (newModuleClaims.Any())
+            await _userManager.AddClaimsAsync(user, newModuleClaims);
 
         TempData["Success"] = $"User {user.Email} updated.";
         return RedirectToAction(nameof(Users));
