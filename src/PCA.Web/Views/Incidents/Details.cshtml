@@ -318,9 +318,3 @@
         </div>
     </div>
 </div>
-
-@section Scripts {
-<script>
-document.querySelectorAll('.card table.table').forEach((t,i)=>{ if (!t.querySelector('thead')) return; t.id=t.id||'dt-sub-'+i; new DataTable(t,{paging:false,searching:false,ordering:true,info:false}); });
-</script>
-}
