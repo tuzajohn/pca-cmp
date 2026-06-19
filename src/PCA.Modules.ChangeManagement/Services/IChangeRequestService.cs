@@ -1,4 +1,5 @@
 using PCA.Modules.ChangeManagement.Models;
+using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.ChangeManagement.Services;
@@ -7,6 +8,7 @@ public interface IChangeRequestService
 {
     Task<List<ChangeRequest>> GetAllAsync();
     Task<List<ChangeRequest>> GetByUserAsync(string userId);
+    Task<PagedResult<ChangeRequest>> GetPagedAsync(string? userId, string? status, int page, int pageSize);
     Task<ChangeRequest?> GetByIdAsync(int id);
     Task<ChangeRequest> CreateAsync(ChangeRequest changeRequest);
     Task<ChangeRequest> UpdateAsync(ChangeRequest changeRequest);

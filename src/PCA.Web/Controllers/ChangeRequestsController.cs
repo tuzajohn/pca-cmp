@@ -34,15 +34,18 @@ public class ChangeRequestsController : Controller
         _logger = logger;
     }
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(string? status, int page = 1, int pageSize = 25)
     {
         var user = await _userManager.GetUserAsync(User);
-        List<ChangeRequest> crs;
-        if (User.IsInRole("Admin"))
-            crs = await _crService.GetAllAsync();
-        else
-            crs = await _crService.GetByUserAsync(user!.Id);
-        return View(crs);
+        var userId = User.IsInRole("Admin") ? null : user!.Id;
+        var result = await _crService.GetPagedAsync(userId, status, page, pageSize);
+
+        ViewBag.StatusFilter = status;
+
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return PartialView("_ChangeRequestList", result);
+
+        return View(result);
     }
 
     public IActionResult Create()

@@ -1,142 +1,78 @@
-@model List<ChangeRequest>
+@model PCA.Shared.PagedResult<PCA.Modules.ChangeManagement.Models.ChangeRequest>
 @using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Change Requests";
-    string StatusCls(ChangeStatus st) => st switch {
-        ChangeStatus.Draft => "status-draft",
-        ChangeStatus.Submitted => "status-submitted",
-        ChangeStatus.UnderReview => "status-underreview",
-        ChangeStatus.Approved => "status-approved",
-        ChangeStatus.Rejected => "status-rejected",
-        ChangeStatus.Implemented => "status-implemented",
-        ChangeStatus.Closed => "status-closed",
-        _ => ""
-    };
-    string PriCls(Priority p) => p switch {
-        Priority.Low => "priority-low",
-        Priority.Medium => "priority-medium",
-        Priority.High => "priority-high",
-        Priority.Critical => "priority-critical",
-        _ => ""
-    };
+    var statusFilter = ViewBag.StatusFilter as string;
 }
 
 <div class="page-header">
     <div>
         <h1 class="page-header-title">Change Requests</h1>
-        <p class="page-header-sub mb-0">@Model.Count total change request(s)</p>
+        <p class="page-header-sub mb-0">@Model.TotalCount total change request(s)</p>
     </div>
     <a asp-action="Create" class="btn btn-primary">
         <i class="bi bi-plus-lg me-1"></i> New Change Request
     </a>
 </div>
 
-<!-- Filters -->
 <div class="card mb-3">
-    <div class="card-body py-3">
-        <div class="d-flex gap-2 flex-wrap align-items-center">
-            <span class="text-muted small fw-semibold me-1">Filter:</span>
-            @foreach (var status in Enum.GetValues<ChangeStatus>())
-            {
-                var count = Model.Count(c => c.Status == status);
-                if (count > 0)
+    <div class="card-body py-2">
+        <form id="filter-form" method="get" class="d-flex flex-wrap gap-2 align-items-center">
+            <select name="status" class="form-select form-select-sm" style="width:auto;">
+                <option value="">All Statuses</option>
+                @foreach (var s in Enum.GetValues<ChangeStatus>())
                 {
-                    <a href="#" class="status-badge @StatusCls(status) text-decoration-none"
-                       onclick="filterStatus('@status', this)" style="cursor:pointer;">
-                        @status <span class="ms-1 opacity-75">@count</span>
-                    </a>
+                    <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
                 }
+            </select>
+            <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
+            @if (!string.IsNullOrEmpty(statusFilter))
+            {
+                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear</a>
             }
-            <a href="#" class="status-badge status-draft text-decoration-none" onclick="clearFilter()" style="cursor:pointer;">
-                All <span class="ms-1 opacity-75">@Model.Count</span>
-            </a>
-        </div>
+        </form>
     </div>
 </div>
 
-<div class="card">
-    @if (!Model.Any())
-    {
-        <div class="card-body text-center py-5 text-muted">
-            <i class="bi bi-inbox fs-1 d-block mb-2 opacity-25"></i>
-            No change requests yet.
-            <a asp-action="Create" class="d-block mt-2"><i class="bi bi-plus-circle me-1"></i>Create your first CR</a>
-        </div>
-    }
-    else
-    {
-        <table class="table mb-0" id="crTable">
-            <thead>
-                <tr>
-                    <th>Serial #</th>
-                    <th>Title</th>
-                    <th>Category</th>
-                    <th>Status</th>
-                    <th>Priority</th>
-                    <th>Target Date</th>
-                    <th>Created</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var cr in Model.OrderByDescending(c => c.CreatedAt))
-                {
-                    <tr data-status="@cr.Status">
-                        <td>
-                            <a asp-action="Details" asp-route-id="@cr.Id"
-                               class="fw-semibold" style="color:var(--color-primary);">
-                                @(string.IsNullOrEmpty(cr.SerialNumber) ? $"#{cr.Id}" : cr.SerialNumber)
-                            </a>
-                        </td>
-                        <td>
-                            <div class="fw-medium" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-                                 title="@cr.Title">@cr.Title</div>
-                            @if (cr.RequestedBy != null)
-                            {
-                                <div class="text-muted" style="font-size:11px;">@(cr.RequestedBy.FullName ?? cr.RequestedBy.UserName)</div>
-                            }
-                        </td>
-                        <td><span class="status-badge status-submitted">@cr.Type</span></td>
-                        <td><span class="status-badge @StatusCls(cr.Status)">@cr.Status</span></td>
-                        <td><span class="status-badge @PriCls(cr.Priority)">@cr.Priority</span></td>
-                        <td>
-                            @if (cr.TargetDate.HasValue)
-                            {
-                                var isOverdue = cr.TargetDate.Value < DateTime.Today && cr.Status is not ChangeStatus.Closed and not ChangeStatus.Implemented;
-                                <span class="@(isOverdue ? "text-danger fw-semibold" : "")">@cr.TargetDate.Value.ToString("dd MMM yyyy")</span>
-                            }
-                            else { <span class="text-muted">—</span> }
-                        </td>
-                        <td class="text-muted" style="font-size:12px;">@cr.CreatedAt.ToString("dd MMM yyyy")</td>
-                        <td>
-                            <div class="d-flex gap-1">
-                                <a asp-action="Details" asp-route-id="@cr.Id" class="btn btn-sm btn-outline-secondary" title="View">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                @if (cr.Status == ChangeStatus.Draft)
-                                {
-                                    <a asp-action="Edit" asp-route-id="@cr.Id" class="btn btn-sm btn-outline-primary" title="Edit">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                }
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
+<div class="card" id="list-container">
+    @await Html.PartialAsync("_ChangeRequestList", Model)
 </div>
 
 @section Scripts {
 <script>
-function filterStatus(status, el) {
-    document.querySelectorAll('#crTable tbody tr').forEach(row => {
-        row.style.display = row.dataset.status === status ? '' : 'none';
+(function () {
+    const form = document.getElementById('filter-form');
+    const container = document.getElementById('list-container');
+
+    async function loadPage(url) {
+        container.style.opacity = '0.5';
+        const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        container.innerHTML = await resp.text();
+        container.style.opacity = '1';
+        history.pushState(null, '', url);
+        bindPagination();
+    }
+
+    function bindPagination() {
+        container.querySelectorAll('.pagination-link').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                const url = new URL(window.location.href);
+                url.searchParams.set('page', a.dataset.page);
+                loadPage(url.toString());
+            });
+        });
+    }
+
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+        const url = new URL(window.location.pathname, window.location.origin);
+        new FormData(form).forEach((v, k) => { if (v) url.searchParams.set(k, v); });
+        url.searchParams.set('page', '1');
+        loadPage(url.toString());
     });
-}
-function clearFilter() {
-    document.querySelectorAll('#crTable tbody tr').forEach(row => row.style.display = '');
-}
+
+    bindPagination();
+})();
 </script>
 }

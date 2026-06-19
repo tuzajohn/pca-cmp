@@ -28,26 +28,18 @@ public class DeprovisioningController : Controller
         _email           = email;
     }
 
-    public async Task<IActionResult> Index(string? status, bool allTime = false)
+    public async Task<IActionResult> Index(string? status, bool allTime = false, int page = 1, int pageSize = 25)
     {
-        var events = allTime
-            ? await _svc.GetAllDeprovisioningEventsAsync()
-            : await _svc.GetDeprovisioningEventsLast12MonthsAsync();
-
-        if (!string.IsNullOrEmpty(status) && Enum.TryParse<DeprovisioningStatus>(status, out var s))
-            events = events.Where(x => x.Status == s).ToList();
-
-        // Sync overdue status in-memory for display (actual DB update done by background worker)
-        foreach (var e in events)
-        {
-            if (e.Status != DeprovisioningStatus.Completed && e.SlaDeadline < DateTime.UtcNow)
-                e.Status = DeprovisioningStatus.Overdue;
-        }
+        var result = await _svc.GetDeprovisioningPagedAsync(status, allTime, page, pageSize);
 
         ViewBag.StatusFilter = status;
         ViewBag.AllTime = allTime;
-        ViewBag.OverdueCount = events.Count(e => e.Status == DeprovisioningStatus.Overdue);
-        return View(events);
+        ViewBag.OverdueCount = result.Items.Count(e => e.Status == DeprovisioningStatus.Overdue);
+
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return PartialView("_DeprovisioningList", result);
+
+        return View(result);
     }
 
     [Authorize(Roles = "Admin,Approver")]

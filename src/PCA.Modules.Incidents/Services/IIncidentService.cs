@@ -1,4 +1,5 @@
 using PCA.Modules.Incidents.Models;
+using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.Incidents.Services;
@@ -7,6 +8,7 @@ public interface IIncidentService
 {
     Task<List<Incident>> GetAllAsync();
     Task<List<Incident>> GetByUserAsync(string userId);
+    Task<PagedResult<Incident>> GetPagedAsync(string? userId, string? status, string? severity, string? category, int page, int pageSize);
     Task<Incident?> GetByIdAsync(int id);
     Task<List<Incident>> GetRecentAsync(int count = 8);
     Task<Dictionary<IncidentStatus, int>> GetStatusCountsAsync();
