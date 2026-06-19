@@ -104,5 +104,60 @@ public static class DbSeeder
 
             await db.SaveChangesAsync();
         }
+
+        // Seed access request templates (Standard + Privileged) if missing
+        if (!await db.ApprovalTemplates.AnyAsync(t => t.EntityType == "AccessRequest"))
+        {
+            db.ApprovalTemplates.Add(new ApprovalTemplate
+            {
+                Name = "Standard Access Approval",
+                EntityType = "AccessRequest",
+                EntitySubType = "Standard",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Steps = new List<ApprovalTemplateStep>
+                {
+                    new ApprovalTemplateStep { Order = 1, ApproverId = admin!.Id, RoleName = "Line Manager",    CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+                    new ApprovalTemplateStep { Order = 2, ApproverId = admin!.Id, RoleName = "General Manager", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }
+                }
+            });
+
+            db.ApprovalTemplates.Add(new ApprovalTemplate
+            {
+                Name = "Privileged Access Approval",
+                EntityType = "AccessRequest",
+                EntitySubType = "Privileged",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Steps = new List<ApprovalTemplateStep>
+                {
+                    new ApprovalTemplateStep { Order = 1, ApproverId = admin!.Id, RoleName = "Line Manager",                     CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+                    new ApprovalTemplateStep { Order = 2, ApproverId = admin!.Id, RoleName = "Senior Systems Administrator",     CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+                    new ApprovalTemplateStep { Order = 3, ApproverId = admin!.Id, RoleName = "General Manager",                  CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }
+                }
+            });
+
+            await db.SaveChangesAsync();
+        }
+
+        // Seed server room access template if missing
+        if (!await db.ApprovalTemplates.AnyAsync(t => t.EntityType == "ServerRoomAccess"))
+        {
+            db.ApprovalTemplates.Add(new ApprovalTemplate
+            {
+                Name = "Server Room Access Approval",
+                EntityType = "ServerRoomAccess",
+                EntitySubType = null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                Steps = new List<ApprovalTemplateStep>
+                {
+                    new ApprovalTemplateStep { Order = 1, ApproverId = admin!.Id, RoleName = "IT Manager",       CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow },
+                    new ApprovalTemplateStep { Order = 2, ApproverId = admin!.Id, RoleName = "General Manager",  CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }
+                }
+            });
+
+            await db.SaveChangesAsync();
+        }
     }
 }
