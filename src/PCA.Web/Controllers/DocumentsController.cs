@@ -137,6 +137,47 @@ public class DocumentsController : Controller
         return View(doc);
     }
 
+    // ── Versions Data ─────────────────────────────────────────────────────────
+
+    [HttpGet]
+    public async Task<IActionResult> VersionsData(int id, int draw, int start, int length)
+    {
+        var doc = await _docService.GetByIdAsync(id);
+        if (doc == null) return NotFound();
+
+        var user = await _userManager.GetUserAsync(User);
+        var roles = (await _userManager.GetRolesAsync(user!)).ToList();
+        var isAdmin = User.IsInRole("Admin");
+        if (!isAdmin)
+        {
+            var access = await _docService.GetEffectiveAccessAsync(doc.Id, doc.FolderId, user!.Id, roles);
+            if (!access.HasValue) return Forbid();
+        }
+
+        int page = length > 0 ? (start / length) + 1 : 1;
+        var result = await _docService.GetVersionsPagedAsync(id, page, length);
+
+        var canManage = isAdmin || doc.OwnerId == user!.Id;
+
+        return Json(new {
+            draw,
+            recordsTotal    = result.TotalCount,
+            recordsFiltered = result.TotalCount,
+            data = result.Items.Select(v => new {
+                versionId       = v.Id,
+                versionNumber   = v.VersionNumber,
+                fileName        = v.OriginalFileName,
+                fileSize        = PCA.Web.Helpers.DocumentViewHelpers.FormatSize(v.FileSizeBytes),
+                fileExt         = System.IO.Path.GetExtension(v.OriginalFileName).TrimStart('.').ToUpper(),
+                uploadedBy      = v.UploadedBy?.FullName ?? "—",
+                uploadedAt      = v.UploadedAt.ToString("dd MMM yyyy"),
+                changeNotes     = v.ChangeNotes ?? "",
+                isCurrent       = v.IsCurrentVersion,
+                canManage       = canManage && !v.IsCurrentVersion
+            })
+        });
+    }
+
     // ── Create ────────────────────────────────────────────────────────────────
 
     public async Task<IActionResult> Create(int? folderId)

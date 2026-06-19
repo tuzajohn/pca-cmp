@@ -208,80 +208,20 @@ else if (reviewState == ReviewDueState.DueSoon)
             }
 
             <div class="form-section-body p-0">
-                @if (!Model.Versions.Any())
-                {
-                    <div class="text-muted text-center py-4" style="font-size:13px;">No versions yet.</div>
-                }
-                else
-                {
-                    <table class="table table-sm mb-0" style="font-size:13px;">
-                        <thead style="background:var(--bs-tertiary-bg);">
-                            <tr>
-                                <th class="ps-3">Version</th>
-                                <th>File</th>
-                                <th>Size</th>
-                                <th>Uploaded by</th>
-                                <th>Date</th>
-                                <th>Notes</th>
-                                <th class="pe-3"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var v in Model.Versions.OrderByDescending(x => x.VersionNumber))
-                            {
-                                var ext = System.IO.Path.GetExtension(v.OriginalFileName).TrimStart('.').ToUpper();
-                                <tr class="@(v.IsCurrentVersion ? "table-active" : "")">
-                                    <td class="ps-3 align-middle">
-                                        <span class="fw-semibold">v@(v.VersionNumber)</span>
-                                        @if (v.IsCurrentVersion)
-                                        {
-                                            <span class="badge ms-1" style="background:var(--color-primary);font-size:9px;">CURRENT</span>
-                                        }
-                                    </td>
-                                    <td class="align-middle">
-                                        <i class="bi @DocumentViewHelpers.FileIcon(ext) me-1 text-muted"></i>
-                                        @v.OriginalFileName
-                                    </td>
-                                    <td class="align-middle text-muted">@DocumentViewHelpers.FormatSize(v.FileSizeBytes)</td>
-                                    <td class="align-middle">@(v.UploadedBy?.FullName ?? "—")</td>
-                                    <td class="align-middle text-muted" style="white-space:nowrap;">@v.UploadedAt.ToString("dd MMM yyyy")</td>
-                                    <td class="align-middle text-muted">@(string.IsNullOrEmpty(v.ChangeNotes) ? "—" : v.ChangeNotes)</td>
-                                    <td class="pe-3 align-middle">
-                                        <div class="d-flex gap-1 justify-content-end">
-                                            <a asp-action="Download" asp-route-versionId="@v.Id"
-                                               class="btn btn-outline-secondary btn-sm" title="Download" style="padding:2px 7px;">
-                                                <i class="bi bi-download"></i>
-                                            </a>
-                                            @if (canManage && !v.IsCurrentVersion)
-                                            {
-                                                <form asp-action="SetCurrentVersion" method="post" class="d-inline">
-                                                    @Html.AntiForgeryToken()
-                                                    <input type="hidden" name="versionId" value="@v.Id" />
-                                                    <input type="hidden" name="documentId" value="@Model.Id" />
-                                                    <button class="btn btn-outline-primary btn-sm" title="Make current"
-                                                            style="padding:2px 7px;"
-                                                            onclick="return confirm('Make this the current version?')">
-                                                        <i class="bi bi-arrow-up-circle"></i>
-                                                    </button>
-                                                </form>
-                                                <form asp-action="DeleteVersion" method="post" class="d-inline">
-                                                    @Html.AntiForgeryToken()
-                                                    <input type="hidden" name="versionId" value="@v.Id" />
-                                                    <input type="hidden" name="documentId" value="@Model.Id" />
-                                                    <button class="btn btn-outline-danger btn-sm" title="Delete version"
-                                                            style="padding:2px 7px;"
-                                                            onclick="return confirm('Delete this version permanently?')">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </form>
-                                            }
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
+                <table id="dt-versions" class="table table-sm mb-0" style="font-size:13px;">
+                    <thead style="background:var(--bs-tertiary-bg);">
+                        <tr>
+                            <th class="ps-3">Version</th>
+                            <th>File</th>
+                            <th>Size</th>
+                            <th>Uploaded by</th>
+                            <th>Date</th>
+                            <th>Notes</th>
+                            <th class="pe-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
         </div>
 
@@ -735,6 +675,82 @@ else if (reviewState == ReviewDueState.DueSoon)
 
 @section Scripts {
 <script>
+// Versions DataTable
+(function () {
+    var docId = @Model.Id;
+    var canManage = @Json.Serialize(canManage);
+    var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+
+    new DataTable('#dt-versions', {
+        serverSide: true,
+        processing: true,
+        searching: false,
+        pageLength: 10,
+        order: [[0, 'desc']],
+        ajax: { url: '/Documents/VersionsData?id=' + docId },
+        columns: [
+            {
+                data: null,
+                render: function (d) {
+                    var html = '<span class="fw-semibold">v' + d.versionNumber + '</span>';
+                    if (d.isCurrent) html += ' <span class="badge ms-1" style="background:var(--color-primary);font-size:9px;">CURRENT</span>';
+                    return html;
+                }
+            },
+            {
+                data: null,
+                render: function (d) {
+                    var icons = { PDF: 'bi-file-earmark-pdf', DOCX: 'bi-file-earmark-word', DOC: 'bi-file-earmark-word',
+                        XLSX: 'bi-file-earmark-excel', XLS: 'bi-file-earmark-excel',
+                        PPTX: 'bi-file-earmark-ppt', PPT: 'bi-file-earmark-ppt',
+                        PNG: 'bi-file-earmark-image', JPG: 'bi-file-earmark-image', JPEG: 'bi-file-earmark-image',
+                        ZIP: 'bi-file-earmark-zip', TXT: 'bi-file-earmark-text', CSV: 'bi-file-earmark-spreadsheet' };
+                    var icon = icons[d.fileExt] || 'bi-file-earmark';
+                    return '<i class="bi ' + icon + ' me-1 text-muted"></i>' + d.fileName;
+                }
+            },
+            { data: 'fileSize', render: function(v) { return '<span class="text-muted">' + v + '</span>'; } },
+            { data: 'uploadedBy' },
+            { data: 'uploadedAt', render: function(v) { return '<span class="text-muted" style="white-space:nowrap;">' + v + '</span>'; } },
+            { data: 'changeNotes', orderable: false, render: function(v) { return v || '<span class="text-muted">—</span>'; } },
+            {
+                data: null,
+                orderable: false,
+                render: function (d) {
+                    var html = '<div class="d-flex gap-1 justify-content-end">';
+                    html += '<a href="/Documents/Download?versionId=' + d.versionId + '" class="btn btn-outline-secondary btn-sm" title="Download" style="padding:2px 7px;"><i class="bi bi-download"></i></a>';
+                    if (canManage && !d.isCurrent) {
+                        html += '<button type="button" class="btn btn-outline-primary btn-sm" title="Make current" style="padding:2px 7px;" onclick="setCurrentVersion(' + d.versionId + ')"><i class="bi bi-arrow-up-circle"></i></button>';
+                        html += '<button type="button" class="btn btn-outline-danger btn-sm" title="Delete version" style="padding:2px 7px;" onclick="deleteVersion(' + d.versionId + ')"><i class="bi bi-trash"></i></button>';
+                    }
+                    html += '</div>';
+                    return html;
+                }
+            }
+        ],
+        rowCallback: function (row, d) {
+            if (d.isCurrent) row.classList.add('table-active');
+        }
+    });
+
+    window.setCurrentVersion = function (versionId) {
+        if (!confirm('Make this the current version?')) return;
+        var f = document.createElement('form'); f.method = 'POST'; f.action = '/Documents/SetCurrentVersion';
+        f.innerHTML = '<input type="hidden" name="__RequestVerificationToken" value="' + token + '">' +
+            '<input type="hidden" name="versionId" value="' + versionId + '">' +
+            '<input type="hidden" name="documentId" value="' + docId + '">';
+        document.body.appendChild(f); f.submit();
+    };
+    window.deleteVersion = function (versionId) {
+        if (!confirm('Delete this version permanently?')) return;
+        var f = document.createElement('form'); f.method = 'POST'; f.action = '/Documents/DeleteVersion';
+        f.innerHTML = '<input type="hidden" name="__RequestVerificationToken" value="' + token + '">' +
+            '<input type="hidden" name="versionId" value="' + versionId + '">' +
+            '<input type="hidden" name="documentId" value="' + docId + '">';
+        document.body.appendChild(f); f.submit();
+    };
+})();
+
 // Upload zone
 const dropzone  = document.getElementById('uploadZone');
 const fileInput = document.getElementById('fileInput');

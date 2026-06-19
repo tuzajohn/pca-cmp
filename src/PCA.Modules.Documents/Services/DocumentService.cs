@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using PCA.Modules.Documents.Models;
+using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.Documents.Services;
@@ -255,6 +256,18 @@ public class DocumentService : IDocumentService
 
         var stream = new FileStream(version.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
         return (stream, version.ContentType, version.OriginalFileName);
+    }
+
+    public async Task<PagedResult<DocumentVersion>> GetVersionsPagedAsync(int documentId, int page, int pageSize)
+    {
+        var query = _db.DocumentVersions
+            .Include(v => v.UploadedBy)
+            .Where(v => v.DocumentId == documentId)
+            .OrderByDescending(v => v.VersionNumber);
+
+        var total = await query.CountAsync();
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return new PagedResult<DocumentVersion> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
     }
 
     // ── Permissions ───────────────────────────────────────────────────────────

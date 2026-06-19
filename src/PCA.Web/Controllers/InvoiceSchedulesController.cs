@@ -84,6 +84,29 @@ public class InvoiceSchedulesController : Controller
         return View(schedule);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> RunsData(int id, int draw, int start, int length)
+    {
+        int page = length > 0 ? (start / length) + 1 : 1;
+        var result = await _svc.GetRunsPagedAsync(id, page, length);
+
+        return Json(new {
+            draw,
+            recordsTotal    = result.TotalCount,
+            recordsFiltered = result.TotalCount,
+            data = result.Items.Select(r => new {
+                runId       = r.Id,
+                triggeredAt = r.TriggeredAt.ToString("dd MMM yyyy HH:mm"),
+                triggeredBy = r.TriggeredBy?.FullName ?? "Scheduler",
+                ippsRows    = r.IppsRowCount,
+                hcmRows     = r.HcmRowCount,
+                finalRows   = r.FinalRowCount,
+                status      = r.Status.ToString(),
+                hasFile     = r.Status == InvoiceRunStatus.Completed && !string.IsNullOrEmpty(r.FilePath)
+            })
+        });
+    }
+
     public async Task<IActionResult> Edit(int id)
     {
         var s = await _svc.GetScheduleByIdAsync(id);

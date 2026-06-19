@@ -72,6 +72,35 @@ public class AccessReviewsController : Controller
         return View(review);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> EntriesData(
+        int id, int draw, int start, int length,
+        [FromQuery(Name = "order[0][column]")] int orderCol = 0,
+        [FromQuery(Name = "order[0][dir]")] string orderDir = "asc")
+    {
+        string[] cols = { "employeeName", "department", "systemName", "currentAccess", "outcome" };
+        var sortCol = orderCol < cols.Length ? cols[orderCol] : null;
+        int page = length > 0 ? (start / length) + 1 : 1;
+
+        var result = await _svc.GetEntriesPagedAsync(id, page, length, sortCol, orderDir);
+
+        return Json(new {
+            draw,
+            recordsTotal    = result.TotalCount,
+            recordsFiltered = result.TotalCount,
+            data = result.Items.Select(e => new {
+                entryId       = e.Id,
+                employeeName  = e.EmployeeName,
+                department    = e.Department ?? "",
+                systemName    = e.SystemName,
+                currentAccess = e.CurrentAccessLevel ?? "",
+                outcome       = e.Outcome.ToString(),
+                reviewedBy    = e.ReviewedBy?.FullName ?? "",
+                notes         = e.ReviewerNotes ?? ""
+            })
+        });
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateEntry(int id, int entryId, string outcome, string? notes)
     {

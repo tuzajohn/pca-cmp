@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PCA.Modules.Invoicing.Models;
+using PCA.Shared;
 
 namespace PCA.Modules.Invoicing.Services;
 
@@ -183,5 +184,17 @@ public class InvoicingService : IInvoicingService
     {
         _db.InvoiceRuns.Update(run);
         await _db.SaveChangesAsync();
+    }
+
+    public async Task<PagedResult<InvoiceRun>> GetRunsPagedAsync(int scheduleId, int page, int pageSize)
+    {
+        var query = _db.InvoiceRuns
+            .Include(r => r.TriggeredBy)
+            .Where(r => r.ScheduleId == scheduleId)
+            .OrderByDescending(r => r.TriggeredAt);
+
+        var total = await query.CountAsync();
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return new PagedResult<InvoiceRun> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
     }
 }

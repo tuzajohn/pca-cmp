@@ -1,4 +1,5 @@
 using PCA.Modules.Invoicing.Models;
+using PCA.Shared;
 
 namespace PCA.Modules.Invoicing.Services;
 
@@ -38,4 +39,5 @@ public interface IInvoicingService
     Task<InvoiceRun?> GetRunByIdAsync(int id);
     Task<InvoiceRun> CreateRunAsync(InvoiceRun run);
     Task UpdateRunAsync(InvoiceRun run);
+    Task<PagedResult<InvoiceRun>> GetRunsPagedAsync(int scheduleId, int page, int pageSize);
 }

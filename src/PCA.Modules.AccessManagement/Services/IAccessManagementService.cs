@@ -41,6 +41,7 @@ public interface IAccessManagementService
     Task UpdateAccessReviewEntryAsync(int entryId, AccessReviewEntryOutcome outcome, string reviewedById, string? notes);
     Task<bool> CompleteAccessReviewAsync(int id, string userId);
     Task<List<AccessReview>> GetOverdueAccessReviewsAsync();
+    Task<PagedResult<AccessReviewEntry>> GetEntriesPagedAsync(int reviewId, int page, int pageSize, string? sortCol = null, string? sortDir = null);
 
     // Deprovisioning
     Task<List<DeprovisioningEvent>> GetAllDeprovisioningEventsAsync();

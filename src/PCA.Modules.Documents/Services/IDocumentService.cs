@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using PCA.Modules.Documents.Models;
+using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.Documents.Services;
@@ -26,6 +27,7 @@ public interface IDocumentService
     Task<bool> SetCurrentVersionAsync(int versionId, string userId);
     Task<bool> DeleteVersionAsync(int versionId, string userId);
     Task<(Stream stream, string contentType, string fileName)?> DownloadAsync(int versionId, string userId);
+    Task<PagedResult<DocumentVersion>> GetVersionsPagedAsync(int documentId, int page, int pageSize);
 
     // Review schedule
     Task MarkReviewedAsync(int documentId, string reviewedById, string? notes = null);

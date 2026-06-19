@@ -150,6 +150,28 @@ public class AccessManagementService : IAccessManagementService
             .OrderByDescending(x => x.DueDate)
             .ToListAsync();
 
+    public async Task<PagedResult<AccessReviewEntry>> GetEntriesPagedAsync(int reviewId, int page, int pageSize, string? sortCol = null, string? sortDir = null)
+    {
+        var query = _db.AccessReviewEntries
+            .Include(e => e.ReviewedBy)
+            .Where(e => e.AccessReviewId == reviewId)
+            .AsQueryable();
+
+        bool asc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
+        query = sortCol switch {
+            "employeeName"   => asc ? query.OrderBy(e => e.EmployeeName)   : query.OrderByDescending(e => e.EmployeeName),
+            "department"     => asc ? query.OrderBy(e => e.Department)     : query.OrderByDescending(e => e.Department),
+            "systemName"     => asc ? query.OrderBy(e => e.SystemName)     : query.OrderByDescending(e => e.SystemName),
+            "currentAccess"  => asc ? query.OrderBy(e => e.CurrentAccessLevel) : query.OrderByDescending(e => e.CurrentAccessLevel),
+            "outcome"        => asc ? query.OrderBy(e => e.Outcome)        : query.OrderByDescending(e => e.Outcome),
+            _                => query.OrderBy(e => e.EmployeeName)
+        };
+
+        var total = await query.CountAsync();
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return new PagedResult<AccessReviewEntry> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+    }
+
     public async Task<AccessReview?> GetAccessReviewByIdAsync(int id)
         => await _db.AccessReviews
             .Include(x => x.CreatedBy)
