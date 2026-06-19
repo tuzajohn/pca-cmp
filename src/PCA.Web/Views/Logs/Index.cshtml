@@ -219,3 +219,14 @@ if (document.getElementById('dt-logs'))
         </div>
     </div>
 </div>
+
+@section Scripts {
+<script>
+new DataTable('#dt-logs', {
+    ordering: true,
+    paging: false,
+    searching: false,
+    order: [[0, 'desc']]
+});
+</script>
+}
