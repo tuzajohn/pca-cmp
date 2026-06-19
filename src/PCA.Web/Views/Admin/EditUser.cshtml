@@ -14,7 +14,7 @@
     </a>
 </div>
 
-<form asp-action="EditUser" method="post">
+<form asp-action="EditUser" method="post" novalidate>
     @Html.AntiForgeryToken()
     <input asp-for="Id" type="hidden" />
     <input asp-for="Email" type="hidden" />

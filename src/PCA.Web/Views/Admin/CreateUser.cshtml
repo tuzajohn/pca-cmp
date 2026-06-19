@@ -15,7 +15,7 @@
     </a>
 </div>
 
-<form asp-action="CreateUser" method="post">
+<form asp-action="CreateUser" method="post" novalidate>
     @Html.AntiForgeryToken()
     <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-4 small"></div>
 
