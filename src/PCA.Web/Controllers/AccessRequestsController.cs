@@ -32,18 +32,20 @@ public class AccessRequestsController : Controller
     public async Task<IActionResult> Index(string? status, string? system, DateTime? from, DateTime? to)
     {
         var user = await _userManager.GetUserAsync(User);
-        var all = User.IsInRole("Admin")
-            ? await _svc.GetAllAccessRequestsAsync()
-            : await _svc.GetAccessRequestsByUserAsync(user!.Id);
+        //var all = User.IsInRole("Admin")
+        //    ? await _svc.GetAllAccessRequestsAsync()
+        //    : await _svc.GetAccessRequestsByUserAsync(user!.Id);
+
+        var all = await _svc.GetAllAccessRequestsAsync();
 
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<AccessRequestStatus>(status, out var s))
-            all = all.Where(x => x.Status == s).ToList();
+            all = [.. all.Where(x => x.Status == s)];
         if (!string.IsNullOrEmpty(system))
-            all = all.Where(x => x.SystemName.Contains(system, StringComparison.OrdinalIgnoreCase)).ToList();
+            all = [.. all.Where(x => x.SystemName.Contains(system, StringComparison.OrdinalIgnoreCase))];
         if (from.HasValue)
-            all = all.Where(x => x.CreatedAt >= from.Value).ToList();
+            all = [.. all.Where(x => x.CreatedAt >= from.Value)];
         if (to.HasValue)
-            all = all.Where(x => x.CreatedAt <= to.Value.AddDays(1)).ToList();
+            all = [.. all.Where(x => x.CreatedAt <= to.Value.AddDays(1))];
 
         ViewBag.StatusFilter = status;
         ViewBag.SystemFilter = system;
