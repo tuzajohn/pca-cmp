@@ -51,6 +51,39 @@ public class IncidentsController : Controller
         return View(result);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> Data(
+        int draw, int start, int length,
+        string? status, string? severity, string? category,
+        [FromQuery(Name = "order[0][column]")] int orderCol = 6,
+        [FromQuery(Name = "order[0][dir]")] string orderDir = "desc")
+    {
+        string[] cols = { "serial", "title", "severity", "priority", "status", "assignedTo", "detected" };
+        var sortCol = orderCol < cols.Length ? cols[orderCol] : null;
+        int page = length > 0 ? (start / length) + 1 : 1;
+
+        var user = await _userManager.GetUserAsync(User);
+        var userId = User.IsInRole("Admin") ? null : user!.Id;
+        var result = await _incidentService.GetPagedAsync(userId, status, severity, category, page, length, sortCol, orderDir);
+
+        return Json(new {
+            draw,
+            recordsTotal    = result.TotalCount,
+            recordsFiltered = result.TotalCount,
+            data = result.Items.Select(i => new {
+                id         = i.Id,
+                serial     = i.SerialNumber,
+                title      = i.Title,
+                category   = i.Category.ToString(),
+                severity   = i.Severity.ToString(),
+                priority   = i.Priority.ToString(),
+                status     = i.Status.ToString(),
+                assignedTo = i.AssignedTo?.FullName ?? "",
+                detected   = i.DetectedAt.ToString("dd MMM yyyy")
+            })
+        });
+    }
+
     public IActionResult Create()
     {
         return View(new IncidentCreateViewModel());

@@ -42,6 +42,45 @@ public class DeprovisioningController : Controller
         return View(result);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> Data(
+        int draw, int start, int length,
+        string? status, bool allTime = false,
+        [FromQuery(Name = "order[0][column]")] int orderCol = 3,
+        [FromQuery(Name = "order[0][dir]")] string orderDir = "desc")
+    {
+        string[] cols = { "serial", "employee", "trigger", "slaDeadline", "status" };
+        var sortCol = orderCol < cols.Length ? cols[orderCol] : null;
+        int page = length > 0 ? (start / length) + 1 : 1;
+
+        var result = await _svc.GetDeprovisioningPagedAsync(status, allTime, page, length, sortCol, orderDir);
+        var now = DateTime.UtcNow;
+
+        return Json(new {
+            draw,
+            recordsTotal    = result.TotalCount,
+            recordsFiltered = result.TotalCount,
+            data = result.Items.Select(e => {
+                var remaining = e.SlaDeadline - now;
+                var overdue   = e.Status != DeprovisioningStatus.Completed && remaining.TotalSeconds <= 0;
+                return new {
+                    id          = e.Id,
+                    serial      = e.SerialNumber,
+                    employee    = e.EmployeeName,
+                    department  = e.Department,
+                    trigger     = e.Trigger.ToString(),
+                    hrNotified  = e.HrNotificationReceivedAt.ToString("dd MMM yyyy HH:mm"),
+                    slaDeadline = e.SlaDeadline.ToString("dd MMM yyyy HH:mm"),
+                    slaOverdue  = overdue,
+                    slaH        = overdue ? 0 : (int)remaining.TotalHours,
+                    slaM        = overdue ? 0 : remaining.Minutes,
+                    status      = e.Status.ToString(),
+                    completed   = e.Status == DeprovisioningStatus.Completed
+                };
+            })
+        });
+    }
+
     [Authorize(Roles = "Admin,Approver")]
     public IActionResult Create() => View(new DeprovisioningCreateViewModel());
 

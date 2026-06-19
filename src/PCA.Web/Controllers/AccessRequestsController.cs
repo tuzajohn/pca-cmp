@@ -46,6 +46,39 @@ public class AccessRequestsController : Controller
         return View(result);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> Data(
+        int draw, int start, int length,
+        string? status, string? system, DateTime? from, DateTime? to,
+        [FromQuery(Name = "order[0][column]")] int orderCol = 6,
+        [FromQuery(Name = "order[0][dir]")] string orderDir = "desc")
+    {
+        string[] cols = { "serial", "employee", "system", "type", "privileged", "status", "createdAt" };
+        var sortCol = orderCol < cols.Length ? cols[orderCol] : null;
+        int page = length > 0 ? (start / length) + 1 : 1;
+
+        var user = await _userManager.GetUserAsync(User);
+        var userId = User.IsInRole("Admin") ? null : user!.Id;
+        var result = await _svc.GetAccessRequestsPagedAsync(userId, status, system, from, to, page, length, sortCol, orderDir);
+
+        return Json(new {
+            draw,
+            recordsTotal    = result.TotalCount,
+            recordsFiltered = result.TotalCount,
+            data = result.Items.Select(r => new {
+                id         = r.Id,
+                serial     = string.IsNullOrEmpty(r.SerialNumber) ? "Draft" : r.SerialNumber,
+                employee   = r.EmployeeName,
+                department = r.Department,
+                system     = r.SystemName,
+                type       = r.AccessType,
+                privileged = r.IsPrivileged,
+                status     = r.Status.ToString(),
+                createdAt  = r.CreatedAt.ToString("dd MMM yyyy")
+            })
+        });
+    }
+
     public IActionResult Create() => View(new AccessRequestCreateViewModel());
 
     [HttpPost, ValidateAntiForgeryToken]

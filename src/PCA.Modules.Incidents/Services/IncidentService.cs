@@ -34,7 +34,7 @@ public class IncidentService : IIncidentService
     }
 
     public async Task<PagedResult<Incident>> GetPagedAsync(
-        string? userId, string? status, string? severity, string? category, int page, int pageSize)
+        string? userId, string? status, string? severity, string? category, int page, int pageSize, string? sortCol = null, string? sortDir = null)
     {
         var query = _db.Incidents
             .Include(i => i.ReportedBy)
@@ -50,7 +50,17 @@ public class IncidentService : IIncidentService
         if (!string.IsNullOrEmpty(category) && Enum.TryParse<IncidentCategory>(category, out var cat))
             query = query.Where(i => i.Category == cat);
 
-        query = query.OrderByDescending(i => i.CreatedAt);
+        bool asc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
+        query = sortCol switch {
+            "serial"   => asc ? query.OrderBy(i => i.SerialNumber)  : query.OrderByDescending(i => i.SerialNumber),
+            "title"    => asc ? query.OrderBy(i => i.Title)         : query.OrderByDescending(i => i.Title),
+            "severity" => asc ? query.OrderBy(i => i.Severity)      : query.OrderByDescending(i => i.Severity),
+            "priority" => asc ? query.OrderBy(i => i.Priority)      : query.OrderByDescending(i => i.Priority),
+            "status"   => asc ? query.OrderBy(i => i.Status)        : query.OrderByDescending(i => i.Status),
+            "detected" => asc ? query.OrderBy(i => i.DetectedAt)    : query.OrderByDescending(i => i.DetectedAt),
+            _          => query.OrderByDescending(i => i.CreatedAt)
+        };
+
         var total = await query.CountAsync();
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         return new PagedResult<Incident> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
