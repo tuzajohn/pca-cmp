@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using PCA.Modules.AccessManagement.Models;
 using PCA.Modules.AccessManagement.Services;
+using PCA.Modules.Approvals.Services;
 using PCA.Modules.Identity.Models;
 using PCA.Shared.Enums;
 using PCA.Web.Models;
+using PCA.Web.Services;
 
 namespace PCA.Web.Controllers;
 
@@ -14,11 +16,16 @@ public class DeprovisioningController : Controller
 {
     private readonly IAccessManagementService _svc;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IApprovalService _approvalService;
+    private readonly IEmailService _email;
 
-    public DeprovisioningController(IAccessManagementService svc, UserManager<ApplicationUser> userManager)
+    public DeprovisioningController(IAccessManagementService svc, UserManager<ApplicationUser> userManager,
+        IApprovalService approvalService, IEmailService email)
     {
-        _svc = svc;
-        _userManager = userManager;
+        _svc             = svc;
+        _userManager     = userManager;
+        _approvalService = approvalService;
+        _email           = email;
     }
 
     public async Task<IActionResult> Index(string? status, bool allTime = false)
@@ -72,6 +79,35 @@ public class DeprovisioningController : Controller
         };
 
         await _svc.CreateDeprovisioningEventAsync(evt);
+
+        // Notify all recipients configured in the Deprovisioning template
+        var template = await _approvalService.GetTemplateForEntityAsync("Deprovisioning", null);
+        if (template != null)
+        {
+            var viewLink = Url.Action(nameof(Details), "Deprovisioning", new { id = evt.Id }, Request.Scheme)!;
+            foreach (var step in template.Steps)
+            {
+                var recipient = await _userManager.FindByIdAsync(step.ApproverId);
+                if (recipient?.Email != null)
+                {
+                    try
+                    {
+                        await _email.SendDeprovisioningNoticeAsync(
+                            recipient.Email, recipient.FullName,
+                            evt.EmployeeName, evt.EmployeeId, evt.Department,
+                            evt.Trigger.ToString(), evt.SlaDeadline, viewLink);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log but don't fail the request if email delivery fails
+                        HttpContext.RequestServices
+                            .GetRequiredService<ILogger<DeprovisioningController>>()
+                            .LogError(ex, "Failed to send deprovisioning notice to {Email}", recipient.Email);
+                    }
+                }
+            }
+        }
+
         TempData["Success"] = $"Deprovisioning event logged. SLA deadline: {evt.SlaDeadline:dd MMM yyyy HH:mm} UTC.";
         return RedirectToAction(nameof(Details), new { id = evt.Id });
     }

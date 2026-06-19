@@ -15,4 +15,8 @@ public interface IEmailService
     Task SendApprovalCompletedAsync(string toEmail, string toName, string entityLabel);
     Task SendApprovalRejectedAsync(string toEmail, string toName, string entityLabel, string rejectorName, string comment);
     Task SendApprovalReturnedAsync(string toEmail, string toName, string entityLabel, string returnerName, string comment);
+
+    // Deprovisioning notifications
+    Task SendDeprovisioningNoticeAsync(string toEmail, string toName, string employeeName, string employeeId,
+        string department, string trigger, DateTime slaDeadline, string viewLink);
 }

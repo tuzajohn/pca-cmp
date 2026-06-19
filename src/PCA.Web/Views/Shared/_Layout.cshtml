@@ -7,7 +7,7 @@
     bool isAuth = User.Identity?.IsAuthenticated == true;
 
     string ActiveIf(string ctrl, string? act = null) =>
-        controller.Equals(ctrl, StringComparison.OrdinalIgnoreCase) &&
+        ctrl.Split(',').Any(c => controller.Equals(c.Trim(), StringComparison.OrdinalIgnoreCase)) &&
         (act == null || action.Equals(act, StringComparison.OrdinalIgnoreCase))
         ? "active" : "";
 
@@ -97,7 +97,7 @@
                     <div class="sidebar-section-label">Change Management</div>
 
                     <a asp-controller="ChangeRequests" asp-action="Index"
-                       class="sidebar-link @ActiveIf("ChangeRequests")">
+                       class="sidebar-link @ActiveIf("ChangeRequests,Approvals")">
                         <i class="bi bi-ticket-detailed"></i>
                         <span>Change Requests</span>
                     </a>
@@ -155,7 +155,7 @@
                     <div class="sidebar-section-label">Invoicing</div>
 
                     <a asp-controller="InvoiceSchedules" asp-action="Index"
-                       class="sidebar-link @ActiveIf("InvoiceSchedules")">
+                       class="sidebar-link @ActiveIf("InvoiceSchedules,InvoiceRuns")">
                         <i class="bi bi-calendar-check"></i>
                         <span>Invoice Schedules</span>
                     </a>
