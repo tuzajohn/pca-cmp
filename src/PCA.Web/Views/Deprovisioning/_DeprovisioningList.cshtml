@@ -1,0 +1,74 @@
+@model PCA.Shared.PagedResult<PCA.Modules.AccessManagement.Models.DeprovisioningEvent>
+@using PCA.Shared.Enums
+
+@if (!Model.Items.Any())
+{
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-person-dash" style="font-size:40px;opacity:.3;"></i>
+        <p class="mt-3">No deprovisioning events found.</p>
+    </div>
+}
+else
+{
+    <table class="table table-hover mb-0" style="font-size:13px;">
+        <thead style="background:var(--bs-tertiary-bg);">
+            <tr>
+                <th class="ps-3">Serial</th>
+                <th>Employee</th>
+                <th>Trigger</th>
+                <th>HR Notified</th>
+                <th>SLA Deadline</th>
+                <th>SLA Remaining</th>
+                <th>Status</th>
+                <th class="pe-3"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var evt in Model.Items)
+            {
+                var remaining = evt.SlaDeadline - DateTime.UtcNow;
+                var isOverdue = evt.Status != DeprovisioningStatus.Completed && remaining.TotalSeconds <= 0;
+                var statusCls = evt.Status switch {
+                    DeprovisioningStatus.Completed  => "status-approved",
+                    DeprovisioningStatus.Overdue    => "status-rejected",
+                    DeprovisioningStatus.InProgress => "status-underreview",
+                    _                               => "status-submitted"
+                };
+                <tr class="@(isOverdue ? "table-danger" : "")">
+                    <td class="ps-3 align-middle text-muted" style="white-space:nowrap;">@evt.SerialNumber</td>
+                    <td class="align-middle fw-semibold">
+                        <a asp-action="Details" asp-route-id="@evt.Id" class="text-decoration-none" style="color:inherit;">@evt.EmployeeName</a>
+                        <div class="text-muted fw-normal" style="font-size:11px;">@evt.Department</div>
+                    </td>
+                    <td class="align-middle text-muted">@evt.Trigger</td>
+                    <td class="align-middle text-muted" style="white-space:nowrap;">@evt.HrNotificationReceivedAt.ToString("dd MMM yyyy HH:mm")</td>
+                    <td class="align-middle @(isOverdue ? "text-danger fw-semibold" : "text-muted")" style="white-space:nowrap;">@evt.SlaDeadline.ToString("dd MMM yyyy HH:mm")</td>
+                    <td class="align-middle" style="white-space:nowrap;">
+                        @if (evt.Status == DeprovisioningStatus.Completed)
+                        {
+                            <span class="text-muted">—</span>
+                        }
+                        else if (isOverdue)
+                        {
+                            <span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>Overdue</span>
+                        }
+                        else
+                        {
+                            var h = (int)remaining.TotalHours;
+                            var m = remaining.Minutes;
+                            var urgentClass = h < 4 ? "text-danger fw-semibold" : h < 12 ? "text-warning fw-semibold" : "text-muted";
+                            <span class="@urgentClass">@h h @m m</span>
+                        }
+                    </td>
+                    <td class="align-middle"><span class="status-badge @statusCls" style="font-size:10px;">@evt.Status</span></td>
+                    <td class="pe-3 align-middle">
+                        <a asp-action="Details" asp-route-id="@evt.Id" class="btn btn-outline-primary btn-sm" style="padding:2px 8px;font-size:11px;">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @await Html.PartialAsync("_Pagination", new PCA.Web.Models.PaginationViewModel { Page = Model.Page, TotalPages = Model.TotalPages, TotalCount = Model.TotalCount, PageSize = Model.PageSize })
+}

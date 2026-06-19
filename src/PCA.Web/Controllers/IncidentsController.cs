@@ -35,26 +35,20 @@ public class IncidentsController : Controller
         _logger = logger;
     }
 
-    public async Task<IActionResult> Index(string? status, string? severity, string? category)
+    public async Task<IActionResult> Index(string? status, string? severity, string? category, int page = 1, int pageSize = 25)
     {
-        var isAdmin = User.IsInRole("Admin");
         var user = await _userManager.GetUserAsync(User);
-
-        var all = isAdmin
-            ? await _incidentService.GetAllAsync()
-            : await _incidentService.GetByUserAsync(user!.Id);
-
-        if (!string.IsNullOrEmpty(status) && Enum.TryParse<IncidentStatus>(status, out var s))
-            all = all.Where(i => i.Status == s).ToList();
-        if (!string.IsNullOrEmpty(severity) && Enum.TryParse<IncidentSeverity>(severity, out var sv))
-            all = all.Where(i => i.Severity == sv).ToList();
-        if (!string.IsNullOrEmpty(category) && Enum.TryParse<IncidentCategory>(category, out var cat))
-            all = all.Where(i => i.Category == cat).ToList();
+        var userId = User.IsInRole("Admin") ? null : user!.Id;
+        var result = await _incidentService.GetPagedAsync(userId, status, severity, category, page, pageSize);
 
         ViewBag.StatusFilter = status;
         ViewBag.SeverityFilter = severity;
         ViewBag.CategoryFilter = category;
-        return View(all);
+
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return PartialView("_IncidentList", result);
+
+        return View(result);
     }
 
     public IActionResult Create()

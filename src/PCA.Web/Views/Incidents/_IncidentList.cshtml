@@ -1,0 +1,59 @@
+@model PCA.Shared.PagedResult<PCA.Modules.Incidents.Models.Incident>
+@using PCA.Shared.Enums
+@using PCA.Web.Helpers
+
+@if (!Model.Items.Any())
+{
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-exclamation-triangle" style="font-size:40px;opacity:.3;"></i>
+        <p class="mt-3">No incidents found.</p>
+    </div>
+}
+else
+{
+    <table class="table table-hover mb-0" style="font-size:13px;">
+        <thead style="background:var(--bs-tertiary-bg);">
+            <tr>
+                <th class="ps-3">Serial</th>
+                <th>Title</th>
+                <th>Severity</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Assigned To</th>
+                <th>Detected</th>
+                <th class="pe-3"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var inc in Model.Items)
+            {
+                <tr>
+                    <td class="ps-3 align-middle text-muted" style="white-space:nowrap;">@inc.SerialNumber</td>
+                    <td class="align-middle fw-semibold">
+                        <a asp-action="Details" asp-route-id="@inc.Id" class="text-decoration-none" style="color:inherit;">@inc.Title</a>
+                        <div class="text-muted fw-normal" style="font-size:11px;">@inc.Category</div>
+                    </td>
+                    <td class="align-middle">
+                        <span class="badge @IncidentViewHelpers.SeverityBadgeClass(inc.Severity)" style="font-size:11px;">
+                            @IncidentViewHelpers.SeverityLabel(inc.Severity)
+                        </span>
+                    </td>
+                    <td class="align-middle">
+                        <span class="status-badge status-@inc.Priority.ToString().ToLower()" style="font-size:10px;">@inc.Priority</span>
+                    </td>
+                    <td class="align-middle">
+                        <span class="status-badge @IncidentViewHelpers.StatusClass(inc.Status)" style="font-size:10px;">@inc.Status</span>
+                    </td>
+                    <td class="align-middle text-muted">@(inc.AssignedTo?.FullName ?? "—")</td>
+                    <td class="align-middle text-muted" style="white-space:nowrap;">@inc.DetectedAt.ToString("dd MMM yyyy")</td>
+                    <td class="pe-3 align-middle">
+                        <a asp-action="Details" asp-route-id="@inc.Id" class="btn btn-outline-primary btn-sm" style="padding:2px 8px;font-size:11px;">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @await Html.PartialAsync("_Pagination", new PCA.Web.Models.PaginationViewModel { Page = Model.Page, TotalPages = Model.TotalPages, TotalCount = Model.TotalCount, PageSize = Model.PageSize })
+}

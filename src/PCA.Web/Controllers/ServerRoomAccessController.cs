@@ -29,13 +29,15 @@ public class ServerRoomAccessController : Controller
         _attachmentService = attachmentService;
     }
 
-    public async Task<IActionResult> Index(string? status)
+    public async Task<IActionResult> Index(string? status, int page = 1, int pageSize = 25)
     {
-        var all = await _svc.GetAllServerRoomRequestsAsync();
-        if (!string.IsNullOrEmpty(status) && Enum.TryParse<ServerRoomAccessStatus>(status, out var s))
-            all = all.Where(x => x.Status == s).ToList();
+        var result = await _svc.GetServerRoomRequestsPagedAsync(status, page, pageSize);
         ViewBag.StatusFilter = status;
-        return View(all);
+
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return PartialView("_ServerRoomList", result);
+
+        return View(result);
     }
 
     public IActionResult Create() => View(new ServerRoomCreateViewModel());

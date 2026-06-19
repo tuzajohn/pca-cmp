@@ -1,0 +1,60 @@
+@model PCA.Shared.PagedResult<PCA.Modules.AccessManagement.Models.ServerRoomAccessRequest>
+@using PCA.Shared.Enums
+
+@if (!Model.Items.Any())
+{
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-server" style="font-size:40px;opacity:.3;"></i>
+        <p class="mt-3">No server room access requests found.</p>
+    </div>
+}
+else
+{
+    <table class="table table-hover mb-0" style="font-size:13px;">
+        <thead style="background:var(--bs-tertiary-bg);">
+            <tr>
+                <th class="ps-3">Serial</th>
+                <th>Visitor</th>
+                <th>Purpose</th>
+                <th>Planned Entry</th>
+                <th>Planned Exit</th>
+                <th>Status</th>
+                <th class="pe-3"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var req in Model.Items)
+            {
+                var statusCls = req.Status switch {
+                    ServerRoomAccessStatus.Approved    => "status-approved",
+                    ServerRoomAccessStatus.Rejected    => "status-rejected",
+                    ServerRoomAccessStatus.UnderReview => "status-underreview",
+                    ServerRoomAccessStatus.Submitted   => "status-submitted",
+                    _ => "status-draft"
+                };
+                <tr>
+                    <td class="ps-3 align-middle text-muted" style="white-space:nowrap;">
+                        @(string.IsNullOrEmpty(req.SerialNumber) ? "Draft" : req.SerialNumber)
+                    </td>
+                    <td class="align-middle fw-semibold">
+                        <a asp-action="Details" asp-route-id="@req.Id" class="text-decoration-none" style="color:inherit;">@req.VisitorName</a>
+                        <div class="text-muted fw-normal" style="font-size:11px;">
+                            @req.VisitorCompany
+                            @if (req.IsExternal) { <span class="badge bg-secondary ms-1" style="font-size:9px;">External</span> }
+                        </div>
+                    </td>
+                    <td class="align-middle text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@req.Purpose</td>
+                    <td class="align-middle text-muted" style="white-space:nowrap;">@req.PlannedEntryDateTime.ToString("dd MMM yyyy HH:mm")</td>
+                    <td class="align-middle text-muted" style="white-space:nowrap;">@req.PlannedExitDateTime.ToString("dd MMM yyyy HH:mm")</td>
+                    <td class="align-middle"><span class="status-badge @statusCls" style="font-size:10px;">@req.Status</span></td>
+                    <td class="pe-3 align-middle">
+                        <a asp-action="Details" asp-route-id="@req.Id" class="btn btn-outline-primary btn-sm" style="padding:2px 8px;font-size:11px;">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @await Html.PartialAsync("_Pagination", new PCA.Web.Models.PaginationViewModel { Page = Model.Page, TotalPages = Model.TotalPages, TotalCount = Model.TotalCount, PageSize = Model.PageSize })
+}

@@ -1,0 +1,87 @@
+@model PCA.Shared.PagedResult<PCA.Modules.ChangeManagement.Models.ChangeRequest>
+@using PCA.Shared.Enums
+@{
+    string StatusCls(ChangeStatus st) => st switch {
+        ChangeStatus.Draft => "status-draft",
+        ChangeStatus.Submitted => "status-submitted",
+        ChangeStatus.UnderReview => "status-underreview",
+        ChangeStatus.Approved => "status-approved",
+        ChangeStatus.Rejected => "status-rejected",
+        ChangeStatus.Implemented => "status-implemented",
+        ChangeStatus.Closed => "status-closed",
+        _ => ""
+    };
+    string PriCls(Priority p) => p switch {
+        Priority.Low => "priority-low",
+        Priority.Medium => "priority-medium",
+        Priority.High => "priority-high",
+        Priority.Critical => "priority-critical",
+        _ => ""
+    };
+}
+
+@if (!Model.Items.Any())
+{
+    <div class="card-body text-center py-5 text-muted">
+        <i class="bi bi-inbox fs-1 d-block mb-2 opacity-25"></i>
+        No change requests found.
+    </div>
+}
+else
+{
+    <table class="table mb-0" style="font-size:13px;">
+        <thead style="background:var(--bs-tertiary-bg);">
+            <tr>
+                <th class="ps-3">Serial #</th>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Target Date</th>
+                <th>Created</th>
+                <th class="pe-3"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var cr in Model.Items)
+            {
+                <tr>
+                    <td class="ps-3 align-middle">
+                        <a asp-action="Details" asp-route-id="@cr.Id" class="fw-semibold" style="color:var(--color-primary);">
+                            @(string.IsNullOrEmpty(cr.SerialNumber) ? $"#{cr.Id}" : cr.SerialNumber)
+                        </a>
+                    </td>
+                    <td class="align-middle">
+                        <div class="fw-medium" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="@cr.Title">@cr.Title</div>
+                        @if (cr.RequestedBy != null)
+                        {
+                            <div class="text-muted" style="font-size:11px;">@(cr.RequestedBy.FullName ?? cr.RequestedBy.UserName)</div>
+                        }
+                    </td>
+                    <td class="align-middle"><span class="status-badge status-submitted">@cr.Type</span></td>
+                    <td class="align-middle"><span class="status-badge @StatusCls(cr.Status)">@cr.Status</span></td>
+                    <td class="align-middle"><span class="status-badge @PriCls(cr.Priority)">@cr.Priority</span></td>
+                    <td class="align-middle">
+                        @if (cr.TargetDate.HasValue)
+                        {
+                            var isOverdue = cr.TargetDate.Value < DateTime.Today && cr.Status is not ChangeStatus.Closed and not ChangeStatus.Implemented;
+                            <span class="@(isOverdue ? "text-danger fw-semibold" : "")">@cr.TargetDate.Value.ToString("dd MMM yyyy")</span>
+                        }
+                        else { <span class="text-muted">—</span> }
+                    </td>
+                    <td class="align-middle text-muted" style="font-size:12px;">@cr.CreatedAt.ToString("dd MMM yyyy")</td>
+                    <td class="pe-3 align-middle">
+                        <div class="d-flex gap-1">
+                            <a asp-action="Details" asp-route-id="@cr.Id" class="btn btn-sm btn-outline-secondary" title="View"><i class="bi bi-eye"></i></a>
+                            @if (cr.Status == ChangeStatus.Draft)
+                            {
+                                <a asp-action="Edit" asp-route-id="@cr.Id" class="btn btn-sm btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @await Html.PartialAsync("_Pagination", new PCA.Web.Models.PaginationViewModel { Page = Model.Page, TotalPages = Model.TotalPages, TotalCount = Model.TotalCount, PageSize = Model.PageSize })
+}

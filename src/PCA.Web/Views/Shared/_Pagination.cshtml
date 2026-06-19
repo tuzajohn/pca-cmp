@@ -1,0 +1,32 @@
+@model PCA.Web.Models.PaginationViewModel
+
+@if (Model.TotalPages > 1)
+{
+    <div class="d-flex align-items-center justify-content-between px-3 py-2 border-top" style="font-size:13px;">
+        <span class="text-muted">Showing @Model.From–@Model.To of @Model.TotalCount</span>
+        <ul class="pagination pagination-sm mb-0">
+            <li class="page-item @(Model.Page <= 1 ? "disabled" : "")">
+                <a class="page-link pagination-link" href="#" data-page="@(Model.Page - 1)" aria-label="Previous">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+            @for (int p = Math.Max(1, Model.Page - 2); p <= Math.Min(Model.TotalPages, Model.Page + 2); p++)
+            {
+                <li class="page-item @(p == Model.Page ? "active" : "")">
+                    <a class="page-link pagination-link" href="#" data-page="@p">@p</a>
+                </li>
+            }
+            <li class="page-item @(Model.Page >= Model.TotalPages ? "disabled" : "")">
+                <a class="page-link pagination-link" href="#" data-page="@(Model.Page + 1)" aria-label="Next">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+        </ul>
+    </div>
+}
+else if (Model.TotalCount > 0)
+{
+    <div class="px-3 py-2 border-top text-muted" style="font-size:13px;">
+        @Model.TotalCount record@(Model.TotalCount == 1 ? "" : "s")
+    </div>
+}

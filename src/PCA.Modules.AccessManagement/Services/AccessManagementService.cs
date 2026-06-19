@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PCA.Modules.AccessManagement.Models;
+using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.AccessManagement.Services;
@@ -27,6 +28,28 @@ public class AccessManagementService : IAccessManagementService
             .Where(x => x.RequestedById == userId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
+
+    public async Task<PagedResult<AccessRequest>> GetAccessRequestsPagedAsync(
+        string? userId, string? status, string? system, DateTime? from, DateTime? to, int page, int pageSize)
+    {
+        var query = _db.AccessRequests.Include(x => x.RequestedBy).AsQueryable();
+
+        if (!string.IsNullOrEmpty(userId))
+            query = query.Where(x => x.RequestedById == userId);
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<AccessRequestStatus>(status, out var s))
+            query = query.Where(x => x.Status == s);
+        if (!string.IsNullOrEmpty(system))
+            query = query.Where(x => x.SystemName.Contains(system));
+        if (from.HasValue)
+            query = query.Where(x => x.CreatedAt >= from.Value);
+        if (to.HasValue)
+            query = query.Where(x => x.CreatedAt <= to.Value.AddDays(1));
+
+        query = query.OrderByDescending(x => x.CreatedAt);
+        var total = await query.CountAsync();
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return new PagedResult<AccessRequest> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+    }
 
     public async Task<AccessRequest?> GetAccessRequestByIdAsync(int id)
         => await _db.AccessRequests
@@ -195,6 +218,49 @@ public class AccessManagementService : IAccessManagementService
             .ToListAsync();
     }
 
+    public async Task<PagedResult<DeprovisioningEvent>> GetDeprovisioningPagedAsync(
+        string? status, bool allTime, int page, int pageSize)
+    {
+        var query = _db.DeprovisioningEvents
+            .Include(x => x.NotifiedBy)
+            .Include(x => x.SystemEntries)
+            .AsQueryable();
+
+        if (!allTime)
+        {
+            var cutoff = DateTime.UtcNow.AddMonths(-12);
+            query = query.Where(x => x.HrNotificationReceivedAt >= cutoff);
+        }
+
+        // Overdue is computed in memory after fetch; we can't filter it at DB level without a stored column.
+        // For the status=Overdue case we fetch all non-completed and filter after.
+        var filterOverdue = !string.IsNullOrEmpty(status) &&
+            Enum.TryParse<DeprovisioningStatus>(status, out var parsedStatus) &&
+            parsedStatus == DeprovisioningStatus.Overdue;
+
+        if (!filterOverdue && !string.IsNullOrEmpty(status) &&
+            Enum.TryParse<DeprovisioningStatus>(status, out var dbStatus))
+            query = query.Where(x => x.Status == dbStatus);
+
+        query = query.OrderByDescending(x => x.HrNotificationReceivedAt);
+
+        if (filterOverdue)
+        {
+            var all = await query.ToListAsync();
+            var overdue = all
+                .Where(e => e.Status != DeprovisioningStatus.Completed && e.SlaDeadline < DateTime.UtcNow)
+                .ToList();
+            overdue.ForEach(e => e.Status = DeprovisioningStatus.Overdue);
+            var sliced = overdue.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+            return new PagedResult<DeprovisioningEvent> { Items = sliced, TotalCount = overdue.Count, Page = page, PageSize = pageSize };
+        }
+
+        var total = await query.CountAsync();
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        items.ForEach(e => { if (e.Status != DeprovisioningStatus.Completed && e.SlaDeadline < DateTime.UtcNow) e.Status = DeprovisioningStatus.Overdue; });
+        return new PagedResult<DeprovisioningEvent> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+    }
+
     public async Task<DeprovisioningEvent?> GetDeprovisioningEventByIdAsync(int id)
         => await _db.DeprovisioningEvents
             .Include(x => x.NotifiedBy)
@@ -282,6 +348,20 @@ public class AccessManagementService : IAccessManagementService
             .Include(x => x.RequestedBy)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
+
+    public async Task<PagedResult<ServerRoomAccessRequest>> GetServerRoomRequestsPagedAsync(
+        string? status, int page, int pageSize)
+    {
+        var query = _db.ServerRoomAccessRequests.Include(x => x.RequestedBy).AsQueryable();
+
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<ServerRoomAccessStatus>(status, out var s))
+            query = query.Where(x => x.Status == s);
+
+        query = query.OrderByDescending(x => x.CreatedAt);
+        var total = await query.CountAsync();
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return new PagedResult<ServerRoomAccessRequest> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+    }
 
     public async Task<ServerRoomAccessRequest?> GetServerRoomRequestByIdAsync(int id)
         => await _db.ServerRoomAccessRequests

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PCA.Modules.Incidents.Models;
+using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.Incidents.Services;
@@ -30,6 +31,29 @@ public class IncidentService : IIncidentService
             .Where(i => i.ReportedById == userId || i.AssignedToId == userId)
             .OrderByDescending(i => i.CreatedAt)
             .ToListAsync();
+    }
+
+    public async Task<PagedResult<Incident>> GetPagedAsync(
+        string? userId, string? status, string? severity, string? category, int page, int pageSize)
+    {
+        var query = _db.Incidents
+            .Include(i => i.ReportedBy)
+            .Include(i => i.AssignedTo)
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(userId))
+            query = query.Where(i => i.ReportedById == userId || i.AssignedToId == userId);
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<IncidentStatus>(status, out var s))
+            query = query.Where(i => i.Status == s);
+        if (!string.IsNullOrEmpty(severity) && Enum.TryParse<IncidentSeverity>(severity, out var sv))
+            query = query.Where(i => i.Severity == sv);
+        if (!string.IsNullOrEmpty(category) && Enum.TryParse<IncidentCategory>(category, out var cat))
+            query = query.Where(i => i.Category == cat);
+
+        query = query.OrderByDescending(i => i.CreatedAt);
+        var total = await query.CountAsync();
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return new PagedResult<Incident> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
     }
 
     public async Task<Incident?> GetByIdAsync(int id)

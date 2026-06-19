@@ -1,4 +1,4 @@
-@model List<PCA.Modules.AccessManagement.Models.ServerRoomAccessRequest>
+@model PCA.Shared.PagedResult<PCA.Modules.AccessManagement.Models.ServerRoomAccessRequest>
 @using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Server Room Access";
@@ -17,19 +17,12 @@
 
 <div class="card mb-3">
     <div class="card-body py-2">
-        <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+        <form id="filter-form" method="get" class="d-flex flex-wrap gap-2 align-items-center">
             <select name="status" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Statuses</option>
                 @foreach (var status in Enum.GetValues<ServerRoomAccessStatus>())
                 {
-                    if (status.ToString() == statusFilter)
-                    {
-                        <option value="@status" selected>@status</option>
-                    }
-                    else
-                    {
-                        <option value="@status">@status</option>
-                    }
+                    <option value="@status" @(status.ToString() == statusFilter ? "selected" : "")>@status</option>
                 }
             </select>
             <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
@@ -42,73 +35,46 @@
 </div>
 
 <div class="card">
-    <div class="card-body p-0">
-        @if (!Model.Any())
-        {
-            <div class="text-center py-5 text-muted">
-                <i class="bi bi-server" style="font-size:40px;opacity:.3;"></i>
-                <p class="mt-3">No server room access requests found.</p>
-            </div>
-        }
-        else
-        {
-            <table class="table table-hover mb-0" style="font-size:13px;">
-                <thead style="background:var(--bs-tertiary-bg);">
-                    <tr>
-                        <th class="ps-3">Serial</th>
-                        <th>Visitor</th>
-                        <th>Purpose</th>
-                        <th>Planned Entry</th>
-                        <th>Planned Exit</th>
-                        <th>Status</th>
-                        <th class="pe-3"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var req in Model)
-                    {
-                        var statusCls = req.Status switch
-                        {
-                            ServerRoomAccessStatus.Approved => "status-approved",
-                            ServerRoomAccessStatus.Rejected => "status-rejected",
-                            ServerRoomAccessStatus.UnderReview => "status-underreview",
-                            ServerRoomAccessStatus.Submitted => "status-submitted",
-                            ServerRoomAccessStatus.Cancelled => "status-draft",
-                            _ => "status-draft"
-                        };
-                        <tr>
-                            <td class="ps-3 align-middle text-muted" style="white-space:nowrap;">
-                                @(string.IsNullOrEmpty(req.SerialNumber) ? "Draft" : req.SerialNumber)
-                            </td>
-                            <td class="align-middle fw-semibold">
-                                <a asp-action="Details" asp-route-id="@req.Id" class="text-decoration-none" style="color:inherit;">
-                                    @req.VisitorName
-                                </a>
-                                <div class="text-muted fw-normal" style="font-size:11px;">
-                                    @(string.IsNullOrEmpty(req.VisitorCompany) ? "" : req.VisitorCompany)
-                                    @if (req.IsExternal)
-                                    {
-                                        <span class="badge bg-secondary ms-1" style="font-size:9px;">External</span>
-                                    }
-                                </div>
-                            </td>
-                            <td class="align-middle text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                                @req.Purpose
-                            </td>
-                            <td class="align-middle text-muted" style="white-space:nowrap;">@req.PlannedEntryDateTime.ToString("dd MMM yyyy HH:mm")</td>
-                            <td class="align-middle text-muted" style="white-space:nowrap;">@req.PlannedExitDateTime.ToString("dd MMM yyyy HH:mm")</td>
-                            <td class="align-middle">
-                                <span class="status-badge @statusCls" style="font-size:10px;">@req.Status</span>
-                            </td>
-                            <td class="pe-3 align-middle">
-                                <a asp-action="Details" asp-route-id="@req.Id" class="btn btn-outline-primary btn-sm" style="padding:2px 8px;font-size:11px;">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        }
+    <div class="card-body p-0" id="list-container">
+        @await Html.PartialAsync("_ServerRoomList", Model)
     </div>
 </div>
+
+@section Scripts {
+<script>
+(function () {
+    const form = document.getElementById('filter-form');
+    const container = document.getElementById('list-container');
+
+    async function loadPage(url) {
+        container.style.opacity = '0.5';
+        const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        container.innerHTML = await resp.text();
+        container.style.opacity = '1';
+        history.pushState(null, '', url);
+        bindPagination();
+    }
+
+    function bindPagination() {
+        container.querySelectorAll('.pagination-link').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                const url = new URL(window.location.href);
+                url.searchParams.set('page', a.dataset.page);
+                loadPage(url.toString());
+            });
+        });
+    }
+
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+        const url = new URL(window.location.pathname, window.location.origin);
+        new FormData(form).forEach((v, k) => { if (v) url.searchParams.set(k, v); });
+        url.searchParams.set('page', '1');
+        loadPage(url.toString());
+    });
+
+    bindPagination();
+})();
+</script>
+}

@@ -29,29 +29,21 @@ public class AccessRequestsController : Controller
         _attachmentService = attachmentService;
     }
 
-    public async Task<IActionResult> Index(string? status, string? system, DateTime? from, DateTime? to)
+    public async Task<IActionResult> Index(string? status, string? system, DateTime? from, DateTime? to, int page = 1, int pageSize = 25)
     {
         var user = await _userManager.GetUserAsync(User);
-        //var all = User.IsInRole("Admin")
-        //    ? await _svc.GetAllAccessRequestsAsync()
-        //    : await _svc.GetAccessRequestsByUserAsync(user!.Id);
-
-        var all = await _svc.GetAllAccessRequestsAsync();
-
-        if (!string.IsNullOrEmpty(status) && Enum.TryParse<AccessRequestStatus>(status, out var s))
-            all = [.. all.Where(x => x.Status == s)];
-        if (!string.IsNullOrEmpty(system))
-            all = [.. all.Where(x => x.SystemName.Contains(system, StringComparison.OrdinalIgnoreCase))];
-        if (from.HasValue)
-            all = [.. all.Where(x => x.CreatedAt >= from.Value)];
-        if (to.HasValue)
-            all = [.. all.Where(x => x.CreatedAt <= to.Value.AddDays(1))];
+        var userId = User.IsInRole("Admin") ? null : user!.Id;
+        var result = await _svc.GetAccessRequestsPagedAsync(userId, status, system, from, to, page, pageSize);
 
         ViewBag.StatusFilter = status;
         ViewBag.SystemFilter = system;
         ViewBag.FromFilter = from?.ToString("yyyy-MM-dd");
         ViewBag.ToFilter = to?.ToString("yyyy-MM-dd");
-        return View(all);
+
+        if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            return PartialView("_AccessRequestList", result);
+
+        return View(result);
     }
 
     public IActionResult Create() => View(new AccessRequestCreateViewModel());

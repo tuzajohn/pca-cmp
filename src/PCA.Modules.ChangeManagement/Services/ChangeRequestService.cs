@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PCA.Modules.ChangeManagement.Models;
+using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.ChangeManagement.Services;
@@ -36,6 +37,23 @@ public class ChangeRequestService : IChangeRequestService
             .Where(x => x.RequestedById == userId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
+    }
+
+    public async Task<PagedResult<ChangeRequest>> GetPagedAsync(string? userId, string? status, int page, int pageSize)
+    {
+        var query = _db.ChangeRequests.Include(x => x.RequestedBy).AsQueryable();
+
+        if (!string.IsNullOrEmpty(userId))
+            query = query.Where(x => x.RequestedById == userId);
+
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<ChangeStatus>(status, out var s))
+            query = query.Where(x => x.Status == s);
+
+        query = query.OrderByDescending(x => x.CreatedAt);
+
+        var total = await query.CountAsync();
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return new PagedResult<ChangeRequest> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
     }
 
     public async Task<ChangeRequest?> GetByIdAsync(int id)
