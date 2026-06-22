@@ -139,12 +139,18 @@
                                     <td class="align-middle text-muted">@rf.OriginalFileName</td>
                                     <td class="align-middle text-muted" style="white-space:nowrap;">@rf.UploadedAt.ToString("dd MMM yyyy HH:mm")</td>
                                     <td class="align-middle text-muted">@(rf.UploadedBy?.FullName ?? "—")</td>
-                                    <td class="pe-3 align-middle text-end">
+                                    <td class="pe-3 align-middle text-end" style="white-space:nowrap;">
+                                        <a asp-action="DownloadHcmRef" asp-route-id="@Model.Id" asp-route-refFileId="@rf.Id"
+                                           class="btn btn-outline-success btn-sm me-1" style="padding:2px 8px;font-size:11px;"
+                                           title="Download">
+                                            <i class="bi bi-download"></i>
+                                        </a>
                                         <form asp-action="DeleteHcmRef" asp-route-id="@Model.Id" method="post" class="d-inline"
                                               onsubmit="return confirm('Delete this ref file?')">
                                             @Html.AntiForgeryToken()
                                             <input type="hidden" name="refFileId" value="@rf.Id" />
-                                            <button type="submit" class="btn btn-outline-danger btn-sm" style="padding:2px 8px;font-size:11px;">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm" style="padding:2px 8px;font-size:11px;"
+                                                    title="Delete">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </form>

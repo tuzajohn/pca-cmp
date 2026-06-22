@@ -8,6 +8,7 @@ public class InvoiceRunOrchestrator
     private readonly IInvoicingService _svc;
     private readonly InvoiceDataService _dataSvc;
     private readonly IInvoiceEmailSender _email;
+    private readonly IInvoiceDocumentRegistrar? _docRegistrar;
     private readonly string _storageRoot;
     private readonly ILogger _logger;
 
@@ -16,13 +17,15 @@ public class InvoiceRunOrchestrator
         InvoiceDataService dataSvc,
         IInvoiceEmailSender email,
         string storageRoot,
-        ILogger logger)
+        ILogger logger,
+        IInvoiceDocumentRegistrar? docRegistrar = null)
     {
-        _svc         = svc;
-        _dataSvc     = dataSvc;
-        _email       = email;
-        _storageRoot = storageRoot;
-        _logger      = logger;
+        _svc          = svc;
+        _dataSvc      = dataSvc;
+        _email        = email;
+        _storageRoot  = storageRoot;
+        _logger       = logger;
+        _docRegistrar = docRegistrar;
     }
 
     public async Task ExecuteAsync(InvoiceSchedule schedule, string? triggeredById, CancellationToken ct)
@@ -61,9 +64,10 @@ public class InvoiceRunOrchestrator
             int finalCount;
             List<DeductionRow>? hcmSheet = null;
 
+            var monthYear = DateTime.UtcNow.ToString("yyyy-MM");
+
             if (schedule.SplitSheets)
             {
-                var monthYear = DateTime.UtcNow.ToString("yyyy-MM");
                 _logger.LogInformation("InvoiceRun {RunId}: split sheets enabled, looking for ref file for {MonthYear}", run.Id, monthYear);
 
                 var refFile = await _svc.GetHcmRefFileForMonthAsync(schedule.Id, monthYear);
@@ -95,8 +99,22 @@ public class InvoiceRunOrchestrator
                 _logger.LogInformation("InvoiceRun {RunId}: merged — {FinalCount} rows after dedup", run.Id, finalCount);
             }
 
-            var fileName = Path.GetFileName(filePath);
+            var fileName  = Path.GetFileName(filePath);
             _logger.LogInformation("InvoiceRun {RunId}: Excel written to {FilePath}", run.Id, filePath);
+
+            if (_docRegistrar != null)
+            {
+                try
+                {
+                    await _docRegistrar.RegisterAsync(filePath, lender.Name, monthYear,
+                        schedule.Id, schedule.Name, triggeredById);
+                    _logger.LogInformation("InvoiceRun {RunId}: registered in document repository", run.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "InvoiceRun {RunId}: document registration failed (non-fatal)", run.Id);
+                }
+            }
 
             var recipients = schedule.ScheduleRecipients
                 .Select(sr => (sr.Recipient!.Email, sr.Recipient.Name))

@@ -132,6 +132,39 @@ public class DocumentService : IDocumentService
         return document;
     }
 
+    public async Task<Document> RegisterExistingFileAsync(Document document, string filePath, string originalFileName, long fileSizeBytes, string changeNotes)
+    {
+        document.SerialNumber = await GenerateSerialNumberAsync();
+        document.CreatedAt    = DateTime.UtcNow;
+        document.UpdatedAt    = DateTime.UtcNow;
+        document.Status       = DocumentStatus.Active;
+        _db.Documents.Add(document);
+        await _db.SaveChangesAsync();
+
+        var ext        = Path.GetExtension(originalFileName);
+        var storedName = Path.GetFileName(filePath);
+
+        var version = new DocumentVersion
+        {
+            DocumentId       = document.Id,
+            VersionNumber    = 1,
+            FileName         = storedName,
+            OriginalFileName = originalFileName,
+            FilePath         = filePath,
+            ContentType      = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            FileSizeBytes    = fileSizeBytes,
+            ChangeNotes      = changeNotes,
+            IsCurrentVersion = true,
+            UploadedById     = document.CreatedById,
+            UploadedAt       = DateTime.UtcNow,
+            CreatedAt        = DateTime.UtcNow,
+            UpdatedAt        = DateTime.UtcNow
+        };
+        _db.DocumentVersions.Add(version);
+        await _db.SaveChangesAsync();
+        return document;
+    }
+
     public async Task<Document> UpdateMetadataAsync(Document document)
     {
         document.UpdatedAt = DateTime.UtcNow;

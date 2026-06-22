@@ -117,12 +117,14 @@ builder.Services.AddHostedService<DeprovisioningAlertWorker>();
 builder.Services.AddScoped<IInvoiceEmailSender, InvoiceEmailSender>();
 var invoiceStorageRoot = builder.Configuration["InvoiceStoragePath"]
     ?? Path.Combine(builder.Environment.ContentRootPath, "uploads", "documents");
+builder.Services.AddScoped<IInvoiceDocumentRegistrar, InvoiceDocumentRegistrar>();
 builder.Services.AddScoped<InvoiceRunOrchestrator>(sp => new InvoiceRunOrchestrator(
     sp.GetRequiredService<IInvoicingService>(),
     sp.GetRequiredService<InvoiceDataService>(),
     sp.GetRequiredService<IInvoiceEmailSender>(),
     invoiceStorageRoot,
-    sp.GetRequiredService<ILogger<InvoiceRunOrchestrator>>()));
+    sp.GetRequiredService<ILogger<InvoiceRunOrchestrator>>(),
+    sp.GetRequiredService<IInvoiceDocumentRegistrar>()));
 builder.Services.AddHostedService<InvoiceSchedulerWorker>();
 
 // Logging
