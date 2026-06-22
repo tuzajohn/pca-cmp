@@ -50,7 +50,7 @@ public class ServerRoomAccessController : Controller
         int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
-            items = result.Items.Select(r => new {
+            items = result.Collection.Select(r => new {
                 id             = r.Id,
                 serial         = r.SerialNumber,
                 visitorName    = r.VisitorName,
@@ -58,11 +58,11 @@ public class ServerRoomAccessController : Controller
                 isExternal     = r.IsExternal,
                 purpose        = r.Purpose,
                 plannedEntry   = r.PlannedEntryDateTime.ToString("dd MMM yyyy HH:mm"),
-                plannedExit    = r.PlannedExitDateTime?.ToString("dd MMM yyyy HH:mm") ?? "",
+                plannedExit    = r.PlannedExitDateTime.ToString("dd MMM yyyy HH:mm"),
                 status         = r.Status.ToString()
             }),
             totalCount  = result.TotalCount,
-            currentPage = result.Page,
+            currentPage = result.CurrentPage,
             totalPages
         });
     }

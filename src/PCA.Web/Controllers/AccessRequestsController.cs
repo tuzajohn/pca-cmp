@@ -58,7 +58,7 @@ public class AccessRequestsController : Controller
         int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
-            items = result.Items.Select(r => new {
+            items = result.Collection.Select(r => new {
                 id         = r.Id,
                 serial     = string.IsNullOrEmpty(r.SerialNumber) ? "Draft" : r.SerialNumber,
                 employee   = r.EmployeeName,
@@ -70,7 +70,7 @@ public class AccessRequestsController : Controller
                 createdAt  = r.CreatedAt.ToString("dd MMM yyyy")
             }),
             totalCount  = result.TotalCount,
-            currentPage = result.Page,
+            currentPage = result.CurrentPage,
             totalPages
         });
     }

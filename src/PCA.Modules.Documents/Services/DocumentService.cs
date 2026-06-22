@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using PageSort;
 using PCA.Modules.Documents.Models;
-using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.Documents.Services;
@@ -268,7 +267,7 @@ public class DocumentService : IDocumentService
 
         var total = await query.CountAsync();
         var items = await query.Page(page, pageSize).ToListAsync();
-        return new PagedResult<DocumentVersion> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+        return new PagedResult<DocumentVersion> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
     }
 
     // ── Permissions ───────────────────────────────────────────────────────────

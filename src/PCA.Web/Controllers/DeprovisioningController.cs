@@ -34,7 +34,7 @@ public class DeprovisioningController : Controller
 
         ViewBag.StatusFilter = status;
         ViewBag.AllTime = allTime;
-        ViewBag.OverdueCount = result.Items.Count(e => e.Status == DeprovisioningStatus.Overdue);
+        ViewBag.OverdueCount = result.Collection.Count(e => e.Status == DeprovisioningStatus.Overdue);
 
         if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             return PartialView("_DeprovisioningList", result);
@@ -53,7 +53,7 @@ public class DeprovisioningController : Controller
         var now = DateTime.UtcNow;
 
         return Json(new {
-            items = result.Items.Select(e => {
+            items = result.Collection.Select(e => {
                 var remaining = e.SlaDeadline - now;
                 var overdue   = e.Status != DeprovisioningStatus.Completed && remaining.TotalSeconds <= 0;
                 return new {
@@ -72,7 +72,7 @@ public class DeprovisioningController : Controller
                 };
             }),
             totalCount  = result.TotalCount,
-            currentPage = result.Page,
+            currentPage = result.CurrentPage,
             totalPages
         });
     }

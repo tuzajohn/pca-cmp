@@ -91,7 +91,7 @@ public class InvoiceSchedulesController : Controller
         int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
-            items = result.Items.Select(r => new {
+            items = result.Collection.Select(r => new {
                 runId       = r.Id,
                 triggeredAt = r.TriggeredAt.ToString("dd MMM yyyy HH:mm"),
                 triggeredBy = r.TriggeredBy?.FullName ?? "Scheduler",
@@ -102,7 +102,7 @@ public class InvoiceSchedulesController : Controller
                 hasFile     = r.Status == InvoiceRunStatus.Completed && !string.IsNullOrEmpty(r.FilePath)
             }),
             totalCount  = result.TotalCount,
-            currentPage = result.Page,
+            currentPage = result.CurrentPage,
             totalPages
         });
     }

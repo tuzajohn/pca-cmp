@@ -81,7 +81,7 @@ public class AccessReviewsController : Controller
         int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
-            items = result.Items.Select(e => new {
+            items = result.Collection.Select(e => new {
                 entryId       = e.Id,
                 employeeName  = e.EmployeeName,
                 department    = e.Department ?? "",
@@ -92,7 +92,7 @@ public class AccessReviewsController : Controller
                 notes         = e.ReviewerNotes ?? ""
             }),
             totalCount  = result.TotalCount,
-            currentPage = result.Page,
+            currentPage = result.CurrentPage,
             totalPages
         });
     }

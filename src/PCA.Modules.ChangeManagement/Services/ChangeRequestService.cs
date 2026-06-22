@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using PageSort;
 using PCA.Modules.ChangeManagement.Models;
-using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.ChangeManagement.Services;
@@ -61,7 +61,7 @@ public class ChangeRequestService : IChangeRequestService
 
         var total = await query.CountAsync();
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        return new PagedResult<ChangeRequest> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+        return new PagedResult<ChangeRequest> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
     }
 
     public async Task<ChangeRequest?> GetByIdAsync(int id)

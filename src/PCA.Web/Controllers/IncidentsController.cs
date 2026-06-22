@@ -63,7 +63,7 @@ public class IncidentsController : Controller
         int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
-            items = result.Items.Select(i => new {
+            items = result.Collection.Select(i => new {
                 id         = i.Id,
                 serial     = i.SerialNumber,
                 title      = i.Title,
@@ -75,7 +75,7 @@ public class IncidentsController : Controller
                 detected   = i.DetectedAt.ToString("dd MMM yyyy")
             }),
             totalCount  = result.TotalCount,
-            currentPage = result.Page,
+            currentPage = result.CurrentPage,
             totalPages
         });
     }

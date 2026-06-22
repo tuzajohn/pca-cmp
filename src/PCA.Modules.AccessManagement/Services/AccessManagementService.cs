@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PageSort;
 using PCA.Modules.AccessManagement.Models;
-using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.AccessManagement.Services;
@@ -58,7 +57,7 @@ public class AccessManagementService : IAccessManagementService
 
         var total = await query.CountAsync();
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        return new PagedResult<AccessRequest> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+        return new PagedResult<AccessRequest> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
     }
 
     public async Task<AccessRequest?> GetAccessRequestByIdAsync(int id)
@@ -167,11 +166,11 @@ public class AccessManagementService : IAccessManagementService
             .Include(e => e.ReviewedBy)
             .Where(e => e.AccessReviewId == reviewId);
 
-        var sorted = desc ? query.OrderByDescendingProperty(propName) : query.OrderByProperty(propName);
+        IQueryable<AccessReviewEntry> sorted = desc ? query.OrderByDescendingProperty(propName) : query.OrderByProperty(propName);
 
         var total = await sorted.CountAsync();
         var items = await sorted.Page(page, pageSize).ToListAsync();
-        return new PagedResult<AccessReviewEntry> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+        return new PagedResult<AccessReviewEntry> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
     }
 
     public async Task<AccessReview?> GetAccessReviewByIdAsync(int id)
@@ -293,13 +292,13 @@ public class AccessManagementService : IAccessManagementService
                 .ToList();
             overdue.ForEach(e => e.Status = DeprovisioningStatus.Overdue);
             var sliced = overdue.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-            return new PagedResult<DeprovisioningEvent> { Items = sliced, TotalCount = overdue.Count, Page = page, PageSize = pageSize };
+            return new PagedResult<DeprovisioningEvent> { Collection = sliced, TotalCount = overdue.Count, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)overdue.Count / pageSize) : 0 };
         }
 
         var total = await query.CountAsync();
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         items.ForEach(e => { if (e.Status != DeprovisioningStatus.Completed && e.SlaDeadline < DateTime.UtcNow) e.Status = DeprovisioningStatus.Overdue; });
-        return new PagedResult<DeprovisioningEvent> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+        return new PagedResult<DeprovisioningEvent> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
     }
 
     public async Task<DeprovisioningEvent?> GetDeprovisioningEventByIdAsync(int id)
@@ -410,7 +409,7 @@ public class AccessManagementService : IAccessManagementService
 
         var total = await query.CountAsync();
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        return new PagedResult<ServerRoomAccessRequest> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+        return new PagedResult<ServerRoomAccessRequest> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
     }
 
     public async Task<ServerRoomAccessRequest?> GetServerRoomRequestByIdAsync(int id)

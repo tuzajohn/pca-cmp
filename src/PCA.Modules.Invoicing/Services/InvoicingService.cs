@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PageSort;
 using PCA.Modules.Invoicing.Models;
-using PCA.Shared;
 
 namespace PCA.Modules.Invoicing.Services;
 
@@ -196,6 +195,6 @@ public class InvoicingService : IInvoicingService
 
         var total = await query.CountAsync();
         var items = await query.Page(page, pageSize).ToListAsync();
-        return new PagedResult<InvoiceRun> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+        return new PagedResult<InvoiceRun> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
     }
 }

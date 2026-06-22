@@ -60,7 +60,7 @@ public class ChangeRequestsController : Controller
         int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
-            items = result.Items.Select(cr => new {
+            items = result.Collection.Select(cr => new {
                 id            = cr.Id,
                 serial        = string.IsNullOrEmpty(cr.SerialNumber) ? $"#{cr.Id}" : cr.SerialNumber,
                 title         = cr.Title,
@@ -74,7 +74,7 @@ public class ChangeRequestsController : Controller
                 createdAt     = cr.CreatedAt.ToString("dd MMM yyyy")
             }),
             totalCount  = result.TotalCount,
-            currentPage = result.Page,
+            currentPage = result.CurrentPage,
             totalPages
         });
     }

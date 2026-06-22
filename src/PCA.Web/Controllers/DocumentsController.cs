@@ -222,7 +222,7 @@ public class DocumentsController : Controller
         var canManage = isAdmin || doc.OwnerId == user!.Id;
 
         return Json(new {
-            items = result.Items.Select(v => new {
+            items = result.Collection.Select(v => new {
                 versionId   = v.Id,
                 versionNumber = v.VersionNumber,
                 fileName    = v.OriginalFileName,
@@ -235,7 +235,7 @@ public class DocumentsController : Controller
                 canManage   = canManage && !v.IsCurrentVersion
             }),
             totalCount  = result.TotalCount,
-            currentPage = result.Page,
+            currentPage = result.CurrentPage,
             totalPages
         });
     }
