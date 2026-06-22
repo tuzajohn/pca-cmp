@@ -64,9 +64,10 @@ public class InvoiceRunOrchestrator
             int finalCount;
             List<DeductionRow>? hcmSheet = null;
 
+            var monthYear = DateTime.UtcNow.ToString("yyyy-MM");
+
             if (schedule.SplitSheets)
             {
-                var monthYear = DateTime.UtcNow.ToString("yyyy-MM");
                 _logger.LogInformation("InvoiceRun {RunId}: split sheets enabled, looking for ref file for {MonthYear}", run.Id, monthYear);
 
                 var refFile = await _svc.GetHcmRefFileForMonthAsync(schedule.Id, monthYear);
@@ -99,7 +100,6 @@ public class InvoiceRunOrchestrator
             }
 
             var fileName  = Path.GetFileName(filePath);
-            var monthYear = DateTime.UtcNow.ToString("yyyy-MM");
             _logger.LogInformation("InvoiceRun {RunId}: Excel written to {FilePath}", run.Id, filePath);
 
             if (_docRegistrar != null)
