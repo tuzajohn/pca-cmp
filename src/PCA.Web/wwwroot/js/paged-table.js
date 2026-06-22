@@ -301,7 +301,7 @@ const PagedTable = (() => {
             paginationEl.innerHTML = `<div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2" style="font-size:12px;color:var(--bs-secondary-color);">
                     <span>Rows per page</span>
-                    <select class="form-select form-select-sm pt-size-select" style="width:65px;">${sizeOpts}</select>
+                    <select class="pt-size-select" style="border:1px solid var(--bs-border-color);border-radius:4px;padding:1px 20px 1px 6px;font-size:12px;color:var(--bs-body-color);background:var(--bs-body-bg);cursor:pointer;appearance:auto;">${sizeOpts}</select>
                     <span>${rowFrom}–${rowTo} of ${total} rows</span>
                 </div>
                 <nav aria-label="Table pagination"><ul class="pagination pagination-sm mb-0 flex-wrap">
