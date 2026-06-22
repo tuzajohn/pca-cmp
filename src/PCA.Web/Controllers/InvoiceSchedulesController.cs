@@ -85,10 +85,9 @@ public class InvoiceSchedulesController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> RunsData(int id, int page = 1, int pageSize = 25)
+    public async Task<IActionResult> RunsData(int id, int page = 1, int pageSize = 20)
     {
         var result = await _svc.GetRunsPagedAsync(id, page, pageSize);
-        int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
             items = result.Collection.Select(r => new {
@@ -103,12 +102,12 @@ public class InvoiceSchedulesController : Controller
             }),
             totalCount  = result.TotalCount,
             currentPage = result.CurrentPage,
-            totalPages
+            totalPages = result.TotalPages
         });
     }
 
     [HttpGet]
-    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 25, string? sortCol = null, string? sortDir = "asc")
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "asc")
     {
         var all = await _svc.GetSchedulesAsync();
         var sorted = sortCol switch {
@@ -134,7 +133,7 @@ public class InvoiceSchedulesController : Controller
             }),
             totalCount,
             currentPage = page,
-            totalPages
+            totalPages = result.TotalPages
         });
     }
 

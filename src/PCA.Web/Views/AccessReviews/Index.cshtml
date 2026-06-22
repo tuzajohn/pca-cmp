@@ -25,7 +25,7 @@ PagedTable.init({
     tableId: 'tbl-reviews',
         tableClass: 'table table-hover mb-0',
     url: '/AccessReviews/IndexData',
-    pageSize: 25,
+    pageSize: 20,
     defaultSort: { col: 'dueDate', dir: 'desc' },
     columns: [
         { key: 'title',      label: 'Title',    thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold', render: r => `<a href="/AccessReviews/Details/${r.id}" class="text-decoration-none" style="color:inherit;">${r.title}</a>` },

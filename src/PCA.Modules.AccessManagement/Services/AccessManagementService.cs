@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Microsoft.EntityFrameworkCore;
 using PageSort;
 using PCA.Modules.AccessManagement.Models;
@@ -29,7 +30,7 @@ public class AccessManagementService : IAccessManagementService
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 
-    public async Task<PagedResult<AccessRequest>> GetAccessRequestsPagedAsync(
+    public Task<PagedResult<AccessRequest>> GetAccessRequestsPagedAsync(
         string? userId, string? status, string? system, DateTime? from, DateTime? to, int page, int pageSize, string? sortCol = null, string? sortDir = null)
     {
         var query = _db.AccessRequests.Include(x => x.RequestedBy).AsQueryable();
@@ -45,19 +46,19 @@ public class AccessManagementService : IAccessManagementService
         if (to.HasValue)
             query = query.Where(x => x.CreatedAt <= to.Value.AddDays(1));
 
-        bool asc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
-        query = sortCol switch {
-            "serial"   => asc ? query.OrderBy(x => x.SerialNumber)   : query.OrderByDescending(x => x.SerialNumber),
-            "employee" => asc ? query.OrderBy(x => x.EmployeeName)   : query.OrderByDescending(x => x.EmployeeName),
-            "system"   => asc ? query.OrderBy(x => x.SystemName)     : query.OrderByDescending(x => x.SystemName),
-            "type"     => asc ? query.OrderBy(x => x.AccessType)     : query.OrderByDescending(x => x.AccessType),
-            "status"   => asc ? query.OrderBy(x => x.Status)         : query.OrderByDescending(x => x.Status),
-            _          => query.OrderByDescending(x => x.CreatedAt)
+        var prop = sortCol switch {
+            "serial"   => "SerialNumber",
+            "employee" => "EmployeeName",
+            "system"   => "SystemName",
+            "type"     => "AccessType",
+            "status"   => "Status",
+            _          => "CreatedAt"
         };
+        var dir = (sortCol == null || string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase))
+            ? ListSortDirection.Descending : ListSortDirection.Ascending;
 
-        var total = await query.CountAsync();
-        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        return new PagedResult<AccessRequest> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
+        return Task.FromResult(Page<AccessRequest>.GeneratePaging(query,
+            new PageQuery { PageNumber = page, PageSize = pageSize, SortProperty = prop, SortDirection = dir }));
     }
 
     public async Task<AccessRequest?> GetAccessRequestByIdAsync(int id)
@@ -150,9 +151,13 @@ public class AccessManagementService : IAccessManagementService
             .OrderByDescending(x => x.DueDate)
             .ToListAsync();
 
-    public async Task<PagedResult<AccessReviewEntry>> GetEntriesPagedAsync(int reviewId, int page, int pageSize, string? sortCol = null, string? sortDir = null)
+    public Task<PagedResult<AccessReviewEntry>> GetEntriesPagedAsync(int reviewId, int page, int pageSize, string? sortCol = null, string? sortDir = null)
     {
-        var propName = sortCol switch {
+        var query = _db.AccessReviewEntries
+            .Include(e => e.ReviewedBy)
+            .Where(e => e.AccessReviewId == reviewId);
+
+        var prop = sortCol switch {
             "employeeName"  => "EmployeeName",
             "department"    => "Department",
             "systemName"    => "SystemName",
@@ -160,17 +165,11 @@ public class AccessManagementService : IAccessManagementService
             "outcome"       => "Outcome",
             _               => "EmployeeName"
         };
-        bool desc = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
+        var dir = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase)
+            ? ListSortDirection.Descending : ListSortDirection.Ascending;
 
-        var query = _db.AccessReviewEntries
-            .Include(e => e.ReviewedBy)
-            .Where(e => e.AccessReviewId == reviewId);
-
-        IQueryable<AccessReviewEntry> sorted = desc ? query.OrderByDescendingProperty(propName) : query.OrderByProperty(propName);
-
-        var total = await sorted.CountAsync();
-        var items = await sorted.Page(page, pageSize).ToListAsync();
-        return new PagedResult<AccessReviewEntry> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
+        return Task.FromResult(Page<AccessReviewEntry>.GeneratePaging(query,
+            new PageQuery { PageNumber = page, PageSize = pageSize, SortProperty = prop, SortDirection = dir }));
     }
 
     public async Task<AccessReview?> GetAccessReviewByIdAsync(int id)
@@ -274,15 +273,16 @@ public class AccessManagementService : IAccessManagementService
             Enum.TryParse<DeprovisioningStatus>(status, out var dbStatus))
             query = query.Where(x => x.Status == dbStatus);
 
-        bool asc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
-        query = sortCol switch {
-            "serial"     => asc ? query.OrderBy(x => x.SerialNumber)                  : query.OrderByDescending(x => x.SerialNumber),
-            "employee"   => asc ? query.OrderBy(x => x.EmployeeName)                  : query.OrderByDescending(x => x.EmployeeName),
-            "trigger"    => asc ? query.OrderBy(x => x.Trigger)                       : query.OrderByDescending(x => x.Trigger),
-            "slaDeadline"=> asc ? query.OrderBy(x => x.SlaDeadline)                   : query.OrderByDescending(x => x.SlaDeadline),
-            "status"     => asc ? query.OrderBy(x => x.Status)                        : query.OrderByDescending(x => x.Status),
-            _            => query.OrderByDescending(x => x.HrNotificationReceivedAt)
+        var prop = sortCol switch {
+            "serial"      => "SerialNumber",
+            "employee"    => "EmployeeName",
+            "trigger"     => "Trigger",
+            "slaDeadline" => "SlaDeadline",
+            "status"      => "Status",
+            _             => "HrNotificationReceivedAt"
         };
+        var dir = (sortCol == null || string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase))
+            ? ListSortDirection.Descending : ListSortDirection.Ascending;
 
         if (filterOverdue)
         {
@@ -295,10 +295,12 @@ public class AccessManagementService : IAccessManagementService
             return new PagedResult<DeprovisioningEvent> { Collection = sliced, TotalCount = overdue.Count, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)overdue.Count / pageSize) : 0 };
         }
 
-        var total = await query.CountAsync();
-        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        items.ForEach(e => { if (e.Status != DeprovisioningStatus.Completed && e.SlaDeadline < DateTime.UtcNow) e.Status = DeprovisioningStatus.Overdue; });
-        return new PagedResult<DeprovisioningEvent> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
+        var result = Page<DeprovisioningEvent>.GeneratePaging(query,
+            new PageQuery { PageNumber = page, PageSize = pageSize, SortProperty = prop, SortDirection = dir });
+        foreach (var e in result.Collection)
+            if (e.Status != DeprovisioningStatus.Completed && e.SlaDeadline < DateTime.UtcNow)
+                e.Status = DeprovisioningStatus.Overdue;
+        return result;
     }
 
     public async Task<DeprovisioningEvent?> GetDeprovisioningEventByIdAsync(int id)
@@ -389,7 +391,7 @@ public class AccessManagementService : IAccessManagementService
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 
-    public async Task<PagedResult<ServerRoomAccessRequest>> GetServerRoomRequestsPagedAsync(
+    public Task<PagedResult<ServerRoomAccessRequest>> GetServerRoomRequestsPagedAsync(
         string? status, int page, int pageSize, string? sortCol = null, string? sortDir = null)
     {
         var query = _db.ServerRoomAccessRequests.Include(x => x.RequestedBy).AsQueryable();
@@ -397,19 +399,19 @@ public class AccessManagementService : IAccessManagementService
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<ServerRoomAccessStatus>(status, out var s))
             query = query.Where(x => x.Status == s);
 
-        bool asc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
-        query = sortCol switch {
-            "serial"   => asc ? query.OrderBy(x => x.SerialNumber)           : query.OrderByDescending(x => x.SerialNumber),
-            "visitor"  => asc ? query.OrderBy(x => x.VisitorName)            : query.OrderByDescending(x => x.VisitorName),
-            "purpose"  => asc ? query.OrderBy(x => x.Purpose)                : query.OrderByDescending(x => x.Purpose),
-            "entry"    => asc ? query.OrderBy(x => x.PlannedEntryDateTime)   : query.OrderByDescending(x => x.PlannedEntryDateTime),
-            "status"   => asc ? query.OrderBy(x => x.Status)                 : query.OrderByDescending(x => x.Status),
-            _          => query.OrderByDescending(x => x.CreatedAt)
+        var prop = sortCol switch {
+            "serial"  => "SerialNumber",
+            "visitor" => "VisitorName",
+            "purpose" => "Purpose",
+            "entry"   => "PlannedEntryDateTime",
+            "status"  => "Status",
+            _         => "CreatedAt"
         };
+        var dir = (sortCol == null || string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase))
+            ? ListSortDirection.Descending : ListSortDirection.Ascending;
 
-        var total = await query.CountAsync();
-        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        return new PagedResult<ServerRoomAccessRequest> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
+        return Task.FromResult(Page<ServerRoomAccessRequest>.GeneratePaging(query,
+            new PageQuery { PageNumber = page, PageSize = pageSize, SortProperty = prop, SortDirection = dir }));
     }
 
     public async Task<ServerRoomAccessRequest?> GetServerRoomRequestByIdAsync(int id)

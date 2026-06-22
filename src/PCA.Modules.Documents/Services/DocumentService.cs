@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using PageSort;
@@ -258,16 +259,14 @@ public class DocumentService : IDocumentService
         return (stream, version.ContentType, version.OriginalFileName);
     }
 
-    public async Task<PagedResult<DocumentVersion>> GetVersionsPagedAsync(int documentId, int page, int pageSize)
+    public Task<PagedResult<DocumentVersion>> GetVersionsPagedAsync(int documentId, int page, int pageSize)
     {
         var query = _db.DocumentVersions
             .Include(v => v.UploadedBy)
-            .Where(v => v.DocumentId == documentId)
-            .OrderByDescendingProperty("VersionNumber");
+            .Where(v => v.DocumentId == documentId);
 
-        var total = await query.CountAsync();
-        var items = await query.Page(page, pageSize).ToListAsync();
-        return new PagedResult<DocumentVersion> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
+        return Task.FromResult(Page<DocumentVersion>.GeneratePaging(query,
+            new PageQuery { PageNumber = page, PageSize = pageSize, SortProperty = "VersionNumber", SortDirection = ListSortDirection.Descending }));
     }
 
     // ── Permissions ───────────────────────────────────────────────────────────

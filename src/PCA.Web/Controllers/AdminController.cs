@@ -42,7 +42,7 @@ public class AdminController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> TemplatesData(int page = 1, int pageSize = 25, string? sortCol = null, string? sortDir = "asc")
+    public async Task<IActionResult> TemplatesData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "asc")
     {
         var all = await _approvalService.GetTemplatesAsync();
         var sorted = sortCol switch {

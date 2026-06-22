@@ -41,7 +41,7 @@
     const tbl = PagedTable.init({
         tableId: 'tbl-sr',
         url: '/ServerRoomAccess/Data',
-        pageSize: 25,
+        pageSize: 20,
         defaultSort: { col: 'plannedEntry', dir: 'desc' },
         filters: () => ({ status: document.getElementById('f-status').value }),
         columns: [

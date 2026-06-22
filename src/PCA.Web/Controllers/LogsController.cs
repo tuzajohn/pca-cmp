@@ -44,7 +44,7 @@ public class LogsController : Controller
 
     [HttpGet]
     public async Task<IActionResult> IndexData(
-        int page = 1, int pageSize = 50,
+        int page = 1, int pageSize = 20,
         string? source = null, string? level = null, string? category = null,
         string? search = null, string? from = null, string? to = null,
         string? sortCol = null, string? sortDir = "desc")

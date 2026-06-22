@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Microsoft.EntityFrameworkCore;
 using PageSort;
 using PCA.Modules.ChangeManagement.Models;
@@ -39,7 +40,7 @@ public class ChangeRequestService : IChangeRequestService
             .ToListAsync();
     }
 
-    public async Task<PagedResult<ChangeRequest>> GetPagedAsync(string? userId, string? status, int page, int pageSize, string? sortCol = null, string? sortDir = null)
+    public Task<PagedResult<ChangeRequest>> GetPagedAsync(string? userId, string? status, int page, int pageSize, string? sortCol = null, string? sortDir = null)
     {
         var query = _db.ChangeRequests.Include(x => x.RequestedBy).AsQueryable();
 
@@ -48,20 +49,20 @@ public class ChangeRequestService : IChangeRequestService
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<ChangeStatus>(status, out var s))
             query = query.Where(x => x.Status == s);
 
-        bool asc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
-        query = sortCol switch {
-            "serial"     => asc ? query.OrderBy(x => x.SerialNumber)  : query.OrderByDescending(x => x.SerialNumber),
-            "title"      => asc ? query.OrderBy(x => x.Title)         : query.OrderByDescending(x => x.Title),
-            "type"       => asc ? query.OrderBy(x => x.Type)          : query.OrderByDescending(x => x.Type),
-            "status"     => asc ? query.OrderBy(x => x.Status)        : query.OrderByDescending(x => x.Status),
-            "priority"   => asc ? query.OrderBy(x => x.Priority)      : query.OrderByDescending(x => x.Priority),
-            "targetDate" => asc ? query.OrderBy(x => x.TargetDate)    : query.OrderByDescending(x => x.TargetDate),
-            _            => query.OrderByDescending(x => x.CreatedAt)
+        var prop = sortCol switch {
+            "serial"     => "SerialNumber",
+            "title"      => "Title",
+            "type"       => "Type",
+            "status"     => "Status",
+            "priority"   => "Priority",
+            "targetDate" => "TargetDate",
+            _            => "CreatedAt"
         };
+        var dir = (sortCol == null || string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase))
+            ? ListSortDirection.Descending : ListSortDirection.Ascending;
 
-        var total = await query.CountAsync();
-        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        return new PagedResult<ChangeRequest> { Collection = items, TotalCount = total, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 0 };
+        return Task.FromResult(Page<ChangeRequest>.GeneratePaging(query,
+            new PageQuery { PageNumber = page, PageSize = pageSize, SortProperty = prop, SortDirection = dir }));
     }
 
     public async Task<ChangeRequest?> GetByIdAsync(int id)

@@ -29,7 +29,7 @@ public class ServerRoomAccessController : Controller
         _attachmentService = attachmentService;
     }
 
-    public async Task<IActionResult> Index(string? status, int page = 1, int pageSize = 25)
+    public async Task<IActionResult> Index(string? status, int page = 1, int pageSize = 20)
     {
         var result = await _svc.GetServerRoomRequestsPagedAsync(status, page, pageSize);
         ViewBag.StatusFilter = status;
@@ -42,12 +42,11 @@ public class ServerRoomAccessController : Controller
 
     [HttpGet]
     public async Task<IActionResult> Data(
-        int page = 1, int pageSize = 25,
+        int page = 1, int pageSize = 20,
         string? sortCol = null, string? sortDir = "desc",
         string? status = null)
     {
         var result = await _svc.GetServerRoomRequestsPagedAsync(status, page, pageSize, sortCol, sortDir);
-        int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
             items = result.Collection.Select(r => new {
@@ -63,7 +62,7 @@ public class ServerRoomAccessController : Controller
             }),
             totalCount  = result.TotalCount,
             currentPage = result.CurrentPage,
-            totalPages
+            totalPages = result.TotalPages
         });
     }
 

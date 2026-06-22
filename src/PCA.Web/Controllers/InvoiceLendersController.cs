@@ -31,7 +31,7 @@ public class InvoiceLendersController : Controller
     public async Task<IActionResult> Index() => View(await _svc.GetLendersAsync());
 
     [HttpGet]
-    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 25, string? sortCol = null, string? sortDir = "asc")
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "asc")
     {
         var all = await _svc.GetLendersAsync();
         var sorted = sortCol switch {

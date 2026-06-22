@@ -22,7 +22,7 @@ public class ApiKeysController : Controller
         => View(await _service.GetAllAsync());
 
     [HttpGet]
-    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 25, string? sortCol = null, string? sortDir = "desc")
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "desc")
     {
         var all = await _service.GetAllAsync();
         var sorted = sortCol switch {

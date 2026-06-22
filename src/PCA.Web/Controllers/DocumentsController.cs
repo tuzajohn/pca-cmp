@@ -101,7 +101,7 @@ public class DocumentsController : Controller
 
     [HttpGet]
     public async Task<IActionResult> IndexData(
-        int page = 1, int pageSize = 25,
+        int page = 1, int pageSize = 20,
         string? sortCol = null, string? sortDir = "asc",
         int? folderId = null, string? q = null, string? status = null, bool dueForReview = false)
     {
@@ -156,7 +156,7 @@ public class DocumentsController : Controller
             }),
             totalCount,
             currentPage = page,
-            totalPages
+            totalPages = result.TotalPages
         });
     }
 
@@ -203,7 +203,7 @@ public class DocumentsController : Controller
     // ── Versions Data ─────────────────────────────────────────────────────────
 
     [HttpGet]
-    public async Task<IActionResult> VersionsData(int id, int page = 1, int pageSize = 25)
+    public async Task<IActionResult> VersionsData(int id, int page = 1, int pageSize = 20)
     {
         var doc = await _docService.GetByIdAsync(id);
         if (doc == null) return NotFound();
@@ -218,7 +218,6 @@ public class DocumentsController : Controller
         }
 
         var result = await _docService.GetVersionsPagedAsync(id, page, pageSize);
-        int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
         var canManage = isAdmin || doc.OwnerId == user!.Id;
 
         return Json(new {
@@ -236,7 +235,7 @@ public class DocumentsController : Controller
             }),
             totalCount  = result.TotalCount,
             currentPage = result.CurrentPage,
-            totalPages
+            totalPages = result.TotalPages
         });
     }
 

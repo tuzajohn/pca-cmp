@@ -50,7 +50,7 @@
     const tbl = PagedTable.init({
         tableId: 'tbl-dep',
         url: '/Deprovisioning/Data',
-        pageSize: 25,
+        pageSize: 20,
         defaultSort: { col: 'slaDeadline', dir: 'desc' },
         filters: () => ({
             status:  document.getElementById('f-status').value,

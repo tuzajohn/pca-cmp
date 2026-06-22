@@ -6,7 +6,7 @@
  *   const tbl = PagedTable.init({
  *     tableId:     'my-container',          // id of a <div> — table is injected inside
  *     url:         '/Controller/Data',
- *     pageSize:    25,
+ *     pageSize:    20,
  *     defaultSort: { col: 'name', dir: 'asc' },
  *     filters:     () => ({ status: document.getElementById('f-status').value }),
  *     tableClass:  'table mb-0',            // optional, default 'table mb-0'
@@ -29,7 +29,7 @@ const PagedTable = (() => {
         const {
             tableId,
             url,
-            pageSize = 25,
+            pageSize = 20,
             defaultSort = null,
             filters = () => ({}),
             columns,

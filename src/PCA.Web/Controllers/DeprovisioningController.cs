@@ -28,7 +28,7 @@ public class DeprovisioningController : Controller
         _email           = email;
     }
 
-    public async Task<IActionResult> Index(string? status, bool allTime = false, int page = 1, int pageSize = 25)
+    public async Task<IActionResult> Index(string? status, bool allTime = false, int page = 1, int pageSize = 20)
     {
         var result = await _svc.GetDeprovisioningPagedAsync(status, allTime, page, pageSize);
 
@@ -44,12 +44,11 @@ public class DeprovisioningController : Controller
 
     [HttpGet]
     public async Task<IActionResult> Data(
-        int page = 1, int pageSize = 25,
+        int page = 1, int pageSize = 20,
         string? sortCol = null, string? sortDir = "desc",
         string? status = null, bool allTime = false)
     {
         var result = await _svc.GetDeprovisioningPagedAsync(status, allTime, page, pageSize, sortCol, sortDir);
-        int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
         var now = DateTime.UtcNow;
 
         return Json(new {
@@ -73,7 +72,7 @@ public class DeprovisioningController : Controller
             }),
             totalCount  = result.TotalCount,
             currentPage = result.CurrentPage,
-            totalPages
+            totalPages = result.TotalPages
         });
     }
 

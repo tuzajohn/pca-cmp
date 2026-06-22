@@ -35,7 +35,7 @@ public class IncidentsController : Controller
         _logger = logger;
     }
 
-    public async Task<IActionResult> Index(string? status, string? severity, string? category, int page = 1, int pageSize = 25)
+    public async Task<IActionResult> Index(string? status, string? severity, string? category, int page = 1, int pageSize = 20)
     {
         var user = await _userManager.GetUserAsync(User);
         var userId = User.IsInRole("Admin") ? null : user!.Id;
@@ -53,14 +53,13 @@ public class IncidentsController : Controller
 
     [HttpGet]
     public async Task<IActionResult> Data(
-        int page = 1, int pageSize = 25,
+        int page = 1, int pageSize = 20,
         string? sortCol = null, string? sortDir = "desc",
         string? status = null, string? severity = null, string? category = null)
     {
         var user = await _userManager.GetUserAsync(User);
         var userId = User.IsInRole("Admin") ? null : user!.Id;
         var result = await _incidentService.GetPagedAsync(userId, status, severity, category, page, pageSize, sortCol, sortDir);
-        int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
             items = result.Collection.Select(i => new {
@@ -76,7 +75,7 @@ public class IncidentsController : Controller
             }),
             totalCount  = result.TotalCount,
             currentPage = result.CurrentPage,
-            totalPages
+            totalPages = result.TotalPages
         });
     }
 

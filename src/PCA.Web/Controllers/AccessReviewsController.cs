@@ -74,11 +74,10 @@ public class AccessReviewsController : Controller
 
     [HttpGet]
     public async Task<IActionResult> EntriesData(
-        int id, int page = 1, int pageSize = 25,
+        int id, int page = 1, int pageSize = 20,
         string? sortCol = null, string? sortDir = "asc")
     {
         var result = await _svc.GetEntriesPagedAsync(id, page, pageSize, sortCol, sortDir);
-        int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
             items = result.Collection.Select(e => new {
@@ -93,12 +92,12 @@ public class AccessReviewsController : Controller
             }),
             totalCount  = result.TotalCount,
             currentPage = result.CurrentPage,
-            totalPages
+            totalPages = result.TotalPages
         });
     }
 
     [HttpGet]
-    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 25, string? sortCol = null, string? sortDir = "desc")
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "desc")
     {
         var all = await _svc.GetAllAccessReviewsAsync();
         var sorted = sortCol switch {
@@ -132,7 +131,7 @@ public class AccessReviewsController : Controller
             }),
             totalCount,
             currentPage = page,
-            totalPages
+            totalPages = result.TotalPages
         });
     }
 

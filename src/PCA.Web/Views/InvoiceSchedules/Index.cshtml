@@ -27,7 +27,7 @@ PagedTable.init({
     tableId: 'tbl-schedules',
         tableClass: 'table table-hover mb-0',
     url: '/InvoiceSchedules/IndexData',
-    pageSize: 25,
+    pageSize: 20,
     defaultSort: { col: 'name', dir: 'asc' },
     columns: [
         { key: 'name',      label: 'Name',      thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold', render: r => `<a href="/InvoiceSchedules/Details/${r.id}" class="text-decoration-none" style="color:inherit;">${r.name}</a>` },
