@@ -135,6 +135,12 @@ public class InvoicingService : IInvoicingService
         _db.InvoiceHcmRefFiles
             .FirstOrDefaultAsync(f => f.ScheduleId == scheduleId && f.MonthYear == monthYear);
 
+    public Task<List<InvoiceHcmRefFile>> GetHcmRefFilesForMonthAsync(string monthYear, int excludeScheduleId) =>
+        _db.InvoiceHcmRefFiles
+            .Include(f => f.Schedule).ThenInclude(s => s!.Lender)
+            .Where(f => f.MonthYear == monthYear && f.ScheduleId != excludeScheduleId)
+            .ToListAsync();
+
     public async Task<InvoiceHcmRefFile> SaveHcmRefFileAsync(InvoiceHcmRefFile refFile)
     {
         var existing = await _db.InvoiceHcmRefFiles

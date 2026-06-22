@@ -31,6 +31,7 @@ public interface IInvoicingService
     // HCM Ref Files
     Task<List<InvoiceHcmRefFile>> GetHcmRefFilesAsync(int scheduleId);
     Task<InvoiceHcmRefFile?> GetHcmRefFileForMonthAsync(int scheduleId, string monthYear);
+    Task<List<InvoiceHcmRefFile>> GetHcmRefFilesForMonthAsync(string monthYear, int excludeScheduleId);
     Task<InvoiceHcmRefFile> SaveHcmRefFileAsync(InvoiceHcmRefFile refFile);
     Task DeleteHcmRefFileAsync(int id);
 

@@ -2,8 +2,9 @@
 @using PCA.Modules.Invoicing.Models
 @{
     ViewData["Title"] = Model.Name;
-    var refFiles = ViewBag.HcmRefFiles as List<InvoiceHcmRefFile> ?? new List<InvoiceHcmRefFile>();
-    var currentMonth = DateTime.UtcNow.ToString("yyyy-MM");
+    var refFiles       = ViewBag.HcmRefFiles     as List<InvoiceHcmRefFile> ?? new List<InvoiceHcmRefFile>();
+    var otherFiles     = ViewBag.OtherMonthFiles  as List<InvoiceHcmRefFile> ?? new List<InvoiceHcmRefFile>();
+    var currentMonth   = DateTime.UtcNow.ToString("yyyy-MM");
     var hasRefForThisMonth = refFiles.Any(f => f.MonthYear == currentMonth);
 }
 
@@ -38,6 +39,12 @@
         @TempData["Success"] <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 }
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Error"] <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
 
 <div class="row g-3">
     <div class="col-lg-8">
@@ -63,6 +70,32 @@
                 <p class="text-muted small mb-3">
                     Upload the monthly HCM ref file (Excel with IPPS numbers in column A) for each month you plan to run an invoice with split sheets.
                 </p>
+
+                @if (!hasRefForThisMonth && otherFiles.Any())
+                {
+                    <div class="alert alert-info d-flex align-items-start gap-3 mb-3 py-2 px-3" style="font-size:13px;border-radius:8px;">
+                        <i class="bi bi-lightbulb-fill mt-1 flex-shrink-0" style="color:var(--color-primary);"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold mb-1">A ref file for @currentMonth already exists on another schedule</div>
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                @foreach (var other in otherFiles)
+                                {
+                                    <form asp-action="ReuseHcmRef" asp-route-id="@Model.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="sourceRefFileId" value="@other.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size:12px;">
+                                            <i class="bi bi-copy me-1"></i>
+                                            Use file from <strong>@(other.Schedule?.Name ?? "another schedule")</strong>
+                                            <span class="text-muted ms-1">(@other.OriginalFileName)</span>
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+                            <div class="text-muted mt-2" style="font-size:11px;">Or upload a different file below if this schedule needs its own.</div>
+                        </div>
+                    </div>
+                }
+
                 <form asp-action="UploadHcmRef" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="row g-2 align-items-end mb-3">
                     @Html.AntiForgeryToken()
                     <div class="col-md-4">

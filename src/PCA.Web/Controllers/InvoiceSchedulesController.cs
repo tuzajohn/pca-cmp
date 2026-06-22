@@ -79,9 +79,43 @@ public class InvoiceSchedulesController : Controller
     {
         var schedule = await _svc.GetScheduleByIdAsync(id);
         if (schedule == null) return NotFound();
-        ViewBag.Description  = ScheduleCronHelper.Describe(schedule);
-        ViewBag.HcmRefFiles  = await _svc.GetHcmRefFilesAsync(id);
+        var currentMonth = DateTime.UtcNow.ToString("yyyy-MM");
+        ViewBag.Description      = ScheduleCronHelper.Describe(schedule);
+        ViewBag.HcmRefFiles      = await _svc.GetHcmRefFilesAsync(id);
+        ViewBag.OtherMonthFiles  = await _svc.GetHcmRefFilesForMonthAsync(currentMonth, id);
         return View(schedule);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReuseHcmRef(int id, int sourceRefFileId)
+    {
+        var schedule = await _svc.GetScheduleByIdAsync(id);
+        if (schedule == null) return NotFound();
+
+        var source = await _svc.GetHcmRefFileForMonthAsync(0, "");
+        // fetch by id directly via month files list
+        var currentMonth = DateTime.UtcNow.ToString("yyyy-MM");
+        var candidates = await _svc.GetHcmRefFilesForMonthAsync(currentMonth, id);
+        var src = candidates.FirstOrDefault(f => f.Id == sourceRefFileId);
+        if (src == null)
+        {
+            TempData["Error"] = "Source ref file not found.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        var user = await _users.GetUserAsync(User);
+        await _svc.SaveHcmRefFileAsync(new InvoiceHcmRefFile
+        {
+            ScheduleId       = id,
+            MonthYear        = src.MonthYear,
+            FilePath         = src.FilePath,
+            OriginalFileName = src.OriginalFileName,
+            UploadedAt       = DateTime.UtcNow,
+            UploadedById     = user?.Id
+        });
+
+        TempData["Success"] = $"Reused HCM ref file from {src.Schedule?.Name ?? "another schedule"} for {src.MonthYear}.";
+        return RedirectToAction(nameof(Details), new { id });
     }
 
     [HttpGet]
