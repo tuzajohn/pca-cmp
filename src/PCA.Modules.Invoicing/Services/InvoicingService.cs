@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using Microsoft.EntityFrameworkCore;
+using PageSort;
 using PCA.Modules.Invoicing.Models;
 
 namespace PCA.Modules.Invoicing.Services;
@@ -183,5 +185,15 @@ public class InvoicingService : IInvoicingService
     {
         _db.InvoiceRuns.Update(run);
         await _db.SaveChangesAsync();
+    }
+
+    public Task<PagedResult<InvoiceRun>> GetRunsPagedAsync(int scheduleId, int page, int pageSize)
+    {
+        var query = _db.InvoiceRuns
+            .Include(r => r.TriggeredBy)
+            .Where(r => r.ScheduleId == scheduleId);
+
+        return Task.FromResult(Page<InvoiceRun>.GeneratePaging(query,
+            new PageQuery { PageNumber = page, PageSize = pageSize, SortProperty = "TriggeredAt", SortDirection = ListSortDirection.Descending }));
     }
 }

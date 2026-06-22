@@ -21,6 +21,43 @@ public class ApiKeysController : Controller
     public async Task<IActionResult> Index()
         => View(await _service.GetAllAsync());
 
+    [HttpGet]
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "desc", string? isActive = null, string? search = null)
+    {
+        var all = await _service.GetAllAsync();
+
+        if (isActive == "true")  all = all.Where(k => k.IsActive).ToList();
+        if (isActive == "false") all = all.Where(k => !k.IsActive).ToList();
+        if (!string.IsNullOrEmpty(search))
+            all = all.Where(k => k.AppName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                k.KeyPrefix.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var sorted = sortCol switch {
+            "appName"   => sortDir == "asc" ? all.OrderBy(k => k.AppName).ToList() : all.OrderByDescending(k => k.AppName).ToList(),
+            "prefix"    => sortDir == "asc" ? all.OrderBy(k => k.KeyPrefix).ToList() : all.OrderByDescending(k => k.KeyPrefix).ToList(),
+            "createdAt" => sortDir == "asc" ? all.OrderBy(k => k.CreatedAt).ToList() : all.OrderByDescending(k => k.CreatedAt).ToList(),
+            "lastUsed"  => sortDir == "asc" ? all.OrderBy(k => k.LastUsedAt).ToList() : all.OrderByDescending(k => k.LastUsedAt).ToList(),
+            _           => all.OrderByDescending(k => k.CreatedAt).ToList()
+        };
+        var totalCount = sorted.Count;
+        var items = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        int totalPages = pageSize > 0 ? (int)Math.Ceiling((double)totalCount / pageSize) : 1;
+
+        return Json(new {
+            items = items.Select(k => new {
+                id        = k.Id,
+                appName   = k.AppName,
+                prefix    = k.KeyPrefix,
+                isActive  = k.IsActive,
+                createdAt = k.CreatedAt.ToString("dd MMM yyyy"),
+                lastUsed  = k.LastUsedAt.HasValue ? k.LastUsedAt.Value.ToString("dd MMM yyyy HH:mm") : ""
+            }),
+            totalCount,
+            currentPage = page,
+            totalPages
+        });
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(string appName)
     {

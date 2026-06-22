@@ -29,7 +29,7 @@ public class ServerRoomAccessController : Controller
         _attachmentService = attachmentService;
     }
 
-    public async Task<IActionResult> Index(string? status, int page = 1, int pageSize = 25)
+    public async Task<IActionResult> Index(string? status, int page = 1, int pageSize = 20)
     {
         var result = await _svc.GetServerRoomRequestsPagedAsync(status, page, pageSize);
         ViewBag.StatusFilter = status;
@@ -38,6 +38,32 @@ public class ServerRoomAccessController : Controller
             return PartialView("_ServerRoomList", result);
 
         return View(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Data(
+        int page = 1, int pageSize = 20,
+        string? sortCol = null, string? sortDir = "desc",
+        string? status = null, string? search = null)
+    {
+        var result = await _svc.GetServerRoomRequestsPagedAsync(status, page, pageSize, sortCol, sortDir, search);
+
+        return Json(new {
+            items = result.Collection.Select(r => new {
+                id             = r.Id,
+                serial         = r.SerialNumber,
+                visitorName    = r.VisitorName,
+                visitorCompany = r.VisitorCompany ?? "",
+                isExternal     = r.IsExternal,
+                purpose        = r.Purpose,
+                plannedEntry   = r.PlannedEntryDateTime.ToString("dd MMM yyyy HH:mm"),
+                plannedExit    = r.PlannedExitDateTime.ToString("dd MMM yyyy HH:mm"),
+                status         = r.Status.ToString()
+            }),
+            totalCount  = result.TotalCount,
+            currentPage = result.CurrentPage,
+            totalPages = result.TotalPages
+        });
     }
 
     public IActionResult Create() => View(new ServerRoomCreateViewModel());

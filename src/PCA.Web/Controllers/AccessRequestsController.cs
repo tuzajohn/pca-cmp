@@ -29,7 +29,7 @@ public class AccessRequestsController : Controller
         _attachmentService = attachmentService;
     }
 
-    public async Task<IActionResult> Index(string? status, string? system, DateTime? from, DateTime? to, int page = 1, int pageSize = 25)
+    public async Task<IActionResult> Index(string? status, string? system, DateTime? from, DateTime? to, int page = 1, int pageSize = 20)
     {
         var user = await _userManager.GetUserAsync(User);
         var userId = User.IsInRole("Admin") ? null : user!.Id;
@@ -44,6 +44,34 @@ public class AccessRequestsController : Controller
             return PartialView("_AccessRequestList", result);
 
         return View(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Data(
+        int page = 1, int pageSize = 20,
+        string? sortCol = null, string? sortDir = "desc",
+        string? status = null, string? system = null, DateTime? from = null, DateTime? to = null)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        var userId = User.IsInRole("Admin") ? null : user!.Id;
+        var result = await _svc.GetAccessRequestsPagedAsync(userId, status, system, from, to, page, pageSize, sortCol, sortDir);
+
+        return Json(new {
+            items = result.Collection.Select(r => new {
+                id         = r.Id,
+                serial     = string.IsNullOrEmpty(r.SerialNumber) ? "Draft" : r.SerialNumber,
+                employee   = r.EmployeeName,
+                department = r.Department,
+                system     = r.SystemName,
+                type       = r.AccessType,
+                privileged = r.IsPrivileged,
+                status     = r.Status.ToString(),
+                createdAt  = r.CreatedAt.ToString("dd MMM yyyy")
+            }),
+            totalCount  = result.TotalCount,
+            currentPage = result.CurrentPage,
+            totalPages = result.TotalPages
+        });
     }
 
     public IActionResult Create() => View(new AccessRequestCreateViewModel());

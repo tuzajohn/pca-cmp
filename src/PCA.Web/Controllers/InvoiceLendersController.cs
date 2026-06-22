@@ -30,6 +30,43 @@ public class InvoiceLendersController : Controller
 
     public async Task<IActionResult> Index() => View(await _svc.GetLendersAsync());
 
+    [HttpGet]
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "asc", string? companyType = null, string? isActive = null, string? search = null)
+    {
+        var all = await _svc.GetLendersAsync();
+
+        if (!string.IsNullOrEmpty(companyType))
+            all = all.Where(l => l.CompanyType == companyType.ToUpper()).ToList();
+        if (isActive == "true")  all = all.Where(l => l.IsActive).ToList();
+        if (isActive == "false") all = all.Where(l => !l.IsActive).ToList();
+        if (!string.IsNullOrEmpty(search))
+            all = all.Where(l => l.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (l.DeductionCode ?? "").Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var sorted = sortCol switch {
+            "name"          => sortDir == "asc" ? all.OrderBy(l => l.Name).ToList() : all.OrderByDescending(l => l.Name).ToList(),
+            "companyType"   => sortDir == "asc" ? all.OrderBy(l => l.CompanyType).ToList() : all.OrderByDescending(l => l.CompanyType).ToList(),
+            "deductionCode" => sortDir == "asc" ? all.OrderBy(l => l.DeductionCode).ToList() : all.OrderByDescending(l => l.DeductionCode).ToList(),
+            _               => all.OrderBy(l => l.Name).ToList()
+        };
+        var totalCount = sorted.Count;
+        var items = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        int totalPages = pageSize > 0 ? (int)Math.Ceiling((double)totalCount / pageSize) : 1;
+
+        return Json(new {
+            items = items.Select(l => new {
+                id            = l.Id,
+                name          = l.Name,
+                companyType   = l.CompanyType ?? "",
+                deductionCode = l.DeductionCode ?? "",
+                isActive      = l.IsActive
+            }),
+            totalCount,
+            currentPage = page,
+            totalPages
+        });
+    }
+
     public IActionResult Create() => View(new InvoiceLenderCreateViewModel());
 
     /// <summary>

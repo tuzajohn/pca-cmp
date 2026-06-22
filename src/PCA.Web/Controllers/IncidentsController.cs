@@ -35,7 +35,7 @@ public class IncidentsController : Controller
         _logger = logger;
     }
 
-    public async Task<IActionResult> Index(string? status, string? severity, string? category, int page = 1, int pageSize = 25)
+    public async Task<IActionResult> Index(string? status, string? severity, string? category, int page = 1, int pageSize = 20)
     {
         var user = await _userManager.GetUserAsync(User);
         var userId = User.IsInRole("Admin") ? null : user!.Id;
@@ -49,6 +49,34 @@ public class IncidentsController : Controller
             return PartialView("_IncidentList", result);
 
         return View(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Data(
+        int page = 1, int pageSize = 20,
+        string? sortCol = null, string? sortDir = "desc",
+        string? status = null, string? severity = null, string? category = null, string? search = null)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        var userId = User.IsInRole("Admin") ? null : user!.Id;
+        var result = await _incidentService.GetPagedAsync(userId, status, severity, category, page, pageSize, sortCol, sortDir, search);
+
+        return Json(new {
+            items = result.Collection.Select(i => new {
+                id         = i.Id,
+                serial     = i.SerialNumber,
+                title      = i.Title,
+                category   = i.Category.ToString(),
+                severity   = i.Severity.ToString(),
+                priority   = i.Priority.ToString(),
+                status     = i.Status.ToString(),
+                assignedTo = i.AssignedTo?.FullName ?? "",
+                detected   = i.DetectedAt.ToString("dd MMM yyyy")
+            }),
+            totalCount  = result.TotalCount,
+            currentPage = result.CurrentPage,
+            totalPages = result.TotalPages
+        });
     }
 
     public IActionResult Create()

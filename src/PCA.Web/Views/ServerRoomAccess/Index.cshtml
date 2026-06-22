@@ -1,8 +1,5 @@
-@model PCA.Shared.PagedResult<PCA.Modules.AccessManagement.Models.ServerRoomAccessRequest>
-@using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Server Room Access";
-    var statusFilter = ViewBag.StatusFilter as string;
 }
 
 <div class="page-header">
@@ -15,66 +12,37 @@
     </a>
 </div>
 
-<div class="card mb-3">
-    <div class="card-body py-2">
-        <form id="filter-form" method="get" class="d-flex flex-wrap gap-2 align-items-center">
-            <select name="status" class="form-select form-select-sm" style="width:auto;">
-                <option value="">All Statuses</option>
-                @foreach (var status in Enum.GetValues<ServerRoomAccessStatus>())
-                {
-                    <option value="@status" selected="@(status.ToString() == statusFilter)">@status</option>
-                }
-            </select>
-            <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
-            @if (!string.IsNullOrEmpty(statusFilter))
-            {
-                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear</a>
-            }
-        </form>
-    </div>
-</div>
-
 <div class="card">
-    <div class="card-body p-0" id="list-container">
-        @await Html.PartialAsync("_ServerRoomList", Model)
-    </div>
+    <div id="tbl-sr"></div>
 </div>
 
 @section Scripts {
 <script>
 (function () {
-    const form = document.getElementById('filter-form');
-    const container = document.getElementById('list-container');
+    const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    async function loadPage(url) {
-        container.style.opacity = '0.5';
-        const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-        container.innerHTML = await resp.text();
-        container.style.opacity = '1';
-        history.pushState(null, '', url);
-        bindPagination();
-    }
-
-    function bindPagination() {
-        container.querySelectorAll('.pagination-link').forEach(a => {
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                const url = new URL(window.location.href);
-                url.searchParams.set('page', a.dataset.page);
-                loadPage(url.toString());
-            });
-        });
-    }
-
-    form.addEventListener('submit', e => {
-        e.preventDefault();
-        const url = new URL(window.location.pathname, window.location.origin);
-        new FormData(form).forEach((v, k) => { if (v) url.searchParams.set(k, v); });
-        url.searchParams.set('page', '1');
-        loadPage(url.toString());
+    PagedTable.init({
+        tableId: 'tbl-sr',
+        url: '/ServerRoomAccess/Data',
+        pageSize: 10,
+        defaultSort: { col: 'plannedEntry', dir: 'desc' },
+        filterBar: [
+            { key: 'status', label: 'Status', type: 'select', options: ['Pending','Approved','Rejected','CheckedIn','CheckedOut','Cancelled'] },
+            { key: 'search', label: 'Search', type: 'text',   placeholder: 'Visitor or purpose…' }
+        ],
+        columns: [
+            { key: 'serial',         label: 'Serial',        thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/ServerRoomAccess/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
+            { key: 'visitorName',    label: 'Visitor',       tdClass: 'align-middle' },
+            { key: 'visitorCompany', label: 'Company',       tdClass: 'align-middle text-muted', render: r => r.visitorCompany || '—' },
+            { key: 'isExternal',     label: 'External',      sortable: false, tdClass: 'align-middle', render: r => r.isExternal ? '<span class="status-badge status-submitted">External</span>' : '' },
+            { key: 'purpose',        label: 'Purpose',       tdClass: 'align-middle text-muted' },
+            { key: 'plannedEntry',   label: 'Planned Entry', tdClass: 'align-middle text-muted' },
+            { key: 'plannedExit',    label: 'Planned Exit',  tdClass: 'align-middle text-muted', render: r => r.plannedExit || '—' },
+            { key: 'status',         label: 'Status',        tdClass: 'align-middle', render: r => badge(r.status) },
+            { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+              render: r => `<a href="/ServerRoomAccess/Details/${r.id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
+        ]
     });
-
-    bindPagination();
 })();
 </script>
 }

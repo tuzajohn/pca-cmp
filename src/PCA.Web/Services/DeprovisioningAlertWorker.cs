@@ -18,7 +18,9 @@ public class DeprovisioningAlertWorker : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
+            try { await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken); }
+            catch (OperationCanceledException) { break; }
+
             if (stoppingToken.IsCancellationRequested) break;
 
             await RunAlertsAsync(stoppingToken);

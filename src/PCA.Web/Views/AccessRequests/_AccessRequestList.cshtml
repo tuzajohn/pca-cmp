@@ -1,7 +1,7 @@
-@model PCA.Shared.PagedResult<PCA.Modules.AccessManagement.Models.AccessRequest>
+@model PageSort.PagedResult<PCA.Modules.AccessManagement.Models.AccessRequest>
 @using PCA.Shared.Enums
 
-@if (!Model.Items.Any())
+@if (!Model.Collection.Any())
 {
     <div class="text-center py-5 text-muted">
         <i class="bi bi-person-lock" style="font-size:40px;opacity:.3;"></i>
@@ -24,7 +24,7 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var req in Model.Items)
+            @foreach (var req in Model.Collection)
             {
                 var statusCls = req.Status switch {
                     AccessRequestStatus.Approved    => "status-approved",
@@ -65,5 +65,5 @@ else
             }
         </tbody>
     </table>
-    @await Html.PartialAsync("_Pagination", new PCA.Web.Models.PaginationViewModel { Page = Model.Page, TotalPages = Model.TotalPages, TotalCount = Model.TotalCount, PageSize = Model.PageSize })
+    @await Html.PartialAsync("_Pagination", new PCA.Web.Models.PaginationViewModel { Page = Model.CurrentPage, TotalPages = Model.TotalPages, TotalCount = Model.TotalCount, PageSize = Model.PageSize })
 }

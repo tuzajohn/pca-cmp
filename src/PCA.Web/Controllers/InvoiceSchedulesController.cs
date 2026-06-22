@@ -84,6 +84,66 @@ public class InvoiceSchedulesController : Controller
         return View(schedule);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> RunsData(int id, int page = 1, int pageSize = 20)
+    {
+        var result = await _svc.GetRunsPagedAsync(id, page, pageSize);
+
+        return Json(new {
+            items = result.Collection.Select(r => new {
+                runId       = r.Id,
+                triggeredAt = r.TriggeredAt.ToString("dd MMM yyyy HH:mm"),
+                triggeredBy = r.TriggeredBy?.FullName ?? "Scheduler",
+                ippsRows    = r.IppsRowCount,
+                hcmRows     = r.HcmRowCount,
+                finalRows   = r.FinalRowCount,
+                status      = r.Status.ToString(),
+                hasFile     = r.Status == InvoiceRunStatus.Completed && !string.IsNullOrEmpty(r.FilePath)
+            }),
+            totalCount  = result.TotalCount,
+            currentPage = result.CurrentPage,
+            totalPages = result.TotalPages
+        });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "asc", string? isEnabled = null, string? search = null)
+    {
+        var all = await _svc.GetSchedulesAsync();
+
+        if (isEnabled == "true")  all = all.Where(s => s.IsEnabled).ToList();
+        if (isEnabled == "false") all = all.Where(s => !s.IsEnabled).ToList();
+        if (!string.IsNullOrEmpty(search))
+            all = all.Where(s => s.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (s.Lender?.Name ?? "").Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var sorted = sortCol switch {
+            "name"      => sortDir == "asc" ? all.OrderBy(s => s.Name).ToList() : all.OrderByDescending(s => s.Name).ToList(),
+            "lender"    => sortDir == "asc" ? all.OrderBy(s => s.Lender?.Name).ToList() : all.OrderByDescending(s => s.Lender?.Name).ToList(),
+            "nextRunAt" => sortDir == "asc" ? all.OrderBy(s => s.NextRunAt).ToList() : all.OrderByDescending(s => s.NextRunAt).ToList(),
+            _           => all.OrderBy(s => s.Name).ToList()
+        };
+        var totalCount = sorted.Count;
+        var items = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        int totalPages = pageSize > 0 ? (int)Math.Ceiling((double)totalCount / pageSize) : 1;
+
+        return Json(new {
+            items = items.Select(s => new {
+                id          = s.Id,
+                name        = s.Name,
+                lender      = s.Lender?.Name ?? "",
+                companyType = s.Lender?.CompanyType ?? "",
+                frequency   = ScheduleCronHelper.Describe(s),
+                isEnabled   = s.IsEnabled,
+                nextRunAt   = s.NextRunAt.HasValue ? s.NextRunAt.Value.ToString("dd MMM yyyy HH:mm") : "",
+                lastRunAt   = s.LastRunAt.HasValue ? s.LastRunAt.Value.ToString("dd MMM yyyy HH:mm") : ""
+            }),
+            totalCount,
+            currentPage = page,
+            totalPages
+        });
+    }
+
     public async Task<IActionResult> Edit(int id)
     {
         var s = await _svc.GetScheduleByIdAsync(id);

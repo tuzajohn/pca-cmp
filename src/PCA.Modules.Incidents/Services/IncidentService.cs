@@ -1,6 +1,7 @@
+using System.ComponentModel;
 using Microsoft.EntityFrameworkCore;
+using PageSort;
 using PCA.Modules.Incidents.Models;
-using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.Incidents.Services;
@@ -33,8 +34,8 @@ public class IncidentService : IIncidentService
             .ToListAsync();
     }
 
-    public async Task<PagedResult<Incident>> GetPagedAsync(
-        string? userId, string? status, string? severity, string? category, int page, int pageSize)
+    public Task<PagedResult<Incident>> GetPagedAsync(
+        string? userId, string? status, string? severity, string? category, int page, int pageSize, string? sortCol = null, string? sortDir = null, string? search = null)
     {
         var query = _db.Incidents
             .Include(i => i.ReportedBy)
@@ -49,11 +50,23 @@ public class IncidentService : IIncidentService
             query = query.Where(i => i.Severity == sv);
         if (!string.IsNullOrEmpty(category) && Enum.TryParse<IncidentCategory>(category, out var cat))
             query = query.Where(i => i.Category == cat);
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(i => i.Title.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)));
 
-        query = query.OrderByDescending(i => i.CreatedAt);
-        var total = await query.CountAsync();
-        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        return new PagedResult<Incident> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+        var prop = sortCol switch {
+            "serial"   => "SerialNumber",
+            "title"    => "Title",
+            "severity" => "Severity",
+            "priority" => "Priority",
+            "status"   => "Status",
+            "detected" => "DetectedAt",
+            _          => "CreatedAt"
+        };
+        var dir = (sortCol == null || string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase))
+            ? ListSortDirection.Descending : ListSortDirection.Ascending;
+
+        return Task.FromResult(Page<Incident>.GeneratePaging(query,
+            new PageQuery { PageNumber = page, PageSize = pageSize, SortProperty = prop, SortDirection = dir }));
     }
 
     public async Task<Incident?> GetByIdAsync(int id)

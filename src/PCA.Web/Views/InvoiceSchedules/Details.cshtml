@@ -45,60 +45,7 @@
         <div class="form-section">
             <div class="form-section-header"><i class="bi bi-clock-history"></i> Run History</div>
             <div class="form-section-body p-0">
-                @if (!Model.Runs.Any())
-                {
-                    <div class="text-center py-4 text-muted" style="font-size:13px;">No runs yet.</div>
-                }
-                else
-                {
-                    <table class="table table-sm mb-0" style="font-size:13px;">
-                        <thead style="background:var(--bs-tertiary-bg);">
-                            <tr>
-                                <th class="ps-3">Triggered At</th>
-                                <th>Triggered By</th>
-                                <th>IPPS Rows</th>
-                                <th>HCM Rows</th>
-                                <th>Final Rows</th>
-                                <th>Status</th>
-                                <th class="pe-3"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var run in Model.Runs.OrderByDescending(r => r.TriggeredAt))
-                            {
-                                var statusCls = run.Status switch {
-                                    InvoiceRunStatus.Completed => "status-approved",
-                                    InvoiceRunStatus.Failed    => "status-rejected",
-                                    InvoiceRunStatus.Running   => "status-underreview",
-                                    _                          => "status-draft"
-                                };
-                                <tr>
-                                    <td class="ps-3 align-middle" style="white-space:nowrap;">@run.TriggeredAt.ToString("dd MMM yyyy HH:mm")</td>
-                                    <td class="align-middle text-muted">@(run.TriggeredBy?.FullName ?? "Scheduler")</td>
-                                    <td class="align-middle text-muted">@run.IppsRowCount</td>
-                                    <td class="align-middle text-muted">@run.HcmRowCount</td>
-                                    <td class="align-middle fw-semibold">@run.FinalRowCount</td>
-                                    <td class="align-middle">
-                                        <span class="status-badge @statusCls" style="font-size:10px;">@run.Status</span>
-                                    </td>
-                                    <td class="pe-3 align-middle">
-                                        <a asp-controller="InvoiceRuns" asp-action="Details" asp-route-id="@run.Id"
-                                           class="btn btn-outline-secondary btn-sm" style="padding:2px 8px;font-size:11px;">
-                                            <i class="bi bi-eye"></i>
-                                        </a>
-                                        @if (run.Status == InvoiceRunStatus.Completed && !string.IsNullOrEmpty(run.FilePath))
-                                        {
-                                            <a asp-controller="InvoiceRuns" asp-action="Download" asp-route-id="@run.Id"
-                                               class="btn btn-outline-success btn-sm ms-1" style="padding:2px 8px;font-size:11px;">
-                                                <i class="bi bi-download"></i>
-                                            </a>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
+                <div id="dt-runs"></div>
             </div>
         </div>
 
@@ -245,3 +192,31 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+<script>
+(function () {
+    var scheduleId = @Model.Id;
+    PagedTable.init({
+        tableId: 'dt-runs',
+        tableClass: 'table table-sm mb-0',
+        url: '/InvoiceSchedules/RunsData?id=' + scheduleId,
+        pageSize: 10,
+        columns: [
+            { key: 'triggeredAt', label: 'Triggered At', thClass: 'ps-3', tdClass: 'ps-3 align-middle text-muted' },
+            { key: 'triggeredBy', label: 'Triggered By', tdClass: 'align-middle text-muted' },
+            { key: 'ippsRows',    label: 'IPPS Rows',    tdClass: 'align-middle' },
+            { key: 'hcmRows',     label: 'HCM Rows',     tdClass: 'align-middle' },
+            { key: 'finalRows',   label: 'Final Rows',   tdClass: 'align-middle' },
+            { key: 'status',      label: 'Status',       tdClass: 'align-middle', render: r => `<span class="status-badge status-${r.status.toLowerCase()}">${r.status}</span>` },
+            { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+              render: r => {
+                  let html = `<a href="/InvoiceRuns/Details/${r.runId}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;font-size:11px;"><i class="bi bi-eye"></i></a>`;
+                  if (r.hasFile) html += ` <a href="/InvoiceRuns/Download/${r.runId}" class="btn btn-sm btn-outline-success ms-1" style="padding:2px 8px;font-size:11px;"><i class="bi bi-download"></i></a>`;
+                  return html;
+              } }
+        ]
+    });
+})();
+</script>
+}

@@ -1,5 +1,8 @@
 ## .NET / ASP.NET Core gitignore
 
+# Claude Code agent worktrees
+.claude/worktrees/
+
 # Generated migration SQL script (produced by make migrations-script)
 migrations.sql
 

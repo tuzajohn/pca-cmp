@@ -34,7 +34,7 @@ public class ChangeRequestsController : Controller
         _logger = logger;
     }
 
-    public async Task<IActionResult> Index(string? status, int page = 1, int pageSize = 25)
+    public async Task<IActionResult> Index(string? status, int page = 1, int pageSize = 20)
     {
         var user = await _userManager.GetUserAsync(User);
         var userId = User.IsInRole("Admin") ? null : user!.Id;
@@ -46,6 +46,36 @@ public class ChangeRequestsController : Controller
             return PartialView("_ChangeRequestList", result);
 
         return View(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Data(
+        int page = 1, int pageSize = 20,
+        string? sortCol = null, string? sortDir = "desc",
+        string? status = null, string? search = null)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        var userId = User.IsInRole("Admin") ? null : user!.Id;
+        var result = await _crService.GetPagedAsync(userId, status, page, pageSize, sortCol, sortDir, search);
+
+        return Json(new {
+            items = result.Collection.Select(cr => new {
+                id            = cr.Id,
+                serial        = string.IsNullOrEmpty(cr.SerialNumber) ? $"#{cr.Id}" : cr.SerialNumber,
+                title         = cr.Title,
+                requestedBy   = cr.RequestedBy?.FullName ?? "",
+                type          = cr.Type.ToString(),
+                status        = cr.Status.ToString(),
+                priority      = cr.Priority.ToString(),
+                targetDate    = cr.TargetDate?.ToString("dd MMM yyyy") ?? "",
+                targetOverdue = cr.TargetDate.HasValue && cr.TargetDate.Value < DateTime.Today
+                               && cr.Status is not ChangeStatus.Closed and not ChangeStatus.Implemented,
+                createdAt     = cr.CreatedAt.ToString("dd MMM yyyy")
+            }),
+            totalCount  = result.TotalCount,
+            currentPage = result.CurrentPage,
+            totalPages = result.TotalPages
+        });
     }
 
     public IActionResult Create()

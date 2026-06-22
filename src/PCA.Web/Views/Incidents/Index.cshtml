@@ -1,11 +1,5 @@
-@model PCA.Shared.PagedResult<PCA.Modules.Incidents.Models.Incident>
-@using PCA.Shared.Enums
-@using PCA.Web.Helpers
 @{
     ViewData["Title"] = "Incidents";
-    var statusFilter = ViewBag.StatusFilter as string;
-    var severityFilter = ViewBag.SeverityFilter as string;
-    var categoryFilter = ViewBag.CategoryFilter as string;
 }
 
 <div class="page-header">
@@ -18,80 +12,39 @@
     </a>
 </div>
 
-<div class="card mb-3">
-    <div class="card-body py-2">
-        <form id="filter-form" method="get" class="d-flex flex-wrap gap-2 align-items-center">
-            <select name="status" class="form-select form-select-sm" style="width:auto;">
-                <option value="">All Statuses</option>
-                @foreach (var s in Enum.GetValues<IncidentStatus>())
-                {
-                    <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
-                }
-            </select>
-            <select name="severity" class="form-select form-select-sm" style="width:auto;">
-                <option value="">All Severities</option>
-                @foreach (var sv in Enum.GetValues<IncidentSeverity>())
-                {
-                    <option value="@sv" selected="@(sv.ToString() == severityFilter)">@IncidentViewHelpers.SeverityLabel(sv)</option>
-                }
-            </select>
-            <select name="category" class="form-select form-select-sm" style="width:auto;">
-                <option value="">All Categories</option>
-                @foreach (var cat in Enum.GetValues<IncidentCategory>())
-                {
-                    <option value="@cat" selected="@(cat.ToString() == categoryFilter)">@cat</option>
-                }
-            </select>
-            <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
-            @if (!string.IsNullOrEmpty(statusFilter) || !string.IsNullOrEmpty(severityFilter) || !string.IsNullOrEmpty(categoryFilter))
-            {
-                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear</a>
-            }
-        </form>
-    </div>
-</div>
-
 <div class="card">
-    <div class="card-body p-0" id="list-container">
-        @await Html.PartialAsync("_IncidentList", Model)
-    </div>
+    <div id="tbl-inc"></div>
 </div>
 
 @section Scripts {
 <script>
 (function () {
-    const form = document.getElementById('filter-form');
-    const container = document.getElementById('list-container');
+    const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    async function loadPage(url) {
-        container.style.opacity = '0.5';
-        const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-        container.innerHTML = await resp.text();
-        container.style.opacity = '1';
-        history.pushState(null, '', url);
-        bindPagination();
-    }
-
-    function bindPagination() {
-        container.querySelectorAll('.pagination-link').forEach(a => {
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                const url = new URL(window.location.href);
-                url.searchParams.set('page', a.dataset.page);
-                loadPage(url.toString());
-            });
-        });
-    }
-
-    form.addEventListener('submit', e => {
-        e.preventDefault();
-        const url = new URL(window.location.pathname, window.location.origin);
-        new FormData(form).forEach((v, k) => { if (v) url.searchParams.set(k, v); });
-        url.searchParams.set('page', '1');
-        loadPage(url.toString());
+    PagedTable.init({
+        tableId: 'tbl-inc',
+        url: '/Incidents/Data',
+        pageSize: 10,
+        defaultSort: { col: 'detected', dir: 'desc' },
+        filterBar: [
+            { key: 'status',   label: 'Status',   type: 'select', options: ['Open','InProgress','Resolved','Closed'] },
+            { key: 'severity', label: 'Severity', type: 'select', options: ['Critical','High','Medium','Low'] },
+            { key: 'category', label: 'Category', type: 'select', options: ['Security','Infrastructure','Application','Network','Hardware','Other'] },
+            { key: 'search',   label: 'Search',   type: 'text',   placeholder: 'Title or serial…' }
+        ],
+        columns: [
+            { key: 'serial',     label: 'Serial',      thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/Incidents/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
+            { key: 'title',      label: 'Title',       tdClass: 'align-middle' },
+            { key: 'category',   label: 'Category',    tdClass: 'align-middle', render: r => badge(r.category) },
+            { key: 'severity',   label: 'Severity',    tdClass: 'align-middle', render: r => badge(r.severity) },
+            { key: 'priority',   label: 'Priority',    tdClass: 'align-middle', render: r => badge(r.priority) },
+            { key: 'status',     label: 'Status',      tdClass: 'align-middle', render: r => badge(r.status) },
+            { key: 'assignedTo', label: 'Assigned To', tdClass: 'align-middle text-muted', render: r => r.assignedTo || '<span class="text-muted">Unassigned</span>' },
+            { key: 'detected',   label: 'Detected',    tdClass: 'align-middle text-muted' },
+            { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+              render: r => `<a href="/Incidents/Details/${r.id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
+        ]
     });
-
-    bindPagination();
 })();
 </script>
 }

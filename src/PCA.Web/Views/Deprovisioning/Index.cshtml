@@ -1,20 +1,5 @@
-@model PCA.Shared.PagedResult<PCA.Modules.AccessManagement.Models.DeprovisioningEvent>
-@using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Deprovisioning";
-    var statusFilter = ViewBag.StatusFilter as string;
-    bool allTime = ViewBag.AllTime == true;
-    var overdueCount = (int)(ViewBag.OverdueCount ?? 0);
-}
-
-@if (overdueCount > 0)
-{
-    <div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
-        <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
-        <div class="flex-grow-1">
-            <strong>@overdueCount deprovisioning event@(overdueCount == 1 ? "" : "s") overdue</strong> — SLA breached. Immediate action required.
-        </div>
-    </div>
 }
 
 <div class="page-header">
@@ -30,74 +15,56 @@
     }
 </div>
 
-<div class="card mb-3">
-    <div class="card-body py-2">
-        <form id="filter-form" method="get" class="d-flex flex-wrap gap-2 align-items-center">
-            <select name="status" class="form-select form-select-sm" style="width:auto;">
-                <option value="">All Statuses</option>
-                @foreach (var status in Enum.GetValues<DeprovisioningStatus>())
-                {
-                    <option value="@status" selected="@(status.ToString() == statusFilter)">@status</option>
-                }
-            </select>
-            <div class="form-check ms-2 mb-0">
-                <input type="checkbox" name="allTime" value="true" id="allTime" class="form-check-input" @(allTime ? "checked" : "") />
-                <label for="allTime" class="form-check-label" style="font-size:13px;">Show all time</label>
-            </div>
-            <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
-            @if (!string.IsNullOrEmpty(statusFilter) || allTime)
-            {
-                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear</a>
-            }
-            @if (!allTime)
-            {
-                <span class="text-muted ms-2" style="font-size:12px;">Showing last 12 months</span>
-            }
-        </form>
-    </div>
-</div>
+<div id="overdue-alert"></div>
 
 <div class="card">
-    <div class="card-body p-0" id="list-container">
-        @await Html.PartialAsync("_DeprovisioningList", Model)
-    </div>
+    <div id="tbl-dep"></div>
 </div>
 
 @section Scripts {
 <script>
 (function () {
-    const form = document.getElementById('filter-form');
-    const container = document.getElementById('list-container');
+    const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    async function loadPage(url) {
-        container.style.opacity = '0.5';
-        const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-        container.innerHTML = await resp.text();
-        container.style.opacity = '1';
-        history.pushState(null, '', url);
-        bindPagination();
-    }
-
-    function bindPagination() {
-        container.querySelectorAll('.pagination-link').forEach(a => {
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                const url = new URL(window.location.href);
-                url.searchParams.set('page', a.dataset.page);
-                loadPage(url.toString());
-            });
-        });
-    }
-
-    form.addEventListener('submit', e => {
-        e.preventDefault();
-        const url = new URL(window.location.pathname, window.location.origin);
-        new FormData(form).forEach((v, k) => { if (v) url.searchParams.set(k, v); });
-        url.searchParams.set('page', '1');
-        loadPage(url.toString());
+    const tbl = PagedTable.init({
+        tableId: 'tbl-dep',
+        url: '/Deprovisioning/Data',
+        pageSize: 10,
+        defaultSort: { col: 'slaDeadline', dir: 'desc' },
+        filterBar: [
+            { key: 'status',  label: 'Status',   type: 'select',   options: ['Pending','InProgress','Completed','Overdue'] },
+            { key: 'allTime', label: 'All Time',  type: 'checkbox' }
+        ],
+        columns: [
+            { key: 'serial',      label: 'Serial',        thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/Deprovisioning/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
+            { key: 'employee',    label: 'Employee',      tdClass: 'align-middle' },
+            { key: 'department',  label: 'Department',    tdClass: 'align-middle text-muted', render: r => r.department || '—' },
+            { key: 'trigger',     label: 'Trigger',       tdClass: 'align-middle text-muted' },
+            { key: 'hrNotified',  label: 'HR Notified',   tdClass: 'align-middle text-muted' },
+            { key: 'slaDeadline', label: 'SLA Deadline',  tdClass: 'align-middle', render: r => r.slaOverdue ? `<span class="text-danger fw-semibold">${r.slaDeadline}</span>` : r.slaDeadline },
+            { key: 'slaOverdue',  label: 'SLA Remaining', sortable: false, tdClass: 'align-middle', render: r => r.slaOverdue ? '<span class="text-danger fw-semibold">Overdue</span>' : `${r.slaH}h ${r.slaM}m` },
+            { key: 'status',      label: 'Status',        tdClass: 'align-middle', render: r => badge(r.status) },
+            { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+              render: r => `<a href="/Deprovisioning/Details/${r.id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
+        ]
     });
 
-    bindPagination();
+    function checkOverdue() {
+        fetch('/Deprovisioning/Data?page=1&pageSize=500')
+            .then(r => r.json())
+            .then(result => {
+                const overdue = (result.items || []).filter(r => r.slaOverdue).length;
+                const el = document.getElementById('overdue-alert');
+                el.innerHTML = overdue > 0
+                    ? `<div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
+                           <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
+                           <div><strong>${overdue} deprovisioning event${overdue === 1 ? '' : 's'} overdue</strong> — SLA breached. Immediate action required.</div>
+                       </div>`
+                    : '';
+            });
+    }
+
+    checkOverdue();
 })();
 </script>
 }

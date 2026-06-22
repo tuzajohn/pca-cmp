@@ -97,6 +97,69 @@ public class DocumentsController : Controller
         return View(vm);
     }
 
+    // ── Index Data ────────────────────────────────────────────────────────────
+
+    [HttpGet]
+    public async Task<IActionResult> IndexData(
+        int page = 1, int pageSize = 20,
+        string? sortCol = null, string? sortDir = "asc",
+        int? folderId = null, string? q = null, string? status = null, bool dueForReview = false)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        var roles = (await _userManager.GetRolesAsync(user!)).ToList();
+        var isAdmin = User.IsInRole("Admin");
+
+        List<PCA.Modules.Documents.Models.Document> docs;
+        if (!string.IsNullOrWhiteSpace(q))
+            docs = await _docService.SearchAsync(q);
+        else
+            docs = await _docService.GetAllAsync(folderId);
+
+        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<DocumentStatus>(status, out var statusEnum))
+            docs = docs.Where(d => d.Status == statusEnum).ToList();
+
+        if (dueForReview)
+        {
+            var cutoff = DateTime.UtcNow.AddDays(7);
+            docs = docs.Where(d => d.NextReviewDate.HasValue && d.NextReviewDate.Value <= cutoff).ToList();
+        }
+
+        if (!isAdmin)
+        {
+            var accessible = new List<PCA.Modules.Documents.Models.Document>();
+            foreach (var doc in docs)
+            {
+                var access = await _docService.GetEffectiveAccessAsync(doc.Id, doc.FolderId, user!.Id, roles);
+                if (access.HasValue) accessible.Add(doc);
+            }
+            docs = accessible;
+        }
+
+        var sorted = sortCol switch {
+            "title"      => sortDir == "asc" ? docs.OrderBy(d => d.Title).ToList() : docs.OrderByDescending(d => d.Title).ToList(),
+            "status"     => sortDir == "asc" ? docs.OrderBy(d => d.Status).ToList() : docs.OrderByDescending(d => d.Status).ToList(),
+            "reviewDate" => sortDir == "asc" ? docs.OrderBy(d => d.NextReviewDate).ToList() : docs.OrderByDescending(d => d.NextReviewDate).ToList(),
+            _            => docs.OrderBy(d => d.Title).ToList()
+        };
+
+        var totalCount = sorted.Count;
+        var items = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        int totalPages = pageSize > 0 ? (int)Math.Ceiling((double)totalCount / pageSize) : 1;
+
+        return Json(new {
+            items = items.Select(d => new {
+                id         = d.Id,
+                title      = d.Title,
+                status     = d.Status.ToString(),
+                reviewDate = d.NextReviewDate.HasValue ? d.NextReviewDate.Value.ToString("dd MMM yyyy") : "",
+                isDueForReview = d.NextReviewDate.HasValue && d.NextReviewDate.Value <= DateTime.UtcNow.AddDays(7)
+            }),
+            totalCount,
+            currentPage = page,
+            totalPages = totalPages
+        });
+    }
+
     // ── Details ───────────────────────────────────────────────────────────────
 
     public async Task<IActionResult> Details(int id)
@@ -135,6 +198,45 @@ public class DocumentsController : Controller
             .GetForEntityAsync("Document", id);
 
         return View(doc);
+    }
+
+    // ── Versions Data ─────────────────────────────────────────────────────────
+
+    [HttpGet]
+    public async Task<IActionResult> VersionsData(int id, int page = 1, int pageSize = 20)
+    {
+        var doc = await _docService.GetByIdAsync(id);
+        if (doc == null) return NotFound();
+
+        var user = await _userManager.GetUserAsync(User);
+        var roles = (await _userManager.GetRolesAsync(user!)).ToList();
+        var isAdmin = User.IsInRole("Admin");
+        if (!isAdmin)
+        {
+            var access = await _docService.GetEffectiveAccessAsync(doc.Id, doc.FolderId, user!.Id, roles);
+            if (!access.HasValue) return Forbid();
+        }
+
+        var result = await _docService.GetVersionsPagedAsync(id, page, pageSize);
+        var canManage = isAdmin || doc.OwnerId == user!.Id;
+
+        return Json(new {
+            items = result.Collection.Select(v => new {
+                versionId   = v.Id,
+                versionNumber = v.VersionNumber,
+                fileName    = v.OriginalFileName,
+                fileSize    = PCA.Web.Helpers.DocumentViewHelpers.FormatSize(v.FileSizeBytes),
+                fileExt     = System.IO.Path.GetExtension(v.OriginalFileName).TrimStart('.').ToUpper(),
+                uploadedBy  = v.UploadedBy?.FullName ?? "—",
+                uploadedAt  = v.UploadedAt.ToString("dd MMM yyyy"),
+                changeNotes = v.ChangeNotes ?? "",
+                isCurrent   = v.IsCurrentVersion,
+                canManage   = canManage && !v.IsCurrentVersion
+            }),
+            totalCount  = result.TotalCount,
+            currentPage = result.CurrentPage,
+            totalPages = result.TotalPages
+        });
     }
 
     // ── Create ────────────────────────────────────────────────────────────────

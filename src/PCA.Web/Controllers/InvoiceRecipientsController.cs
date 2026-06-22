@@ -22,6 +22,40 @@ public class InvoiceRecipientsController : Controller
 
     public async Task<IActionResult> Index() => View(await _svc.GetRecipientsAsync());
 
+    [HttpGet]
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "asc", string? isDefault = null, string? search = null)
+    {
+        var all = await _svc.GetRecipientsAsync();
+
+        if (isDefault == "true")  all = all.Where(r => r.IsDefault).ToList();
+        if (isDefault == "false") all = all.Where(r => !r.IsDefault).ToList();
+        if (!string.IsNullOrEmpty(search))
+            all = all.Where(r => r.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                r.Email.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var sorted = sortCol switch {
+            "name"      => sortDir == "asc" ? all.OrderBy(r => r.Name).ToList() : all.OrderByDescending(r => r.Name).ToList(),
+            "email"     => sortDir == "asc" ? all.OrderBy(r => r.Email).ToList() : all.OrderByDescending(r => r.Email).ToList(),
+            "isDefault" => sortDir == "asc" ? all.OrderBy(r => r.IsDefault).ToList() : all.OrderByDescending(r => r.IsDefault).ToList(),
+            _           => all.OrderBy(r => r.Name).ToList()
+        };
+        var totalCount = sorted.Count;
+        var items = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        int totalPages = pageSize > 0 ? (int)Math.Ceiling((double)totalCount / pageSize) : 1;
+
+        return Json(new {
+            items = items.Select(r => new {
+                id        = r.Id,
+                name      = r.Name,
+                email     = r.Email,
+                isDefault = r.IsDefault
+            }),
+            totalCount,
+            currentPage = page,
+            totalPages
+        });
+    }
+
     public IActionResult Create() => View(new InvoiceRecipientCreateViewModel());
 
     [HttpPost, ValidateAntiForgeryToken]

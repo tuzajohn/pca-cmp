@@ -72,6 +72,76 @@ public class AccessReviewsController : Controller
         return View(review);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> EntriesData(
+        int id, int page = 1, int pageSize = 20,
+        string? sortCol = null, string? sortDir = "asc")
+    {
+        var result = await _svc.GetEntriesPagedAsync(id, page, pageSize, sortCol, sortDir);
+
+        return Json(new {
+            items = result.Collection.Select(e => new {
+                entryId       = e.Id,
+                employeeName  = e.EmployeeName,
+                department    = e.Department ?? "",
+                systemName    = e.SystemName,
+                currentAccess = e.CurrentAccessLevel ?? "",
+                outcome       = e.Outcome.ToString(),
+                reviewedBy    = e.ReviewedBy?.FullName ?? "",
+                notes         = e.ReviewerNotes ?? ""
+            }),
+            totalCount  = result.TotalCount,
+            currentPage = result.CurrentPage,
+            totalPages = result.TotalPages
+        });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "desc", string? status = null, string? search = null)
+    {
+        var all = await _svc.GetAllAccessReviewsAsync();
+
+        if (!string.IsNullOrEmpty(status))
+            all = all.Where(r => r.Status.ToString() == status ||
+                (status == "Overdue" && r.Status != AccessReviewStatus.Completed && r.DueDate < DateTime.UtcNow)).ToList();
+        if (!string.IsNullOrEmpty(search))
+            all = all.Where(r => r.Title.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var sorted = sortCol switch {
+            "title"   => sortDir == "asc" ? all.OrderBy(r => r.Title).ToList() : all.OrderByDescending(r => r.Title).ToList(),
+            "cycle"   => sortDir == "asc" ? all.OrderBy(r => r.Cycle).ToList() : all.OrderByDescending(r => r.Cycle).ToList(),
+            "dueDate" => sortDir == "asc" ? all.OrderBy(r => r.DueDate).ToList() : all.OrderByDescending(r => r.DueDate).ToList(),
+            "status"  => sortDir == "asc" ? all.OrderBy(r => r.Status).ToList() : all.OrderByDescending(r => r.Status).ToList(),
+            _         => all.OrderByDescending(r => r.DueDate).ToList()
+        };
+        var totalCount = sorted.Count;
+        var items = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        int totalPages = pageSize > 0 ? (int)Math.Ceiling((double)totalCount / pageSize) : 1;
+
+        return Json(new {
+            items = items.Select(r => {
+                var total = r.Entries.Count;
+                var done  = r.Entries.Count(e => e.Outcome != AccessReviewEntryOutcome.Pending);
+                var isOverdue = r.Status != AccessReviewStatus.Completed && r.DueDate < DateTime.UtcNow;
+                return new {
+                    id        = r.Id,
+                    title     = r.Title,
+                    cycle     = r.Cycle.ToString(),
+                    period    = $"{r.ReviewPeriodStart:dd MMM} – {r.ReviewPeriodEnd:dd MMM yyyy}",
+                    dueDate   = r.DueDate.ToString("dd MMM yyyy"),
+                    isOverdue,
+                    status    = isOverdue && r.Status != AccessReviewStatus.Completed ? "Overdue" : r.Status.ToString(),
+                    entryCount = total,
+                    doneCount  = done,
+                    pct        = total > 0 ? done * 100 / total : 0
+                };
+            }),
+            totalCount,
+            currentPage = page,
+            totalPages = totalPages
+        });
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateEntry(int id, int entryId, string outcome, string? notes)
     {

@@ -42,6 +42,37 @@ public class LogsController : Controller
         return View(logs);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> IndexData(
+        int page = 1, int pageSize = 20,
+        string? source = null, string? level = null, string? category = null,
+        string? search = null, string? from = null, string? to = null,
+        string? sortCol = null, string? sortDir = "desc")
+    {
+        DateTime? fromDate = DateTime.TryParse(from, out var fd) ? fd.ToUniversalTime() : null;
+        DateTime? toDate   = DateTime.TryParse(to,   out var td) ? td.ToUniversalTime().AddDays(1) : null;
+
+        var (logs, total) = await _logService.QueryAsync(source, level, category, search, fromDate, toDate, page, pageSize);
+        int totalPages = pageSize > 0 ? (int)Math.Ceiling((double)total / pageSize) : 1;
+
+        return Json(new {
+            items = logs.Select(l => new {
+                id        = l.Id,
+                timestamp = l.Timestamp.ToString("dd MMM yyyy HH:mm:ss"),
+                level     = l.Level,
+                source    = l.Source,
+                category  = l.Category,
+                message   = l.Message,
+                action    = l.Action ?? "",
+                userId    = l.UserId ?? "",
+                userEmail = l.UserEmail ?? ""
+            }),
+            totalCount  = total,
+            currentPage = page,
+            totalPages
+        });
+    }
+
     public async Task<IActionResult> Details(int id)
     {
         var log = await _db.AppLogs.FindAsync(id);

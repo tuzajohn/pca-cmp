@@ -1,78 +1,48 @@
-@model PCA.Shared.PagedResult<PCA.Modules.ChangeManagement.Models.ChangeRequest>
-@using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Change Requests";
-    var statusFilter = ViewBag.StatusFilter as string;
 }
 
 <div class="page-header">
     <div>
         <h1 class="page-header-title">Change Requests</h1>
-        <p class="page-header-sub mb-0">@Model.TotalCount total change request(s)</p>
+        <p class="page-header-sub mb-0">Manage change requests and implementation workflows</p>
     </div>
     <a asp-action="Create" class="btn btn-primary">
         <i class="bi bi-plus-lg me-1"></i> New Change Request
     </a>
 </div>
 
-<div class="card mb-3">
-    <div class="card-body py-2">
-        <form id="filter-form" method="get" class="d-flex flex-wrap gap-2 align-items-center">
-            <select name="status" class="form-select form-select-sm" style="width:auto;">
-                <option value="">All Statuses</option>
-                @foreach (var s in Enum.GetValues<ChangeStatus>())
-                {
-                    <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
-                }
-            </select>
-            <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
-            @if (!string.IsNullOrEmpty(statusFilter))
-            {
-                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear</a>
-            }
-        </form>
-    </div>
-</div>
-
-<div class="card" id="list-container">
-    @await Html.PartialAsync("_ChangeRequestList", Model)
+<div class="card">
+    <div id="tbl-cr"></div>
 </div>
 
 @section Scripts {
 <script>
 (function () {
-    const form = document.getElementById('filter-form');
-    const container = document.getElementById('list-container');
+    const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    async function loadPage(url) {
-        container.style.opacity = '0.5';
-        const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-        container.innerHTML = await resp.text();
-        container.style.opacity = '1';
-        history.pushState(null, '', url);
-        bindPagination();
-    }
-
-    function bindPagination() {
-        container.querySelectorAll('.pagination-link').forEach(a => {
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                const url = new URL(window.location.href);
-                url.searchParams.set('page', a.dataset.page);
-                loadPage(url.toString());
-            });
-        });
-    }
-
-    form.addEventListener('submit', e => {
-        e.preventDefault();
-        const url = new URL(window.location.pathname, window.location.origin);
-        new FormData(form).forEach((v, k) => { if (v) url.searchParams.set(k, v); });
-        url.searchParams.set('page', '1');
-        loadPage(url.toString());
+    PagedTable.init({
+        tableId: 'tbl-cr',
+        url: '/ChangeRequests/Data',
+        pageSize: 10,
+        defaultSort: { col: 'createdAt', dir: 'desc' },
+        filterBar: [
+            { key: 'status', label: 'Status', type: 'select', options: ['Draft','Submitted','UnderReview','Approved','Rejected','Implemented','Closed'] },
+            { key: 'search', label: 'Search', type: 'text', placeholder: 'Title or serial…' }
+        ],
+        columns: [
+            { key: 'serial',      label: 'Serial #',     thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/ChangeRequests/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
+            { key: 'title',       label: 'Title',        tdClass: 'align-middle' },
+            { key: 'requestedBy', label: 'Requested By', tdClass: 'align-middle text-muted' },
+            { key: 'type',        label: 'Type',         tdClass: 'align-middle', render: r => badge(r.type) },
+            { key: 'status',      label: 'Status',       tdClass: 'align-middle', render: r => badge(r.status) },
+            { key: 'priority',    label: 'Priority',     tdClass: 'align-middle', render: r => badge(r.priority) },
+            { key: 'targetDate',  label: 'Target Date',  tdClass: 'align-middle', render: r => r.targetDate ? (r.targetOverdue ? `<span class="text-danger fw-semibold">${r.targetDate}</span>` : r.targetDate) : '—' },
+            { key: 'createdAt',   label: 'Created',      tdClass: 'align-middle text-muted' },
+            { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+              render: r => `<a href="/ChangeRequests/Details/${r.id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
+        ]
     });
-
-    bindPagination();
 })();
 </script>
 }

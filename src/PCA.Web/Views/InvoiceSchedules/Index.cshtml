@@ -1,6 +1,6 @@
-@model List<PCA.Modules.Invoicing.Models.InvoiceSchedule>
-@using PCA.Modules.Invoicing.Services
-@{ ViewData["Title"] = "Invoice Schedules"; }
+@{
+    ViewData["Title"] = "Invoice Schedules";
+}
 
 <div class="page-header">
     <div>
@@ -18,65 +18,33 @@
 }
 
 <div class="card">
-    <div class="card-body p-0">
-        @if (!Model.Any())
-        {
-            <div class="text-center py-5 text-muted">
-                <i class="bi bi-calendar-event" style="font-size:40px;opacity:.3;"></i>
-                <p class="mt-3">No schedules configured yet.</p>
-            </div>
-        }
-        else
-        {
-            <table class="table table-hover mb-0" style="font-size:13px;">
-                <thead style="background:var(--bs-tertiary-bg);">
-                    <tr>
-                        <th class="ps-3">Name</th>
-                        <th>Lender</th>
-                        <th>Schedule</th>
-                        <th>Next Run</th>
-                        <th>Last Run</th>
-                        <th>Status</th>
-                        <th class="pe-3"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var s in Model)
-                    {
-                        <tr>
-                            <td class="ps-3 align-middle fw-semibold">
-                                <a asp-action="Details" asp-route-id="@s.Id" class="text-decoration-none" style="color:inherit;">@s.Name</a>
-                            </td>
-                            <td class="align-middle">
-                                @s.Lender?.Name
-                                <div class="text-muted" style="font-size:11px;">@s.Lender?.CompanyType</div>
-                            </td>
-                            <td class="align-middle text-muted">@ScheduleCronHelper.Describe(s)</td>
-                            <td class="align-middle text-muted" style="white-space:nowrap;">
-                                @(s.NextRunAt.HasValue ? s.NextRunAt.Value.ToString("dd MMM yyyy HH:mm") : "—")
-                            </td>
-                            <td class="align-middle text-muted" style="white-space:nowrap;">
-                                @(s.LastRunAt.HasValue ? s.LastRunAt.Value.ToString("dd MMM yyyy HH:mm") : "—")
-                            </td>
-                            <td class="align-middle">
-                                @if (s.IsEnabled)
-                                {
-                                    <span class="status-badge status-approved" style="font-size:10px;">Enabled</span>
-                                }
-                                else
-                                {
-                                    <span class="status-badge status-draft" style="font-size:10px;">Disabled</span>
-                                }
-                            </td>
-                            <td class="pe-3 align-middle text-end">
-                                <a asp-action="Details" asp-route-id="@s.Id" class="btn btn-outline-primary btn-sm" style="padding:2px 8px;font-size:11px;">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        }
-    </div>
+    <div id="tbl-schedules"></div>
 </div>
+
+@section Scripts {
+<script>
+PagedTable.init({
+    tableId: 'tbl-schedules',
+    tableClass: 'table table-hover mb-0',
+    url: '/InvoiceSchedules/IndexData',
+    pageSize: 10,
+    defaultSort: { col: 'name', dir: 'asc' },
+    filterBar: [
+        { key: 'isEnabled', label: 'Status', type: 'select', options: [{ value: 'true', label: 'Enabled' }, { value: 'false', label: 'Disabled' }] },
+        { key: 'search',    label: 'Search', type: 'text',   placeholder: 'Name or lender…' }
+    ],
+    columns: [
+        { key: 'name',      label: 'Name',     thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold', render: r => `<a href="/InvoiceSchedules/Details/${r.id}" class="text-decoration-none" style="color:inherit;">${r.name}</a>` },
+        { key: 'lender',    label: 'Lender',   tdClass: 'align-middle', render: r => `${r.lender}<div class="text-muted" style="font-size:11px;">${r.companyType}</div>` },
+        { key: 'frequency', label: 'Schedule', sortable: false, tdClass: 'align-middle text-muted' },
+        { key: 'nextRunAt', label: 'Next Run', tdClass: 'align-middle text-muted', render: r => r.nextRunAt || '—' },
+        { key: 'lastRunAt', label: 'Last Run', tdClass: 'align-middle text-muted', render: r => r.lastRunAt || '—' },
+        { key: 'isEnabled', label: 'Status',   tdClass: 'align-middle', render: r => r.isEnabled
+            ? '<span class="status-badge status-approved" style="font-size:10px;">Enabled</span>'
+            : '<span class="status-badge status-draft" style="font-size:10px;">Disabled</span>' },
+        { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+          render: r => `<a href="/InvoiceSchedules/Details/${r.id}" class="btn btn-outline-primary btn-sm" style="padding:2px 8px;font-size:11px;"><i class="bi bi-eye"></i></a>` }
+    ]
+});
+</script>
+}

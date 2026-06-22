@@ -28,18 +28,52 @@ public class DeprovisioningController : Controller
         _email           = email;
     }
 
-    public async Task<IActionResult> Index(string? status, bool allTime = false, int page = 1, int pageSize = 25)
+    public async Task<IActionResult> Index(string? status, bool allTime = false, int page = 1, int pageSize = 20)
     {
         var result = await _svc.GetDeprovisioningPagedAsync(status, allTime, page, pageSize);
 
         ViewBag.StatusFilter = status;
         ViewBag.AllTime = allTime;
-        ViewBag.OverdueCount = result.Items.Count(e => e.Status == DeprovisioningStatus.Overdue);
+        ViewBag.OverdueCount = result.Collection.Count(e => e.Status == DeprovisioningStatus.Overdue);
 
         if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             return PartialView("_DeprovisioningList", result);
 
         return View(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Data(
+        int page = 1, int pageSize = 20,
+        string? sortCol = null, string? sortDir = "desc",
+        string? status = null, bool allTime = false)
+    {
+        var result = await _svc.GetDeprovisioningPagedAsync(status, allTime, page, pageSize, sortCol, sortDir);
+        var now = DateTime.UtcNow;
+
+        return Json(new {
+            items = result.Collection.Select(e => {
+                var remaining = e.SlaDeadline - now;
+                var overdue   = e.Status != DeprovisioningStatus.Completed && remaining.TotalSeconds <= 0;
+                return new {
+                    id          = e.Id,
+                    serial      = e.SerialNumber,
+                    employee    = e.EmployeeName,
+                    department  = e.Department,
+                    trigger     = e.Trigger.ToString(),
+                    hrNotified  = e.HrNotificationReceivedAt.ToString("dd MMM yyyy HH:mm"),
+                    slaDeadline = e.SlaDeadline.ToString("dd MMM yyyy HH:mm"),
+                    slaOverdue  = overdue,
+                    slaH        = overdue ? 0 : (int)remaining.TotalHours,
+                    slaM        = overdue ? 0 : remaining.Minutes,
+                    status      = e.Status.ToString(),
+                    completed   = e.Status == DeprovisioningStatus.Completed
+                };
+            }),
+            totalCount  = result.TotalCount,
+            currentPage = result.CurrentPage,
+            totalPages = result.TotalPages
+        });
     }
 
     [Authorize(Roles = "Admin,Approver")]

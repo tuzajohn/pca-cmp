@@ -1,9 +1,5 @@
-@model PCA.Shared.PagedResult<PCA.Modules.AccessManagement.Models.AccessRequest>
-@using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Access Requests";
-    var statusFilter = ViewBag.StatusFilter as string;
-    var systemFilter = ViewBag.SystemFilter as string;
 }
 
 <div class="page-header">
@@ -16,70 +12,38 @@
     </a>
 </div>
 
-<div class="card mb-3">
-    <div class="card-body py-2">
-        <form id="filter-form" method="get" class="d-flex flex-wrap gap-2 align-items-center">
-            <select name="status" class="form-select form-select-sm" style="width:auto;">
-                <option value="">All Statuses</option>
-                @foreach (var s in Enum.GetValues<AccessRequestStatus>())
-                {
-                    <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
-                }
-            </select>
-            <input type="text" name="system" class="form-control form-control-sm" style="width:180px;"
-                   placeholder="System name…" value="@systemFilter" />
-            <input type="date" name="from" class="form-control form-control-sm" style="width:auto;" value="@ViewBag.FromFilter" />
-            <input type="date" name="to" class="form-control form-control-sm" style="width:auto;" value="@ViewBag.ToFilter" />
-            <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
-            @if (!string.IsNullOrEmpty(statusFilter) || !string.IsNullOrEmpty(systemFilter))
-            {
-                <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear</a>
-            }
-        </form>
-    </div>
-</div>
-
 <div class="card">
-    <div class="card-body p-0" id="list-container">
-        @await Html.PartialAsync("_AccessRequestList", Model)
-    </div>
+    <div id="tbl-ar"></div>
 </div>
 
 @section Scripts {
 <script>
 (function () {
-    const form = document.getElementById('filter-form');
-    const container = document.getElementById('list-container');
+    const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    async function loadPage(url) {
-        container.style.opacity = '0.5';
-        const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-        container.innerHTML = await resp.text();
-        container.style.opacity = '1';
-        history.pushState(null, '', url);
-        bindPagination();
-    }
-
-    function bindPagination() {
-        container.querySelectorAll('.pagination-link').forEach(a => {
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                const url = new URL(window.location.href);
-                url.searchParams.set('page', a.dataset.page);
-                loadPage(url.toString());
-            });
-        });
-    }
-
-    form.addEventListener('submit', e => {
-        e.preventDefault();
-        const url = new URL(window.location.pathname, window.location.origin);
-        new FormData(form).forEach((v, k) => { if (v) url.searchParams.set(k, v); });
-        url.searchParams.set('page', '1');
-        loadPage(url.toString());
+    PagedTable.init({
+        tableId: 'tbl-ar',
+        url: '/AccessRequests/Data',
+        pageSize: 10,
+        defaultSort: { col: 'createdAt', dir: 'desc' },
+        filterBar: [
+            { key: 'status', label: 'Status', type: 'select', options: ['Pending','Approved','Rejected','Provisioned','Revoked'] },
+            { key: 'system', label: 'System', type: 'text',   placeholder: 'System name…' },
+            { key: 'from',   label: 'From',   type: 'date' },
+            { key: 'to',     label: 'To',     type: 'date' }
+        ],
+        columns: [
+            { key: 'serial',     label: 'Serial',     thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/AccessRequests/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
+            { key: 'employee',   label: 'Employee',   tdClass: 'align-middle' },
+            { key: 'system',     label: 'System',     tdClass: 'align-middle' },
+            { key: 'type',       label: 'Type',       tdClass: 'align-middle text-muted' },
+            { key: 'privileged', label: 'Privileged', tdClass: 'align-middle', render: r => r.privileged ? '<span class="status-badge status-closed">Privileged</span>' : '' },
+            { key: 'status',     label: 'Status',     tdClass: 'align-middle', render: r => badge(r.status) },
+            { key: 'createdAt',  label: 'Requested',  tdClass: 'align-middle text-muted' },
+            { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+              render: r => `<a href="/AccessRequests/Details/${r.id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
+        ]
     });
-
-    bindPagination();
 })();
 </script>
 }

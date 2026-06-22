@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using PageSort;
 using PCA.Modules.AccessManagement.Models;
-using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.AccessManagement.Services;
@@ -24,7 +24,7 @@ public interface IAccessManagementService
     // Access Requests
     Task<List<AccessRequest>> GetAllAccessRequestsAsync();
     Task<List<AccessRequest>> GetAccessRequestsByUserAsync(string userId);
-    Task<PagedResult<AccessRequest>> GetAccessRequestsPagedAsync(string? userId, string? status, string? system, DateTime? from, DateTime? to, int page, int pageSize);
+    Task<PagedResult<AccessRequest>> GetAccessRequestsPagedAsync(string? userId, string? status, string? system, DateTime? from, DateTime? to, int page, int pageSize, string? sortCol = null, string? sortDir = null);
     Task<AccessRequest?> GetAccessRequestByIdAsync(int id);
     Task<AccessRequest> CreateAccessRequestAsync(AccessRequest request);
     Task<AccessRequest> UpdateAccessRequestAsync(AccessRequest request);
@@ -41,11 +41,12 @@ public interface IAccessManagementService
     Task UpdateAccessReviewEntryAsync(int entryId, AccessReviewEntryOutcome outcome, string reviewedById, string? notes);
     Task<bool> CompleteAccessReviewAsync(int id, string userId);
     Task<List<AccessReview>> GetOverdueAccessReviewsAsync();
+    Task<PagedResult<AccessReviewEntry>> GetEntriesPagedAsync(int reviewId, int page, int pageSize, string? sortCol = null, string? sortDir = null);
 
     // Deprovisioning
     Task<List<DeprovisioningEvent>> GetAllDeprovisioningEventsAsync();
     Task<List<DeprovisioningEvent>> GetDeprovisioningEventsLast12MonthsAsync();
-    Task<PagedResult<DeprovisioningEvent>> GetDeprovisioningPagedAsync(string? status, bool allTime, int page, int pageSize);
+    Task<PagedResult<DeprovisioningEvent>> GetDeprovisioningPagedAsync(string? status, bool allTime, int page, int pageSize, string? sortCol = null, string? sortDir = null);
     Task<DeprovisioningEvent?> GetDeprovisioningEventByIdAsync(int id);
     Task<DeprovisioningEvent> CreateDeprovisioningEventAsync(DeprovisioningEvent evt);
     Task<bool> UpdateSystemEntryAsync(int entryId, bool isDeactivated, string userId);
@@ -55,7 +56,7 @@ public interface IAccessManagementService
 
     // Server Room Access
     Task<List<ServerRoomAccessRequest>> GetAllServerRoomRequestsAsync();
-    Task<PagedResult<ServerRoomAccessRequest>> GetServerRoomRequestsPagedAsync(string? status, int page, int pageSize);
+    Task<PagedResult<ServerRoomAccessRequest>> GetServerRoomRequestsPagedAsync(string? status, int page, int pageSize, string? sortCol = null, string? sortDir = null, string? search = null);
     Task<ServerRoomAccessRequest?> GetServerRoomRequestByIdAsync(int id);
     Task<ServerRoomAccessRequest> CreateServerRoomRequestAsync(ServerRoomAccessRequest request);
     Task<ServerRoomAccessRequest> UpdateServerRoomRequestAsync(ServerRoomAccessRequest request);

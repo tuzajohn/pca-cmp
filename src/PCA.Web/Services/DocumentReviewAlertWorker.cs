@@ -31,7 +31,8 @@ public class DocumentReviewAlertWorker : BackgroundService
             var now = DateTime.UtcNow;
             var next = now.Date.AddDays(1).AddHours(1);
             var delay = next - now;
-            await Task.Delay(delay, stoppingToken);
+            try { await Task.Delay(delay, stoppingToken); }
+            catch (OperationCanceledException) { break; }
 
             if (stoppingToken.IsCancellationRequested) break;
 

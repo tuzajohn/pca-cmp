@@ -1,6 +1,7 @@
+using System.ComponentModel;
 using Microsoft.EntityFrameworkCore;
+using PageSort;
 using PCA.Modules.AccessManagement.Models;
-using PCA.Shared;
 using PCA.Shared.Enums;
 
 namespace PCA.Modules.AccessManagement.Services;
@@ -29,8 +30,8 @@ public class AccessManagementService : IAccessManagementService
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 
-    public async Task<PagedResult<AccessRequest>> GetAccessRequestsPagedAsync(
-        string? userId, string? status, string? system, DateTime? from, DateTime? to, int page, int pageSize)
+    public Task<PagedResult<AccessRequest>> GetAccessRequestsPagedAsync(
+        string? userId, string? status, string? system, DateTime? from, DateTime? to, int page, int pageSize, string? sortCol = null, string? sortDir = null)
     {
         var query = _db.AccessRequests.Include(x => x.RequestedBy).AsQueryable();
 
@@ -45,10 +46,19 @@ public class AccessManagementService : IAccessManagementService
         if (to.HasValue)
             query = query.Where(x => x.CreatedAt <= to.Value.AddDays(1));
 
-        query = query.OrderByDescending(x => x.CreatedAt);
-        var total = await query.CountAsync();
-        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        return new PagedResult<AccessRequest> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+        var prop = sortCol switch {
+            "serial"   => "SerialNumber",
+            "employee" => "EmployeeName",
+            "system"   => "SystemName",
+            "type"     => "AccessType",
+            "status"   => "Status",
+            _          => "CreatedAt"
+        };
+        var dir = (sortCol == null || string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase))
+            ? ListSortDirection.Descending : ListSortDirection.Ascending;
+
+        return Task.FromResult(Page<AccessRequest>.GeneratePaging(query,
+            new PageQuery { PageNumber = page, PageSize = pageSize, SortProperty = prop, SortDirection = dir }));
     }
 
     public async Task<AccessRequest?> GetAccessRequestByIdAsync(int id)
@@ -141,6 +151,27 @@ public class AccessManagementService : IAccessManagementService
             .OrderByDescending(x => x.DueDate)
             .ToListAsync();
 
+    public Task<PagedResult<AccessReviewEntry>> GetEntriesPagedAsync(int reviewId, int page, int pageSize, string? sortCol = null, string? sortDir = null)
+    {
+        var query = _db.AccessReviewEntries
+            .Include(e => e.ReviewedBy)
+            .Where(e => e.AccessReviewId == reviewId);
+
+        var prop = sortCol switch {
+            "employeeName"  => "EmployeeName",
+            "department"    => "Department",
+            "systemName"    => "SystemName",
+            "currentAccess" => "CurrentAccessLevel",
+            "outcome"       => "Outcome",
+            _               => "EmployeeName"
+        };
+        var dir = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase)
+            ? ListSortDirection.Descending : ListSortDirection.Ascending;
+
+        return Task.FromResult(Page<AccessReviewEntry>.GeneratePaging(query,
+            new PageQuery { PageNumber = page, PageSize = pageSize, SortProperty = prop, SortDirection = dir }));
+    }
+
     public async Task<AccessReview?> GetAccessReviewByIdAsync(int id)
         => await _db.AccessReviews
             .Include(x => x.CreatedBy)
@@ -219,7 +250,7 @@ public class AccessManagementService : IAccessManagementService
     }
 
     public async Task<PagedResult<DeprovisioningEvent>> GetDeprovisioningPagedAsync(
-        string? status, bool allTime, int page, int pageSize)
+        string? status, bool allTime, int page, int pageSize, string? sortCol = null, string? sortDir = null)
     {
         var query = _db.DeprovisioningEvents
             .Include(x => x.NotifiedBy)
@@ -242,7 +273,16 @@ public class AccessManagementService : IAccessManagementService
             Enum.TryParse<DeprovisioningStatus>(status, out var dbStatus))
             query = query.Where(x => x.Status == dbStatus);
 
-        query = query.OrderByDescending(x => x.HrNotificationReceivedAt);
+        var prop = sortCol switch {
+            "serial"      => "SerialNumber",
+            "employee"    => "EmployeeName",
+            "trigger"     => "Trigger",
+            "slaDeadline" => "SlaDeadline",
+            "status"      => "Status",
+            _             => "HrNotificationReceivedAt"
+        };
+        var dir = (sortCol == null || string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase))
+            ? ListSortDirection.Descending : ListSortDirection.Ascending;
 
         if (filterOverdue)
         {
@@ -252,13 +292,15 @@ public class AccessManagementService : IAccessManagementService
                 .ToList();
             overdue.ForEach(e => e.Status = DeprovisioningStatus.Overdue);
             var sliced = overdue.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-            return new PagedResult<DeprovisioningEvent> { Items = sliced, TotalCount = overdue.Count, Page = page, PageSize = pageSize };
+            return new PagedResult<DeprovisioningEvent> { Collection = sliced, TotalCount = overdue.Count, CurrentPage = page, PageSize = pageSize, TotalPages = pageSize > 0 ? (int)Math.Ceiling((double)overdue.Count / pageSize) : 0 };
         }
 
-        var total = await query.CountAsync();
-        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        items.ForEach(e => { if (e.Status != DeprovisioningStatus.Completed && e.SlaDeadline < DateTime.UtcNow) e.Status = DeprovisioningStatus.Overdue; });
-        return new PagedResult<DeprovisioningEvent> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+        var result = Page<DeprovisioningEvent>.GeneratePaging(query,
+            new PageQuery { PageNumber = page, PageSize = pageSize, SortProperty = prop, SortDirection = dir });
+        foreach (var e in result.Collection)
+            if (e.Status != DeprovisioningStatus.Completed && e.SlaDeadline < DateTime.UtcNow)
+                e.Status = DeprovisioningStatus.Overdue;
+        return result;
     }
 
     public async Task<DeprovisioningEvent?> GetDeprovisioningEventByIdAsync(int id)
@@ -349,18 +391,29 @@ public class AccessManagementService : IAccessManagementService
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 
-    public async Task<PagedResult<ServerRoomAccessRequest>> GetServerRoomRequestsPagedAsync(
-        string? status, int page, int pageSize)
+    public Task<PagedResult<ServerRoomAccessRequest>> GetServerRoomRequestsPagedAsync(
+        string? status, int page, int pageSize, string? sortCol = null, string? sortDir = null, string? search = null)
     {
         var query = _db.ServerRoomAccessRequests.Include(x => x.RequestedBy).AsQueryable();
 
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<ServerRoomAccessStatus>(status, out var s))
             query = query.Where(x => x.Status == s);
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(x => x.VisitorName.Contains(search) || x.Purpose.Contains(search));
 
-        query = query.OrderByDescending(x => x.CreatedAt);
-        var total = await query.CountAsync();
-        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        return new PagedResult<ServerRoomAccessRequest> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
+        var prop = sortCol switch {
+            "serial"  => "SerialNumber",
+            "visitor" => "VisitorName",
+            "purpose" => "Purpose",
+            "entry"   => "PlannedEntryDateTime",
+            "status"  => "Status",
+            _         => "CreatedAt"
+        };
+        var dir = (sortCol == null || string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase))
+            ? ListSortDirection.Descending : ListSortDirection.Ascending;
+
+        return Task.FromResult(Page<ServerRoomAccessRequest>.GeneratePaging(query,
+            new PageQuery { PageNumber = page, PageSize = pageSize, SortProperty = prop, SortDirection = dir }));
     }
 
     public async Task<ServerRoomAccessRequest?> GetServerRoomRequestByIdAsync(int id)
