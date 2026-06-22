@@ -29,7 +29,7 @@
     const tbl = PagedTable.init({
         tableId: 'tbl-dep',
         url: '/Deprovisioning/Data',
-        pageSize: 20,
+        pageSize: 10,
         defaultSort: { col: 'slaDeadline', dir: 'desc' },
         filterBar: [
             { key: 'status',  label: 'Status',   type: 'select',   options: ['Pending','InProgress','Completed','Overdue'] },

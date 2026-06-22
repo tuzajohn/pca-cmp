@@ -27,7 +27,7 @@ PagedTable.init({
     tableId: 'tbl-schedules',
     tableClass: 'table table-hover mb-0',
     url: '/InvoiceSchedules/IndexData',
-    pageSize: 20,
+    pageSize: 10,
     defaultSort: { col: 'name', dir: 'asc' },
     filterBar: [
         { key: 'isEnabled', label: 'Status', type: 'select', options: [{ value: 'true', label: 'Enabled' }, { value: 'false', label: 'Disabled' }] },

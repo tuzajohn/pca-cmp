@@ -24,7 +24,7 @@
     PagedTable.init({
         tableId: 'tbl-ar',
         url: '/AccessRequests/Data',
-        pageSize: 20,
+        pageSize: 10,
         defaultSort: { col: 'createdAt', dir: 'desc' },
         filterBar: [
             { key: 'status', label: 'Status', type: 'select', options: ['Pending','Approved','Rejected','Provisioned','Revoked'] },

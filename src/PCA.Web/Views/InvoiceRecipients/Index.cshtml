@@ -25,7 +25,7 @@ PagedTable.init({
     tableId: 'tbl-recipients',
     tableClass: 'table table-hover mb-0',
     url: '/InvoiceRecipients/IndexData',
-    pageSize: 20,
+    pageSize: 10,
     defaultSort: { col: 'name', dir: 'asc' },
     filterBar: [
         { key: 'isDefault', label: 'Default', type: 'select', options: [{ value: 'true', label: 'Default Only' }, { value: 'false', label: 'Non-default' }] },

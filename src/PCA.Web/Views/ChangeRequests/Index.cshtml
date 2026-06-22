@@ -24,7 +24,7 @@
     PagedTable.init({
         tableId: 'tbl-cr',
         url: '/ChangeRequests/Data',
-        pageSize: 20,
+        pageSize: 10,
         defaultSort: { col: 'createdAt', dir: 'desc' },
         filterBar: [
             { key: 'status', label: 'Status', type: 'select', options: ['Draft','Submitted','UnderReview','Approved','Rejected','Implemented','Closed'] },

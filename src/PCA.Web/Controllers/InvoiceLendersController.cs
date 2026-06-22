@@ -36,7 +36,7 @@ public class InvoiceLendersController : Controller
         var all = await _svc.GetLendersAsync();
 
         if (!string.IsNullOrEmpty(companyType))
-            all = all.Where(l => l.CompanyType == companyType).ToList();
+            all = all.Where(l => l.CompanyType == companyType.ToUpper()).ToList();
         if (isActive == "true")  all = all.Where(l => l.IsActive).ToList();
         if (isActive == "false") all = all.Where(l => !l.IsActive).ToList();
         if (!string.IsNullOrEmpty(search))
