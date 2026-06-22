@@ -56,7 +56,7 @@ public interface IAccessManagementService
 
     // Server Room Access
     Task<List<ServerRoomAccessRequest>> GetAllServerRoomRequestsAsync();
-    Task<PagedResult<ServerRoomAccessRequest>> GetServerRoomRequestsPagedAsync(string? status, int page, int pageSize, string? sortCol = null, string? sortDir = null);
+    Task<PagedResult<ServerRoomAccessRequest>> GetServerRoomRequestsPagedAsync(string? status, int page, int pageSize, string? sortCol = null, string? sortDir = null, string? search = null);
     Task<ServerRoomAccessRequest?> GetServerRoomRequestByIdAsync(int id);
     Task<ServerRoomAccessRequest> CreateServerRoomRequestAsync(ServerRoomAccessRequest request);
     Task<ServerRoomAccessRequest> UpdateServerRoomRequestAsync(ServerRoomAccessRequest request);

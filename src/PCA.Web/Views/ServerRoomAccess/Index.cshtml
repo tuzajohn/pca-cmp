@@ -1,4 +1,3 @@
-@using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Server Room Access";
 }
@@ -13,22 +12,6 @@
     </a>
 </div>
 
-<div class="card mb-3">
-    <div class="card-body py-2">
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-            <select id="f-status" class="form-select form-select-sm" style="width:auto;">
-                <option value="">All Statuses</option>
-                @foreach (var s in Enum.GetValues<ServerRoomAccessStatus>())
-                {
-                    <option value="@s">@s</option>
-                }
-            </select>
-            <button class="btn btn-primary btn-sm" id="btn-filter">Filter</button>
-            <button class="btn btn-outline-secondary btn-sm" id="btn-clear">Clear</button>
-        </div>
-    </div>
-</div>
-
 <div class="card">
     <div id="tbl-sr"></div>
 </div>
@@ -38,30 +21,27 @@
 (function () {
     const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    const tbl = PagedTable.init({
+    PagedTable.init({
         tableId: 'tbl-sr',
         url: '/ServerRoomAccess/Data',
         pageSize: 20,
         defaultSort: { col: 'plannedEntry', dir: 'desc' },
-        filters: () => ({ status: document.getElementById('f-status').value }),
+        filterBar: [
+            { key: 'status', label: 'Status', type: 'select', options: ['Pending','Approved','Rejected','CheckedIn','CheckedOut','Cancelled'] },
+            { key: 'search', label: 'Search', type: 'text',   placeholder: 'Visitor or purpose…' }
+        ],
         columns: [
-            { key: 'serial',        label: 'Serial',        thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/ServerRoomAccess/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
-            { key: 'visitorName',   label: 'Visitor',       tdClass: 'align-middle' },
-            { key: 'visitorCompany',label: 'Company',       tdClass: 'align-middle text-muted', render: r => r.visitorCompany || '—' },
-            { key: 'isExternal',    label: 'External',      sortable: false, tdClass: 'align-middle', render: r => r.isExternal ? '<span class="status-badge status-submitted">External</span>' : '' },
-            { key: 'purpose',       label: 'Purpose',       tdClass: 'align-middle text-muted' },
-            { key: 'plannedEntry',  label: 'Planned Entry', tdClass: 'align-middle text-muted' },
-            { key: 'plannedExit',   label: 'Planned Exit',  tdClass: 'align-middle text-muted', render: r => r.plannedExit || '—' },
-            { key: 'status',        label: 'Status',        tdClass: 'align-middle', render: r => badge(r.status) },
+            { key: 'serial',         label: 'Serial',        thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/ServerRoomAccess/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
+            { key: 'visitorName',    label: 'Visitor',       tdClass: 'align-middle' },
+            { key: 'visitorCompany', label: 'Company',       tdClass: 'align-middle text-muted', render: r => r.visitorCompany || '—' },
+            { key: 'isExternal',     label: 'External',      sortable: false, tdClass: 'align-middle', render: r => r.isExternal ? '<span class="status-badge status-submitted">External</span>' : '' },
+            { key: 'purpose',        label: 'Purpose',       tdClass: 'align-middle text-muted' },
+            { key: 'plannedEntry',   label: 'Planned Entry', tdClass: 'align-middle text-muted' },
+            { key: 'plannedExit',    label: 'Planned Exit',  tdClass: 'align-middle text-muted', render: r => r.plannedExit || '—' },
+            { key: 'status',         label: 'Status',        tdClass: 'align-middle', render: r => badge(r.status) },
             { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
               render: r => `<a href="/ServerRoomAccess/Details/${r.id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
         ]
-    });
-
-    document.getElementById('btn-filter').addEventListener('click', () => tbl.reload());
-    document.getElementById('btn-clear').addEventListener('click', () => {
-        document.getElementById('f-status').value = '';
-        tbl.reload();
     });
 })();
 </script>

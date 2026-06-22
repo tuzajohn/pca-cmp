@@ -42,9 +42,15 @@ public class AdminController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> TemplatesData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "asc")
+    public async Task<IActionResult> TemplatesData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "asc", string? entityType = null, string? search = null)
     {
         var all = await _approvalService.GetTemplatesAsync();
+
+        if (!string.IsNullOrEmpty(entityType))
+            all = all.Where(t => t.EntityType == entityType).ToList();
+        if (!string.IsNullOrEmpty(search))
+            all = all.Where(t => t.Name.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
         var sorted = sortCol switch {
             "name"       => sortDir == "asc" ? all.OrderBy(t => t.Name).ToList() : all.OrderByDescending(t => t.Name).ToList(),
             "entityType" => sortDir == "asc" ? all.OrderBy(t => t.EntityType).ToList() : all.OrderByDescending(t => t.EntityType).ToList(),

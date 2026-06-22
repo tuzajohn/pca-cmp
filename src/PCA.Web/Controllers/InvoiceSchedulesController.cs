@@ -107,9 +107,16 @@ public class InvoiceSchedulesController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "asc")
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "asc", string? isEnabled = null, string? search = null)
     {
         var all = await _svc.GetSchedulesAsync();
+
+        if (isEnabled == "true")  all = all.Where(s => s.IsEnabled).ToList();
+        if (isEnabled == "false") all = all.Where(s => !s.IsEnabled).ToList();
+        if (!string.IsNullOrEmpty(search))
+            all = all.Where(s => s.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (s.Lender?.Name ?? "").Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
         var sorted = sortCol switch {
             "name"      => sortDir == "asc" ? all.OrderBy(s => s.Name).ToList() : all.OrderByDescending(s => s.Name).ToList(),
             "lender"    => sortDir == "asc" ? all.OrderBy(s => s.Lender?.Name).ToList() : all.OrderByDescending(s => s.Lender?.Name).ToList(),
@@ -133,7 +140,7 @@ public class InvoiceSchedulesController : Controller
             }),
             totalCount,
             currentPage = page,
-            totalPages = totalPages
+            totalPages
         });
     }
 

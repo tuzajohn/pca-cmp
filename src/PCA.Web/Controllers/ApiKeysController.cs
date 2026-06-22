@@ -22,9 +22,16 @@ public class ApiKeysController : Controller
         => View(await _service.GetAllAsync());
 
     [HttpGet]
-    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "desc")
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "desc", string? isActive = null, string? search = null)
     {
         var all = await _service.GetAllAsync();
+
+        if (isActive == "true")  all = all.Where(k => k.IsActive).ToList();
+        if (isActive == "false") all = all.Where(k => !k.IsActive).ToList();
+        if (!string.IsNullOrEmpty(search))
+            all = all.Where(k => k.AppName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                k.KeyPrefix.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
         var sorted = sortCol switch {
             "appName"   => sortDir == "asc" ? all.OrderBy(k => k.AppName).ToList() : all.OrderByDescending(k => k.AppName).ToList(),
             "prefix"    => sortDir == "asc" ? all.OrderBy(k => k.KeyPrefix).ToList() : all.OrderByDescending(k => k.KeyPrefix).ToList(),

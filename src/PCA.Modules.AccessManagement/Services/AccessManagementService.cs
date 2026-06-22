@@ -392,12 +392,14 @@ public class AccessManagementService : IAccessManagementService
             .ToListAsync();
 
     public Task<PagedResult<ServerRoomAccessRequest>> GetServerRoomRequestsPagedAsync(
-        string? status, int page, int pageSize, string? sortCol = null, string? sortDir = null)
+        string? status, int page, int pageSize, string? sortCol = null, string? sortDir = null, string? search = null)
     {
         var query = _db.ServerRoomAccessRequests.Include(x => x.RequestedBy).AsQueryable();
 
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<ServerRoomAccessStatus>(status, out var s))
             query = query.Where(x => x.Status == s);
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(x => x.VisitorName.Contains(search) || x.Purpose.Contains(search));
 
         var prop = sortCol switch {
             "serial"  => "SerialNumber",

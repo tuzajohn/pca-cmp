@@ -31,9 +31,18 @@ public class InvoiceLendersController : Controller
     public async Task<IActionResult> Index() => View(await _svc.GetLendersAsync());
 
     [HttpGet]
-    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "asc")
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "asc", string? companyType = null, string? isActive = null, string? search = null)
     {
         var all = await _svc.GetLendersAsync();
+
+        if (!string.IsNullOrEmpty(companyType))
+            all = all.Where(l => l.CompanyType == companyType).ToList();
+        if (isActive == "true")  all = all.Where(l => l.IsActive).ToList();
+        if (isActive == "false") all = all.Where(l => !l.IsActive).ToList();
+        if (!string.IsNullOrEmpty(search))
+            all = all.Where(l => l.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (l.DeductionCode ?? "").Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
         var sorted = sortCol switch {
             "name"          => sortDir == "asc" ? all.OrderBy(l => l.Name).ToList() : all.OrderByDescending(l => l.Name).ToList(),
             "companyType"   => sortDir == "asc" ? all.OrderBy(l => l.CompanyType).ToList() : all.OrderByDescending(l => l.CompanyType).ToList(),

@@ -1,5 +1,3 @@
-@using PCA.Shared.Enums
-@using PCA.Web.Helpers
 @{
     ViewData["Title"] = "Incidents";
 }
@@ -14,36 +12,6 @@
     </a>
 </div>
 
-<div class="card mb-3">
-    <div class="card-body py-2">
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-            <select id="f-status" class="form-select form-select-sm" style="width:auto;">
-                <option value="">All Statuses</option>
-                @foreach (var s in Enum.GetValues<IncidentStatus>())
-                {
-                    <option value="@s">@s</option>
-                }
-            </select>
-            <select id="f-severity" class="form-select form-select-sm" style="width:auto;">
-                <option value="">All Severities</option>
-                @foreach (var sv in Enum.GetValues<IncidentSeverity>())
-                {
-                    <option value="@sv">@IncidentViewHelpers.SeverityLabel(sv)</option>
-                }
-            </select>
-            <select id="f-category" class="form-select form-select-sm" style="width:auto;">
-                <option value="">All Categories</option>
-                @foreach (var cat in Enum.GetValues<IncidentCategory>())
-                {
-                    <option value="@cat">@cat</option>
-                }
-            </select>
-            <button class="btn btn-primary btn-sm" id="btn-filter">Filter</button>
-            <button class="btn btn-outline-secondary btn-sm" id="btn-clear">Clear</button>
-        </div>
-    </div>
-</div>
-
 <div class="card">
     <div id="tbl-inc"></div>
 </div>
@@ -53,16 +21,17 @@
 (function () {
     const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    const tbl = PagedTable.init({
+    PagedTable.init({
         tableId: 'tbl-inc',
         url: '/Incidents/Data',
         pageSize: 20,
         defaultSort: { col: 'detected', dir: 'desc' },
-        filters: () => ({
-            status:   document.getElementById('f-status').value,
-            severity: document.getElementById('f-severity').value,
-            category: document.getElementById('f-category').value
-        }),
+        filterBar: [
+            { key: 'status',   label: 'Status',   type: 'select', options: ['Open','InProgress','Resolved','Closed'] },
+            { key: 'severity', label: 'Severity', type: 'select', options: ['Critical','High','Medium','Low'] },
+            { key: 'category', label: 'Category', type: 'select', options: ['Security','Infrastructure','Application','Network','Hardware','Other'] },
+            { key: 'search',   label: 'Search',   type: 'text',   placeholder: 'Title or serial…' }
+        ],
         columns: [
             { key: 'serial',     label: 'Serial',      thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/Incidents/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
             { key: 'title',      label: 'Title',       tdClass: 'align-middle' },
@@ -75,12 +44,6 @@
             { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
               render: r => `<a href="/Incidents/Details/${r.id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
         ]
-    });
-
-    document.getElementById('btn-filter').addEventListener('click', () => tbl.reload());
-    document.getElementById('btn-clear').addEventListener('click', () => {
-        ['f-status', 'f-severity', 'f-category'].forEach(id => document.getElementById(id).value = '');
-        tbl.reload();
     });
 })();
 </script>

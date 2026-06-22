@@ -35,7 +35,7 @@ public class IncidentService : IIncidentService
     }
 
     public Task<PagedResult<Incident>> GetPagedAsync(
-        string? userId, string? status, string? severity, string? category, int page, int pageSize, string? sortCol = null, string? sortDir = null)
+        string? userId, string? status, string? severity, string? category, int page, int pageSize, string? sortCol = null, string? sortDir = null, string? search = null)
     {
         var query = _db.Incidents
             .Include(i => i.ReportedBy)
@@ -50,6 +50,8 @@ public class IncidentService : IIncidentService
             query = query.Where(i => i.Severity == sv);
         if (!string.IsNullOrEmpty(category) && Enum.TryParse<IncidentCategory>(category, out var cat))
             query = query.Where(i => i.Category == cat);
+        if (!string.IsNullOrEmpty(search))
+            query = query.Where(i => i.Title.Contains(search) || (i.SerialNumber != null && i.SerialNumber.Contains(search)));
 
         var prop = sortCol switch {
             "serial"   => "SerialNumber",
