@@ -1,7 +1,7 @@
-@model PCA.Shared.PagedResult<PCA.Modules.AccessManagement.Models.DeprovisioningEvent>
+@model PageSort.PagedResult<PCA.Modules.AccessManagement.Models.DeprovisioningEvent>
 @using PCA.Shared.Enums
 
-@if (!Model.Items.Any())
+@if (!Model.Collection.Any())
 {
     <div class="text-center py-5 text-muted">
         <i class="bi bi-person-dash" style="font-size:40px;opacity:.3;"></i>
@@ -24,7 +24,7 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var evt in Model.Items)
+            @foreach (var evt in Model.Collection)
             {
                 var remaining = evt.SlaDeadline - DateTime.UtcNow;
                 var isOverdue = evt.Status != DeprovisioningStatus.Completed && remaining.TotalSeconds <= 0;
@@ -70,5 +70,5 @@ else
             }
         </tbody>
     </table>
-    @await Html.PartialAsync("_Pagination", new PCA.Web.Models.PaginationViewModel { Page = Model.Page, TotalPages = Model.TotalPages, TotalCount = Model.TotalCount, PageSize = Model.PageSize })
+    @await Html.PartialAsync("_Pagination", new PCA.Web.Models.PaginationViewModel { Page = Model.CurrentPage, TotalPages = Model.TotalPages, TotalCount = Model.TotalCount, PageSize = Model.PageSize })
 }
