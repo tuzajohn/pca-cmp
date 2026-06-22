@@ -131,7 +131,7 @@ public class AccessReviewsController : Controller
             }),
             totalCount,
             currentPage = page,
-            totalPages = result.TotalPages
+            totalPages = totalPages
         });
     }
 

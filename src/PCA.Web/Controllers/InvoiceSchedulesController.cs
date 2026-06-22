@@ -133,7 +133,7 @@ public class InvoiceSchedulesController : Controller
             }),
             totalCount,
             currentPage = page,
-            totalPages = result.TotalPages
+            totalPages = totalPages
         });
     }
 

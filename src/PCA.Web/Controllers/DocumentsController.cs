@@ -156,7 +156,7 @@ public class DocumentsController : Controller
             }),
             totalCount,
             currentPage = page,
-            totalPages = result.TotalPages
+            totalPages = totalPages
         });
     }
 
