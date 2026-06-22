@@ -36,18 +36,10 @@
             </div>
             <div class="form-section-body p-0">
                 <table id="dt-entries" class="table table-sm mb-0" style="font-size:13px;">
-                    <thead style="background:var(--bs-tertiary-bg);">
-                        <tr>
-                            <th class="ps-3">Employee</th>
-                            <th>System</th>
-                            <th>Current Access</th>
-                            <th>Outcome</th>
-                            <th>Reviewed By</th>
-                            <th class="pe-3">Notes</th>
-                        </tr>
-                    </thead>
+                    <thead style="background:var(--bs-tertiary-bg);"></thead>
                     <tbody></tbody>
                 </table>
+                <div id="dt-entries-pagination" class="px-3 py-2"></div>
             </div>
         </div>
 
@@ -103,60 +95,34 @@
     var outcomeValues = @Json.Serialize(Enum.GetValues<AccessReviewEntryOutcome>().Select(o => o.ToString()).ToArray());
     var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
 
-    new DataTable('#dt-entries', {
-        serverSide: true,
-        processing: true,
-        ajax: {
-            url: '/AccessReviews/EntriesData?id=' + reviewId,
-            type: 'GET'
-        },
+    PagedTable.init({
+        tableId: 'dt-entries',
+        url: '/AccessReviews/EntriesData?id=' + reviewId,
+        pageSize: 25,
+        defaultSort: { col: 'employeeName', dir: 'asc' },
+        paginationId: 'dt-entries-pagination',
         columns: [
-            {
-                data: null,
-                render: function (d) {
-                    var html = '<span class="fw-semibold">' + (d.employeeName || '') + '</span>';
-                    if (d.department) html += '<div class="text-muted fw-normal" style="font-size:11px;">' + d.department + '</div>';
-                    return html;
-                }
-            },
-            { data: 'system' },
-            {
-                data: 'currentAccess',
-                render: function (v) { return v || '<span class="text-muted">—</span>'; }
-            },
-            {
-                data: null,
-                orderable: false,
-                render: function (d) {
-                    if (canUpdate) {
-                        var opts = outcomeValues.map(function (o) {
-                            return '<option value="' + o + '"' + (d.outcome === o ? ' selected' : '') + '>' + o + '</option>';
-                        }).join('');
-                        return '<form action="/AccessReviews/UpdateEntry/' + reviewId + '" method="post" class="d-flex gap-1">' +
-                            '<input type="hidden" name="__RequestVerificationToken" value="' + token + '" />' +
-                            '<input type="hidden" name="entryId" value="' + d.entryId + '" />' +
-                            '<select name="outcome" class="form-select form-select-sm" style="width:auto;">' + opts + '</select>' +
-                            '<button type="submit" class="btn btn-outline-primary btn-sm" style="padding:2px 8px;">Save</button>' +
-                            '</form>';
-                    }
-                    var cls = { Retain: 'bg-success', Revoke: 'bg-danger', Modify: 'bg-warning text-dark' }[d.outcome] || 'bg-secondary';
-                    return '<span class="badge ' + cls + '" style="font-size:10px;">' + d.outcome + '</span>';
-                }
-            },
-            {
-                data: null,
-                orderable: false,
-                render: function (d) { return d.reviewedBy || '<span class="text-muted">—</span>'; }
-            },
-            {
-                data: 'notes',
-                orderable: false,
-                render: function (v) { return v ? '<span class="fst-italic text-muted" style="font-size:12px;">' + v + '</span>' : '<span class="text-muted">—</span>'; }
-            }
-        ],
-        order: [[0, 'asc']],
-        pageLength: 25,
-        language: { processing: '<span class="text-muted" style="font-size:13px;">Loading…</span>' }
+            { key: 'employeeName',  label: 'Employee',       thClass: 'ps-3', tdClass: 'ps-3 align-middle',
+              render: r => `<span class="fw-semibold">${r.employeeName}</span>${r.department ? `<div class="text-muted fw-normal" style="font-size:11px;">${r.department}</div>` : ''}` },
+            { key: 'systemName',    label: 'System',         tdClass: 'align-middle' },
+            { key: 'currentAccess', label: 'Current Access', tdClass: 'align-middle', render: r => r.currentAccess || '<span class="text-muted">—</span>' },
+            { key: 'outcome',       label: 'Outcome',        sortable: false, tdClass: 'align-middle',
+              render: r => {
+                  if (canUpdate) {
+                      const opts = outcomeValues.map(o => `<option value="${o}"${r.outcome === o ? ' selected' : ''}>${o}</option>`).join('');
+                      return `<form action="/AccessReviews/UpdateEntry/${reviewId}" method="post" class="d-flex gap-1">` +
+                          `<input type="hidden" name="__RequestVerificationToken" value="${token}" />` +
+                          `<input type="hidden" name="entryId" value="${r.entryId}" />` +
+                          `<select name="outcome" class="form-select form-select-sm" style="width:auto;">${opts}</select>` +
+                          `<button type="submit" class="btn btn-outline-primary btn-sm" style="padding:2px 8px;">Save</button></form>`;
+                  }
+                  const cls = { Retain: 'bg-success', Revoke: 'bg-danger', Modify: 'bg-warning text-dark' }[r.outcome] || 'bg-secondary';
+                  return `<span class="badge ${cls}" style="font-size:10px;">${r.outcome}</span>`;
+              } },
+            { key: 'reviewedBy', label: 'Reviewed By', sortable: false, tdClass: 'align-middle text-muted', render: r => r.reviewedBy || '<span class="text-muted">—</span>' },
+            { key: 'notes',      label: 'Notes',       sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle',
+              render: r => r.notes ? `<span class="fst-italic text-muted" style="font-size:12px;">${r.notes}</span>` : '<span class="text-muted">—</span>' }
+        ]
     });
 })();
 </script>

@@ -1,5 +1,3 @@
-@model List<PCA.Modules.Approvals.Models.ApprovalTemplate>
-@using PCA.Modules.Approvals.Models
 @{
     ViewData["Title"] = "Approval Templates";
 }
@@ -7,7 +5,7 @@
 <div class="page-header">
     <div>
         <h1 class="page-header-title">Approval Templates</h1>
-        <p class="page-header-sub mb-0">@Model.Count template@(Model.Count == 1 ? "" : "s") defined</p>
+        <p class="page-header-sub mb-0">Workflow approval templates</p>
     </div>
     <div class="d-flex gap-2">
         <a asp-action="Users" class="btn btn-outline-secondary btn-sm">
@@ -20,87 +18,34 @@
 </div>
 
 <div class="card">
-    @if (!Model.Any())
-    {
-        <div class="card-body text-center py-5 text-muted">
-            <i class="bi bi-layout-text-window-reverse fs-1 d-block mb-2 opacity-25"></i>
-            No templates defined yet.
-            <a asp-action="CreateTemplate" class="d-block mt-2"><i class="bi bi-plus-circle me-1"></i>Create your first template</a>
-        </div>
-    }
-    else
-    {
-        <table id="dt-templates" class="table mb-0" style="font-size:13px;">
-            <thead>
-                <tr>
-                    <th class="ps-3">Name</th>
-                    <th>Module</th>
-                    <th>Trigger</th>
-                    <th>Mode</th>
-                    <th>Steps</th>
-                    <th>Condition</th>
-                    <th class="pe-3"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var t in Model)
-                {
-                    <tr>
-                        <td class="ps-3 fw-semibold align-middle">@t.Name</td>
-                        <td class="align-middle">
-                            <span class="status-badge status-submitted">@t.EntityType</span>
-                            @if (!string.IsNullOrEmpty(t.EntitySubType))
-                            {
-                                <span class="status-badge status-draft ms-1">@t.EntitySubType</span>
-                            }
-                        </td>
-                        <td class="align-middle">
-                            @if (t.AutoTriggerOn != AutoTriggerOn.None)
-                            {
-                                <span class="status-badge status-underreview">⚡ @t.AutoTriggerOn</span>
-                            }
-                            else
-                            {
-                                <span class="text-muted">Manual</span>
-                            }
-                        </td>
-                        <td class="align-middle">
-                            @if (t.ApprovalMode == ApprovalMode.AllMustApprove)
-                            {
-                                <span class="status-badge status-approved">All Must Approve</span>
-                            }
-                            else
-                            {
-                                <span class="status-badge status-implemented">Any Can Approve</span>
-                            }
-                        </td>
-                        <td class="align-middle text-muted">@t.Steps.Count step@(t.Steps.Count == 1 ? "" : "s")</td>
-                        <td class="align-middle">
-                            @if (!string.IsNullOrEmpty(t.ConditionField))
-                            {
-                                <code style="font-size:11px;">@t.ConditionField = @t.ConditionValue</code>
-                            }
-                            else
-                            {
-                                <span class="text-muted">—</span>
-                            }
-                        </td>
-                        <td class="pe-3 align-middle text-end">
-                            <a asp-action="TemplateDetails" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary">
-                                <i class="bi bi-eye me-1"></i>Details
-                            </a>
-                            <a asp-action="EditTemplate" asp-route-id="@t.Id" class="btn btn-sm btn-outline-primary ms-1">
-                                <i class="bi bi-pencil me-1"></i>Edit
-                            </a>
-                        </td>
-                    </tr>
-                }
-            </tbody>
+    <div class="card-body p-0">
+        <table id="tbl-templates" class="table mb-0" style="font-size:13px;">
+            <thead style="background:var(--bs-tertiary-bg);"></thead>
+            <tbody></tbody>
         </table>
-    }
+    </div>
+    <div class="card-footer py-2" id="tbl-templates-pagination"></div>
 </div>
 
-
 @section Scripts {
-<script>new DataTable('#dt-templates', { pageLength: 25, order: [[0, 'asc']] });</script>
+<script>
+PagedTable.init({
+    tableId: 'tbl-templates',
+    url: '/Admin/TemplatesData',
+    pageSize: 25,
+    defaultSort: { col: 'name', dir: 'asc' },
+    paginationId: 'tbl-templates-pagination',
+    columns: [
+        { key: 'name',         label: 'Name',       thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold' },
+        { key: 'entityType',   label: 'Module',     tdClass: 'align-middle', render: r => `<span class="status-badge status-submitted">${r.entityType}</span>${r.entitySubType ? ` <span class="status-badge status-draft ms-1">${r.entitySubType}</span>` : ''}` },
+        { key: 'trigger',      label: 'Trigger',    tdClass: 'align-middle', render: r => r.trigger !== 'None' ? `<span class="status-badge status-underreview">⚡ ${r.trigger}</span>` : '<span class="text-muted">Manual</span>' },
+        { key: 'approvalMode', label: 'Mode',       tdClass: 'align-middle', render: r => r.approvalMode === 'AllMustApprove' ? '<span class="status-badge status-approved">All Must Approve</span>' : '<span class="status-badge status-implemented">Any Can Approve</span>' },
+        { key: 'stepCount',    label: 'Steps',      tdClass: 'align-middle text-muted', render: r => `${r.stepCount} step${r.stepCount === 1 ? '' : 's'}` },
+        { key: 'condition',    label: 'Condition',  sortable: false, tdClass: 'align-middle', render: r => r.condition ? `<code style="font-size:11px;">${r.condition}</code>` : '<span class="text-muted">—</span>' },
+        { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+          render: r => `<a href="/Admin/TemplateDetails/${r.id}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye me-1"></i>Details</a>
+                        <a href="/Admin/EditTemplate/${r.id}" class="btn btn-sm btn-outline-primary ms-1"><i class="bi bi-pencil me-1"></i>Edit</a>` }
+    ]
+});
+</script>
 }

@@ -1,4 +1,3 @@
-@model List<PCA.Web.Models.ApiKey>
 @{
     ViewData["Title"] = "API Keys";
     var newKey    = TempData["NewKey"]    as string;
@@ -20,8 +19,7 @@
     <div class="alert alert-success border-0 mb-4" style="background:#f0fdf4;">
         <div class="fw-semibold mb-1"><i class="bi bi-key me-2"></i>New key for <strong>@newKeyApp</strong> — copy it now, it will not be shown again.</div>
         <div class="d-flex align-items-center gap-2 mt-2">
-            <code id="newKeyDisplay" class="p-2 rounded flex-grow-1"
-                  style="background:#dcfce7;font-size:13px;word-break:break-all;">@newKey</code>
+            <code class="p-2 rounded flex-grow-1" style="background:#dcfce7;font-size:13px;word-break:break-all;">@newKey</code>
             <button class="btn btn-sm btn-outline-success"
                     onclick="navigator.clipboard.writeText('@newKey');this.textContent='Copied!'">
                 <i class="bi bi-clipboard me-1"></i>Copy
@@ -30,82 +28,26 @@
     </div>
 }
 
-@if (TempData["Error"] != null)
-{
-    <div class="alert alert-danger">@TempData["Error"]</div>
-}
+@if (TempData["Error"] != null) { <div class="alert alert-danger">@TempData["Error"]</div> }
+
+@Html.AntiForgeryToken()
 
 <div class="card">
     <div class="card-body p-0">
-        <table id="dt-apikeys" class="table table-sm mb-0" style="font-size:13px;">
-            <thead>
-                <tr>
-                    <th class="ps-3">Application</th>
-                    <th>Key Prefix</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Last Used</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var key in Model)
-                {
-                    <tr>
-                        <td class="ps-3 fw-semibold">@key.AppName</td>
-                        <td><code>@key.KeyPrefix…</code></td>
-                        <td>
-                            @if (key.IsActive)
-                            {
-                                <span class="badge bg-success">Active</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-secondary">Revoked</span>
-                            }
-                        </td>
-                        <td class="text-muted">@key.CreatedAt.ToString("dd MMM yyyy")</td>
-                        <td class="text-muted">
-                            @(key.LastUsedAt.HasValue ? key.LastUsedAt.Value.ToString("dd MMM yyyy HH:mm") : "Never")
-                        </td>
-                        <td class="text-end pe-3">
-                            @if (key.IsActive)
-                            {
-                                <form asp-action="Revoke" asp-route-id="@key.Id" method="post" class="d-inline"
-                                      onsubmit="return confirm('Revoke this key? External apps using it will lose access immediately.')">
-                                    @Html.AntiForgeryToken()
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">
-                                        <i class="bi bi-slash-circle me-1"></i>Revoke
-                                    </button>
-                                </form>
-                            }
-                        </td>
-                    </tr>
-                }
-                @if (!Model.Any())
-                {
-                    <tr>
-                        <td colspan="6" class="px-3 py-4 text-muted text-center">No API keys yet.</td>
-                    </tr>
-                }
-            </tbody>
+        <table id="tbl-apikeys" class="table table-sm mb-0" style="font-size:13px;">
+            <thead style="background:var(--bs-tertiary-bg);"></thead>
+            <tbody></tbody>
         </table>
     </div>
+    <div class="card-footer py-2" id="tbl-apikeys-pagination"></div>
 </div>
 
 <div class="mt-4 p-3 rounded" style="background:var(--bs-tertiary-bg);font-size:13px;max-width:600px;">
     <div class="fw-semibold mb-2"><i class="bi bi-info-circle me-1"></i>Usage</div>
-    <p class="mb-1">Send a <code>POST</code> to <code>/api/logs</code> with the header:</p>
-    <code>X-Api-Key: &lt;your-key&gt;</code>
-    <p class="mt-2 mb-1">Request body:</p>
-<pre class="mb-0" style="font-size:12px;">{
-  "message": "Something happened",
-  "level":   "Warning",
-  "source":  "MyService"
-}</pre>
+    <p class="mb-1">Send a <code>POST</code> to <code>/api/logs</code> with the header <code>X-Api-Key: &lt;your-key&gt;</code></p>
+<pre class="mb-0" style="font-size:12px;">{ "message": "Something happened", "level": "Warning", "source": "MyService" }</pre>
 </div>
 
-<!-- Create modal -->
 <div class="modal fade" id="createModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
@@ -130,5 +72,27 @@
 </div>
 
 @section Scripts {
-<script>new DataTable('#dt-apikeys', { pageLength: 25, order: [[3, 'desc']], columnDefs: [{ orderable: false, targets: -1 }] });</script>
+<script>
+(function () {
+    const csrf = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+    PagedTable.init({
+        tableId: 'tbl-apikeys',
+        url: '/ApiKeys/IndexData',
+        pageSize: 25,
+        defaultSort: { col: 'createdAt', dir: 'desc' },
+        paginationId: 'tbl-apikeys-pagination',
+        columns: [
+            { key: 'appName',   label: 'Application', thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold' },
+            { key: 'prefix',    label: 'Key Prefix',  tdClass: 'align-middle', render: r => `<code>${r.prefix}…</code>` },
+            { key: 'isActive',  label: 'Status',      tdClass: 'align-middle', render: r => r.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Revoked</span>' },
+            { key: 'createdAt', label: 'Created',     tdClass: 'align-middle text-muted' },
+            { key: 'lastUsed',  label: 'Last Used',   tdClass: 'align-middle text-muted', render: r => r.lastUsed || 'Never' },
+            { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+              render: r => r.isActive
+                ? `<button class="btn btn-sm btn-outline-danger" onclick="if(confirm('Revoke this key?')){const f=document.createElement('form');f.method='post';f.action='/ApiKeys/Revoke/${r.id}';const t=document.createElement('input');t.type='hidden';t.name='__RequestVerificationToken';t.value='${csrf}';f.appendChild(t);document.body.appendChild(f);f.submit();}"><i class="bi bi-slash-circle me-1"></i>Revoke</button>`
+                : '' }
+        ]
+    });
+})();
+</script>
 }

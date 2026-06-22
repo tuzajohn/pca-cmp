@@ -1,7 +1,6 @@
 @using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Change Requests";
-    var statusFilter = ViewBag.StatusFilter as string;
 }
 
 <div class="page-header">
@@ -16,75 +15,60 @@
 
 <div class="card mb-3">
     <div class="card-body py-2">
-        <form id="filter-form" class="d-flex flex-wrap gap-2 align-items-center">
-            <select name="status" id="f-status" class="form-select form-select-sm" style="width:auto;">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <select id="f-status" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Statuses</option>
                 @foreach (var s in Enum.GetValues<ChangeStatus>())
                 {
-                    <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
+                    <option value="@s">@s</option>
                 }
             </select>
-            <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
-            <button class="btn btn-outline-secondary btn-sm" type="button" id="btn-clear">Clear</button>
-        </form>
+            <button class="btn btn-primary btn-sm" id="btn-filter">Filter</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btn-clear">Clear</button>
+        </div>
     </div>
 </div>
 
 <div class="card">
     <div class="card-body p-0">
-        <table id="dt-cr" class="table mb-0" style="font-size:13px;">
-            <thead>
-                <tr>
-                    <th class="ps-3">Serial #</th>
-                    <th>Title</th>
-                    <th>Requested By</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th>Priority</th>
-                    <th>Target Date</th>
-                    <th>Created</th>
-                    <th class="pe-3"></th>
-                </tr>
-            </thead>
+        <table id="tbl-cr" class="table mb-0" style="font-size:13px;">
+            <thead style="background:var(--bs-tertiary-bg);"></thead>
+            <tbody></tbody>
         </table>
     </div>
+    <div class="card-footer py-2" id="tbl-cr-pagination"></div>
 </div>
 
 @section Scripts {
 <script>
 (function () {
-    const statusBadge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
+    const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    const table = new DataTable('#dt-cr', {
-        serverSide: true,
-        processing: true,
-        searching: false,
-        pageLength: 25,
-        order: [[7, 'desc']],
-        ajax: {
-            url: '/ChangeRequests/Data',
-            data: d => {
-                d.status = document.getElementById('f-status').value;
-            }
-        },
+    const tbl = PagedTable.init({
+        tableId: 'tbl-cr',
+        url: '/ChangeRequests/Data',
+        pageSize: 25,
+        defaultSort: { col: 'createdAt', dir: 'desc' },
+        filters: () => ({ status: document.getElementById('f-status').value }),
+        paginationId: 'tbl-cr-pagination',
         columns: [
-            { data: 'serial',      className: 'ps-3', render: (v, _, r) => `<a href="/ChangeRequests/Details/${r.id}" class="fw-semibold text-decoration-none">${v || '#' + r.id}</a>` },
-            { data: 'title' },
-            { data: 'requestedBy', defaultContent: '—' },
-            { data: 'type',        render: statusBadge },
-            { data: 'status',      render: statusBadge },
-            { data: 'priority',    render: statusBadge },
-            { data: 'targetDate',  render: (v, _, r) => v ? (r.targetOverdue ? `<span class="text-danger fw-semibold">${v}</span>` : v) : '—' },
-            { data: 'createdAt' },
-            { data: 'id', orderable: false, className: 'pe-3 text-end',
-              render: id => `<a href="/ChangeRequests/Details/${id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
+            { key: 'serial',      label: 'Serial #',     thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/ChangeRequests/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
+            { key: 'title',       label: 'Title',        tdClass: 'align-middle' },
+            { key: 'requestedBy', label: 'Requested By', tdClass: 'align-middle text-muted' },
+            { key: 'type',        label: 'Type',         tdClass: 'align-middle', render: r => badge(r.type) },
+            { key: 'status',      label: 'Status',       tdClass: 'align-middle', render: r => badge(r.status) },
+            { key: 'priority',    label: 'Priority',     tdClass: 'align-middle', render: r => badge(r.priority) },
+            { key: 'targetDate',  label: 'Target Date',  tdClass: 'align-middle', render: r => r.targetDate ? (r.targetOverdue ? `<span class="text-danger fw-semibold">${r.targetDate}</span>` : r.targetDate) : '—' },
+            { key: 'createdAt',   label: 'Created',      tdClass: 'align-middle text-muted' },
+            { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+              render: r => `<a href="/ChangeRequests/Details/${r.id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
         ]
     });
 
-    document.getElementById('filter-form').addEventListener('submit', e => { e.preventDefault(); table.ajax.reload(); });
+    document.getElementById('btn-filter').addEventListener('click', () => tbl.reload());
     document.getElementById('btn-clear').addEventListener('click', () => {
         document.getElementById('f-status').value = '';
-        table.ajax.reload();
+        tbl.reload();
     });
 })();
 </script>

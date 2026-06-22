@@ -74,21 +74,14 @@ public class AccessReviewsController : Controller
 
     [HttpGet]
     public async Task<IActionResult> EntriesData(
-        int id, int draw, int start, int length,
-        [FromQuery(Name = "order[0][column]")] int orderCol = 0,
-        [FromQuery(Name = "order[0][dir]")] string orderDir = "asc")
+        int id, int page = 1, int pageSize = 25,
+        string? sortCol = null, string? sortDir = "asc")
     {
-        string[] cols = { "employeeName", "department", "systemName", "currentAccess", "outcome" };
-        var sortCol = orderCol < cols.Length ? cols[orderCol] : null;
-        int page = length > 0 ? (start / length) + 1 : 1;
-
-        var result = await _svc.GetEntriesPagedAsync(id, page, length, sortCol, orderDir);
+        var result = await _svc.GetEntriesPagedAsync(id, page, pageSize, sortCol, sortDir);
+        int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
-            draw,
-            recordsTotal    = result.TotalCount,
-            recordsFiltered = result.TotalCount,
-            data = result.Items.Select(e => new {
+            items = result.Items.Select(e => new {
                 entryId       = e.Id,
                 employeeName  = e.EmployeeName,
                 department    = e.Department ?? "",
@@ -97,7 +90,49 @@ public class AccessReviewsController : Controller
                 outcome       = e.Outcome.ToString(),
                 reviewedBy    = e.ReviewedBy?.FullName ?? "",
                 notes         = e.ReviewerNotes ?? ""
-            })
+            }),
+            totalCount  = result.TotalCount,
+            currentPage = result.Page,
+            totalPages
+        });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 25, string? sortCol = null, string? sortDir = "desc")
+    {
+        var all = await _svc.GetAllAccessReviewsAsync();
+        var sorted = sortCol switch {
+            "title"   => sortDir == "asc" ? all.OrderBy(r => r.Title).ToList() : all.OrderByDescending(r => r.Title).ToList(),
+            "cycle"   => sortDir == "asc" ? all.OrderBy(r => r.Cycle).ToList() : all.OrderByDescending(r => r.Cycle).ToList(),
+            "dueDate" => sortDir == "asc" ? all.OrderBy(r => r.DueDate).ToList() : all.OrderByDescending(r => r.DueDate).ToList(),
+            "status"  => sortDir == "asc" ? all.OrderBy(r => r.Status).ToList() : all.OrderByDescending(r => r.Status).ToList(),
+            _         => all.OrderByDescending(r => r.DueDate).ToList()
+        };
+        var totalCount = sorted.Count;
+        var items = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        int totalPages = pageSize > 0 ? (int)Math.Ceiling((double)totalCount / pageSize) : 1;
+
+        return Json(new {
+            items = items.Select(r => {
+                var total = r.Entries.Count;
+                var done  = r.Entries.Count(e => e.Outcome != AccessReviewEntryOutcome.Pending);
+                var isOverdue = r.Status != AccessReviewStatus.Completed && r.DueDate < DateTime.UtcNow;
+                return new {
+                    id        = r.Id,
+                    title     = r.Title,
+                    cycle     = r.Cycle.ToString(),
+                    period    = $"{r.ReviewPeriodStart:dd MMM} – {r.ReviewPeriodEnd:dd MMM yyyy}",
+                    dueDate   = r.DueDate.ToString("dd MMM yyyy"),
+                    isOverdue,
+                    status    = isOverdue && r.Status != AccessReviewStatus.Completed ? "Overdue" : r.Status.ToString(),
+                    entryCount = total,
+                    doneCount  = done,
+                    pct        = total > 0 ? done * 100 / total : 0
+                };
+            }),
+            totalCount,
+            currentPage = page,
+            totalPages
         });
     }
 

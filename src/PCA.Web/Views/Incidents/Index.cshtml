@@ -2,9 +2,6 @@
 @using PCA.Web.Helpers
 @{
     ViewData["Title"] = "Incidents";
-    var statusFilter   = ViewBag.StatusFilter as string;
-    var severityFilter = ViewBag.SeverityFilter as string;
-    var categoryFilter = ViewBag.CategoryFilter as string;
 }
 
 <div class="page-header">
@@ -19,52 +16,42 @@
 
 <div class="card mb-3">
     <div class="card-body py-2">
-        <form id="filter-form" class="d-flex flex-wrap gap-2 align-items-center">
-            <select name="status" id="f-status" class="form-select form-select-sm" style="width:auto;">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <select id="f-status" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Statuses</option>
                 @foreach (var s in Enum.GetValues<IncidentStatus>())
                 {
-                    <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
+                    <option value="@s">@s</option>
                 }
             </select>
-            <select name="severity" id="f-severity" class="form-select form-select-sm" style="width:auto;">
+            <select id="f-severity" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Severities</option>
                 @foreach (var sv in Enum.GetValues<IncidentSeverity>())
                 {
-                    <option value="@sv" selected="@(sv.ToString() == severityFilter)">@IncidentViewHelpers.SeverityLabel(sv)</option>
+                    <option value="@sv">@IncidentViewHelpers.SeverityLabel(sv)</option>
                 }
             </select>
-            <select name="category" id="f-category" class="form-select form-select-sm" style="width:auto;">
+            <select id="f-category" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Categories</option>
                 @foreach (var cat in Enum.GetValues<IncidentCategory>())
                 {
-                    <option value="@cat" selected="@(cat.ToString() == categoryFilter)">@cat</option>
+                    <option value="@cat">@cat</option>
                 }
             </select>
-            <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
-            <button class="btn btn-outline-secondary btn-sm" type="button" id="btn-clear">Clear</button>
-        </form>
+            <button class="btn btn-primary btn-sm" id="btn-filter">Filter</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btn-clear">Clear</button>
+        </div>
     </div>
 </div>
 
 <div class="card">
     <div class="card-body p-0">
-        <table id="dt-inc" class="table mb-0" style="font-size:13px;">
-            <thead>
-                <tr>
-                    <th class="ps-3">Serial</th>
-                    <th>Title</th>
-                    <th>Category</th>
-                    <th>Severity</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                    <th>Assigned To</th>
-                    <th>Detected</th>
-                    <th class="pe-3"></th>
-                </tr>
-            </thead>
+        <table id="tbl-inc" class="table mb-0" style="font-size:13px;">
+            <thead style="background:var(--bs-tertiary-bg);"></thead>
+            <tbody></tbody>
         </table>
     </div>
+    <div class="card-footer py-2" id="tbl-inc-pagination"></div>
 </div>
 
 @section Scripts {
@@ -72,38 +59,35 @@
 (function () {
     const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    const table = new DataTable('#dt-inc', {
-        serverSide: true,
-        processing: true,
-        searching: false,
-        pageLength: 25,
-        order: [[7, 'desc']],
-        ajax: {
-            url: '/Incidents/Data',
-            data: d => {
-                d.status   = document.getElementById('f-status').value;
-                d.severity = document.getElementById('f-severity').value;
-                d.category = document.getElementById('f-category').value;
-            }
-        },
+    const tbl = PagedTable.init({
+        tableId: 'tbl-inc',
+        url: '/Incidents/Data',
+        pageSize: 25,
+        defaultSort: { col: 'detected', dir: 'desc' },
+        filters: () => ({
+            status:   document.getElementById('f-status').value,
+            severity: document.getElementById('f-severity').value,
+            category: document.getElementById('f-category').value
+        }),
+        paginationId: 'tbl-inc-pagination',
         columns: [
-            { data: 'serial',     className: 'ps-3', render: (v, _, r) => `<a href="/Incidents/Details/${r.id}" class="fw-semibold text-decoration-none">${v}</a>` },
-            { data: 'title' },
-            { data: 'category',   render: badge },
-            { data: 'severity',   render: badge },
-            { data: 'priority',   render: badge },
-            { data: 'status',     render: badge },
-            { data: 'assignedTo', defaultContent: '<span class="text-muted">Unassigned</span>' },
-            { data: 'detected' },
-            { data: 'id', orderable: false, className: 'pe-3 text-end',
-              render: id => `<a href="/Incidents/Details/${id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
+            { key: 'serial',     label: 'Serial',      thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/Incidents/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
+            { key: 'title',      label: 'Title',       tdClass: 'align-middle' },
+            { key: 'category',   label: 'Category',    tdClass: 'align-middle', render: r => badge(r.category) },
+            { key: 'severity',   label: 'Severity',    tdClass: 'align-middle', render: r => badge(r.severity) },
+            { key: 'priority',   label: 'Priority',    tdClass: 'align-middle', render: r => badge(r.priority) },
+            { key: 'status',     label: 'Status',      tdClass: 'align-middle', render: r => badge(r.status) },
+            { key: 'assignedTo', label: 'Assigned To', tdClass: 'align-middle text-muted', render: r => r.assignedTo || '<span class="text-muted">Unassigned</span>' },
+            { key: 'detected',   label: 'Detected',    tdClass: 'align-middle text-muted' },
+            { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+              render: r => `<a href="/Incidents/Details/${r.id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
         ]
     });
 
-    document.getElementById('filter-form').addEventListener('submit', e => { e.preventDefault(); table.ajax.reload(); });
+    document.getElementById('btn-filter').addEventListener('click', () => tbl.reload());
     document.getElementById('btn-clear').addEventListener('click', () => {
         ['f-status', 'f-severity', 'f-category'].forEach(id => document.getElementById(id).value = '');
-        table.ajax.reload();
+        tbl.reload();
     });
 })();
 </script>

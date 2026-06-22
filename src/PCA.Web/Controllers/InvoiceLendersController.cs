@@ -30,6 +30,34 @@ public class InvoiceLendersController : Controller
 
     public async Task<IActionResult> Index() => View(await _svc.GetLendersAsync());
 
+    [HttpGet]
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 25, string? sortCol = null, string? sortDir = "asc")
+    {
+        var all = await _svc.GetLendersAsync();
+        var sorted = sortCol switch {
+            "name"          => sortDir == "asc" ? all.OrderBy(l => l.Name).ToList() : all.OrderByDescending(l => l.Name).ToList(),
+            "companyType"   => sortDir == "asc" ? all.OrderBy(l => l.CompanyType).ToList() : all.OrderByDescending(l => l.CompanyType).ToList(),
+            "deductionCode" => sortDir == "asc" ? all.OrderBy(l => l.DeductionCode).ToList() : all.OrderByDescending(l => l.DeductionCode).ToList(),
+            _               => all.OrderBy(l => l.Name).ToList()
+        };
+        var totalCount = sorted.Count;
+        var items = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        int totalPages = pageSize > 0 ? (int)Math.Ceiling((double)totalCount / pageSize) : 1;
+
+        return Json(new {
+            items = items.Select(l => new {
+                id            = l.Id,
+                name          = l.Name,
+                companyType   = l.CompanyType ?? "",
+                deductionCode = l.DeductionCode ?? "",
+                isActive      = l.IsActive
+            }),
+            totalCount,
+            currentPage = page,
+            totalPages
+        });
+    }
+
     public IActionResult Create() => View(new InvoiceLenderCreateViewModel());
 
     /// <summary>

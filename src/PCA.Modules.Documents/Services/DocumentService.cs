@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using PageSort;
 using PCA.Modules.Documents.Models;
 using PCA.Shared;
 using PCA.Shared.Enums;
@@ -263,10 +264,10 @@ public class DocumentService : IDocumentService
         var query = _db.DocumentVersions
             .Include(v => v.UploadedBy)
             .Where(v => v.DocumentId == documentId)
-            .OrderByDescending(v => v.VersionNumber);
+            .OrderByDescendingProperty("VersionNumber");
 
         var total = await query.CountAsync();
-        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        var items = await query.Page(page, pageSize).ToListAsync();
         return new PagedResult<DocumentVersion> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
     }
 

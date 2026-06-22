@@ -1,7 +1,6 @@
 @using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Server Room Access";
-    var statusFilter = ViewBag.StatusFilter as string;
 }
 
 <div class="page-header">
@@ -16,38 +15,28 @@
 
 <div class="card mb-3">
     <div class="card-body py-2">
-        <form id="filter-form" class="d-flex flex-wrap gap-2 align-items-center">
-            <select name="status" id="f-status" class="form-select form-select-sm" style="width:auto;">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <select id="f-status" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Statuses</option>
                 @foreach (var s in Enum.GetValues<ServerRoomAccessStatus>())
                 {
-                    <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
+                    <option value="@s">@s</option>
                 }
             </select>
-            <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
-            <button class="btn btn-outline-secondary btn-sm" type="button" id="btn-clear">Clear</button>
-        </form>
+            <button class="btn btn-primary btn-sm" id="btn-filter">Filter</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btn-clear">Clear</button>
+        </div>
     </div>
 </div>
 
 <div class="card">
     <div class="card-body p-0">
-        <table id="dt-sr" class="table mb-0" style="font-size:13px;">
-            <thead>
-                <tr>
-                    <th class="ps-3">Serial</th>
-                    <th>Visitor</th>
-                    <th>Company</th>
-                    <th>External</th>
-                    <th>Purpose</th>
-                    <th>Planned Entry</th>
-                    <th>Planned Exit</th>
-                    <th>Status</th>
-                    <th class="pe-3"></th>
-                </tr>
-            </thead>
+        <table id="tbl-sr" class="table mb-0" style="font-size:13px;">
+            <thead style="background:var(--bs-tertiary-bg);"></thead>
+            <tbody></tbody>
         </table>
     </div>
+    <div class="card-footer py-2" id="tbl-sr-pagination"></div>
 </div>
 
 @section Scripts {
@@ -55,36 +44,31 @@
 (function () {
     const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    const table = new DataTable('#dt-sr', {
-        serverSide: true,
-        processing: true,
-        searching: false,
-        pageLength: 25,
-        order: [[5, 'desc']],
-        ajax: {
-            url: '/ServerRoomAccess/Data',
-            data: d => {
-                d.status = document.getElementById('f-status').value;
-            }
-        },
+    const tbl = PagedTable.init({
+        tableId: 'tbl-sr',
+        url: '/ServerRoomAccess/Data',
+        pageSize: 25,
+        defaultSort: { col: 'plannedEntry', dir: 'desc' },
+        filters: () => ({ status: document.getElementById('f-status').value }),
+        paginationId: 'tbl-sr-pagination',
         columns: [
-            { data: 'serial',        className: 'ps-3', render: (v, _, r) => `<a href="/ServerRoomAccess/Details/${r.id}" class="fw-semibold text-decoration-none">${v}</a>` },
-            { data: 'visitorName' },
-            { data: 'visitorCompany', defaultContent: '—' },
-            { data: 'isExternal',    render: v => v ? '<span class="status-badge status-submitted">External</span>' : '' },
-            { data: 'purpose' },
-            { data: 'plannedEntry' },
-            { data: 'plannedExit',   defaultContent: '—' },
-            { data: 'status',        render: badge },
-            { data: 'id', orderable: false, className: 'pe-3 text-end',
-              render: id => `<a href="/ServerRoomAccess/Details/${id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
+            { key: 'serial',        label: 'Serial',        thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/ServerRoomAccess/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
+            { key: 'visitorName',   label: 'Visitor',       tdClass: 'align-middle' },
+            { key: 'visitorCompany',label: 'Company',       tdClass: 'align-middle text-muted', render: r => r.visitorCompany || '—' },
+            { key: 'isExternal',    label: 'External',      sortable: false, tdClass: 'align-middle', render: r => r.isExternal ? '<span class="status-badge status-submitted">External</span>' : '' },
+            { key: 'purpose',       label: 'Purpose',       tdClass: 'align-middle text-muted' },
+            { key: 'plannedEntry',  label: 'Planned Entry', tdClass: 'align-middle text-muted' },
+            { key: 'plannedExit',   label: 'Planned Exit',  tdClass: 'align-middle text-muted', render: r => r.plannedExit || '—' },
+            { key: 'status',        label: 'Status',        tdClass: 'align-middle', render: r => badge(r.status) },
+            { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+              render: r => `<a href="/ServerRoomAccess/Details/${r.id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
         ]
     });
 
-    document.getElementById('filter-form').addEventListener('submit', e => { e.preventDefault(); table.ajax.reload(); });
+    document.getElementById('btn-filter').addEventListener('click', () => tbl.reload());
     document.getElementById('btn-clear').addEventListener('click', () => {
         document.getElementById('f-status').value = '';
-        table.ajax.reload();
+        tbl.reload();
     });
 })();
 </script>

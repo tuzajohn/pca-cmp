@@ -1,8 +1,6 @@
 @using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Deprovisioning";
-    var statusFilter = ViewBag.StatusFilter as string;
-    bool allTime = ViewBag.AllTime == true;
 }
 
 <div class="page-header">
@@ -22,42 +20,32 @@
 
 <div class="card mb-3">
     <div class="card-body py-2">
-        <form id="filter-form" class="d-flex flex-wrap gap-2 align-items-center">
-            <select name="status" id="f-status" class="form-select form-select-sm" style="width:auto;">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <select id="f-status" class="form-select form-select-sm" style="width:auto;">
                 <option value="">All Statuses</option>
                 @foreach (var s in Enum.GetValues<DeprovisioningStatus>())
                 {
-                    <option value="@s" selected="@(s.ToString() == statusFilter)">@s</option>
+                    <option value="@s">@s</option>
                 }
             </select>
             <div class="form-check ms-2 mb-0">
-                <input type="checkbox" id="f-alltime" class="form-check-input" @(allTime ? "checked" : "") />
+                <input type="checkbox" id="f-alltime" class="form-check-input" />
                 <label for="f-alltime" class="form-check-label" style="font-size:13px;">Show all time</label>
             </div>
-            <button class="btn btn-outline-secondary btn-sm" type="submit">Filter</button>
-            <button class="btn btn-outline-secondary btn-sm" type="button" id="btn-clear">Clear</button>
-        </form>
+            <button class="btn btn-primary btn-sm" id="btn-filter">Filter</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btn-clear">Clear</button>
+        </div>
     </div>
 </div>
 
 <div class="card">
     <div class="card-body p-0">
-        <table id="dt-dep" class="table mb-0" style="font-size:13px;">
-            <thead>
-                <tr>
-                    <th class="ps-3">Serial</th>
-                    <th>Employee</th>
-                    <th>Department</th>
-                    <th>Trigger</th>
-                    <th>HR Notified</th>
-                    <th>SLA Deadline</th>
-                    <th>SLA Remaining</th>
-                    <th>Status</th>
-                    <th class="pe-3"></th>
-                </tr>
-            </thead>
+        <table id="tbl-dep" class="table mb-0" style="font-size:13px;">
+            <thead style="background:var(--bs-tertiary-bg);"></thead>
+            <tbody></tbody>
         </table>
     </div>
+    <div class="card-footer py-2" id="tbl-dep-pagination"></div>
 </div>
 
 @section Scripts {
@@ -65,53 +53,56 @@
 (function () {
     const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    const table = new DataTable('#dt-dep', {
-        serverSide: true,
-        processing: true,
-        searching: false,
-        pageLength: 25,
-        order: [[4, 'desc']],
-        ajax: {
-            url: '/Deprovisioning/Data',
-            data: d => {
-                d.status  = document.getElementById('f-status').value;
-                d.allTime = document.getElementById('f-alltime').checked;
-            }
-        },
+    const tbl = PagedTable.init({
+        tableId: 'tbl-dep',
+        url: '/Deprovisioning/Data',
+        pageSize: 25,
+        defaultSort: { col: 'slaDeadline', dir: 'desc' },
+        filters: () => ({
+            status:  document.getElementById('f-status').value,
+            allTime: document.getElementById('f-alltime').checked
+        }),
+        paginationId: 'tbl-dep-pagination',
         columns: [
-            { data: 'serial',      className: 'ps-3', render: (v, _, r) => `<a href="/Deprovisioning/Details/${r.id}" class="fw-semibold text-decoration-none">${v}</a>` },
-            { data: 'employee' },
-            { data: 'department',  defaultContent: '—' },
-            { data: 'trigger' },
-            { data: 'hrNotified' },
-            { data: 'slaDeadline', render: (v, _, r) => r.slaOverdue ? `<span class="text-danger fw-semibold">${v}</span>` : v },
-            { data: 'slaOverdue',  orderable: false,
-              render: (v, _, r) => v ? '<span class="text-danger fw-semibold">Overdue</span>' : `${r.slaH}h ${r.slaM}m` },
-            { data: 'status',      render: badge },
-            { data: 'id', orderable: false, className: 'pe-3 text-end',
-              render: id => `<a href="/Deprovisioning/Details/${id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
-        ],
-        drawCallback: function (settings) {
-            const json = this.api().ajax.json();
-            if (!json) return;
-            const overdue = json.data.filter(r => r.slaOverdue && !r.completed).length;
-            const el = document.getElementById('overdue-alert');
-            if (overdue > 0) {
-                el.innerHTML = `<div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
-                    <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
-                    <div><strong>${overdue} deprovisioning event${overdue === 1 ? '' : 's'} overdue</strong> — SLA breached. Immediate action required.</div>
-                </div>`;
-            } else {
-                el.innerHTML = '';
-            }
-        }
+            { key: 'serial',      label: 'Serial',        thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/Deprovisioning/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
+            { key: 'employee',    label: 'Employee',      tdClass: 'align-middle' },
+            { key: 'department',  label: 'Department',    tdClass: 'align-middle text-muted', render: r => r.department || '—' },
+            { key: 'trigger',     label: 'Trigger',       tdClass: 'align-middle text-muted' },
+            { key: 'hrNotified',  label: 'HR Notified',   tdClass: 'align-middle text-muted' },
+            { key: 'slaDeadline', label: 'SLA Deadline',  tdClass: 'align-middle', render: r => r.slaOverdue ? `<span class="text-danger fw-semibold">${r.slaDeadline}</span>` : r.slaDeadline },
+            { key: 'slaOverdue',  label: 'SLA Remaining', sortable: false, tdClass: 'align-middle', render: r => r.slaOverdue ? '<span class="text-danger fw-semibold">Overdue</span>' : `${r.slaH}h ${r.slaM}m` },
+            { key: 'status',      label: 'Status',        tdClass: 'align-middle', render: r => badge(r.status) },
+            { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+              render: r => `<a href="/Deprovisioning/Details/${r.id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
+        ]
     });
 
-    document.getElementById('filter-form').addEventListener('submit', e => { e.preventDefault(); table.ajax.reload(); });
+    // Overdue alert — re-check after each load by refetching current data
+    const origLoad = tbl.reload.bind(tbl);
+
+    function checkOverdue() {
+        fetch('/Deprovisioning/Data?page=1&pageSize=500&status=&allTime=' + document.getElementById('f-alltime').checked)
+            .then(r => r.json())
+            .then(result => {
+                const overdue = (result.items || []).filter(r => r.slaOverdue && !r.completed).length;
+                const el = document.getElementById('overdue-alert');
+                el.innerHTML = overdue > 0
+                    ? `<div class="alert alert-danger d-flex align-items-center gap-2 mb-3" style="border-radius:10px;">
+                           <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
+                           <div><strong>${overdue} deprovisioning event${overdue === 1 ? '' : 's'} overdue</strong> — SLA breached. Immediate action required.</div>
+                       </div>`
+                    : '';
+            });
+    }
+
+    checkOverdue();
+
+    document.getElementById('btn-filter').addEventListener('click', () => { tbl.reload(); checkOverdue(); });
     document.getElementById('btn-clear').addEventListener('click', () => {
         document.getElementById('f-status').value = '';
         document.getElementById('f-alltime').checked = false;
-        table.ajax.reload();
+        tbl.reload();
+        checkOverdue();
     });
 })();
 </script>

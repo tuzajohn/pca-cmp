@@ -46,19 +46,10 @@
             <div class="form-section-header"><i class="bi bi-clock-history"></i> Run History</div>
             <div class="form-section-body p-0">
                 <table id="dt-runs" class="table table-sm mb-0" style="font-size:13px;">
-                    <thead style="background:var(--bs-tertiary-bg);">
-                        <tr>
-                            <th class="ps-3">Triggered At</th>
-                            <th>Triggered By</th>
-                            <th>IPPS Rows</th>
-                            <th>HCM Rows</th>
-                            <th>Final Rows</th>
-                            <th>Status</th>
-                            <th class="pe-3"></th>
-                        </tr>
-                    </thead>
+                    <thead style="background:var(--bs-tertiary-bg);"></thead>
                     <tbody></tbody>
                 </table>
+                <div id="dt-runs-pagination" class="px-3 py-2"></div>
             </div>
         </div>
 
@@ -210,24 +201,22 @@
 <script>
 (function () {
     var scheduleId = @Model.Id;
-    new DataTable('#dt-runs', {
-        serverSide: true,
-        processing: true,
-        searching: false,
-        pageLength: 25,
-        order: [[0, 'desc']],
-        ajax: { url: '/InvoiceSchedules/RunsData?id=' + scheduleId },
+    PagedTable.init({
+        tableId: 'dt-runs',
+        url: '/InvoiceSchedules/RunsData?id=' + scheduleId,
+        pageSize: 25,
+        paginationId: 'dt-runs-pagination',
         columns: [
-            { data: 'triggeredAt' },
-            { data: 'triggeredBy' },
-            { data: 'ippsRows' },
-            { data: 'hcmRows' },
-            { data: 'finalRows' },
-            { data: 'status', render: d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>` },
-            { data: null, orderable: false, className: 'pe-3 text-end',
-              render: d => {
-                  var html = `<a href="/InvoiceRuns/Details/${d.runId}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;font-size:11px;"><i class="bi bi-eye"></i></a>`;
-                  if (d.hasFile) html += ` <a href="/InvoiceRuns/Download/${d.runId}" class="btn btn-sm btn-outline-success ms-1" style="padding:2px 8px;font-size:11px;"><i class="bi bi-download"></i></a>`;
+            { key: 'triggeredAt', label: 'Triggered At', thClass: 'ps-3', tdClass: 'ps-3 align-middle text-muted' },
+            { key: 'triggeredBy', label: 'Triggered By', tdClass: 'align-middle text-muted' },
+            { key: 'ippsRows',    label: 'IPPS Rows',    tdClass: 'align-middle' },
+            { key: 'hcmRows',     label: 'HCM Rows',     tdClass: 'align-middle' },
+            { key: 'finalRows',   label: 'Final Rows',   tdClass: 'align-middle' },
+            { key: 'status',      label: 'Status',       tdClass: 'align-middle', render: r => `<span class="status-badge status-${r.status.toLowerCase()}">${r.status}</span>` },
+            { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
+              render: r => {
+                  let html = `<a href="/InvoiceRuns/Details/${r.runId}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;font-size:11px;"><i class="bi bi-eye"></i></a>`;
+                  if (r.hasFile) html += ` <a href="/InvoiceRuns/Download/${r.runId}" class="btn btn-sm btn-outline-success ms-1" style="padding:2px 8px;font-size:11px;"><i class="bi bi-download"></i></a>`;
                   return html;
               } }
         ]

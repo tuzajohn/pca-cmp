@@ -85,16 +85,13 @@ public class InvoiceSchedulesController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> RunsData(int id, int draw, int start, int length)
+    public async Task<IActionResult> RunsData(int id, int page = 1, int pageSize = 25)
     {
-        int page = length > 0 ? (start / length) + 1 : 1;
-        var result = await _svc.GetRunsPagedAsync(id, page, length);
+        var result = await _svc.GetRunsPagedAsync(id, page, pageSize);
+        int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
-            draw,
-            recordsTotal    = result.TotalCount,
-            recordsFiltered = result.TotalCount,
-            data = result.Items.Select(r => new {
+            items = result.Items.Select(r => new {
                 runId       = r.Id,
                 triggeredAt = r.TriggeredAt.ToString("dd MMM yyyy HH:mm"),
                 triggeredBy = r.TriggeredBy?.FullName ?? "Scheduler",
@@ -103,7 +100,41 @@ public class InvoiceSchedulesController : Controller
                 finalRows   = r.FinalRowCount,
                 status      = r.Status.ToString(),
                 hasFile     = r.Status == InvoiceRunStatus.Completed && !string.IsNullOrEmpty(r.FilePath)
-            })
+            }),
+            totalCount  = result.TotalCount,
+            currentPage = result.Page,
+            totalPages
+        });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 25, string? sortCol = null, string? sortDir = "asc")
+    {
+        var all = await _svc.GetSchedulesAsync();
+        var sorted = sortCol switch {
+            "name"      => sortDir == "asc" ? all.OrderBy(s => s.Name).ToList() : all.OrderByDescending(s => s.Name).ToList(),
+            "lender"    => sortDir == "asc" ? all.OrderBy(s => s.Lender?.Name).ToList() : all.OrderByDescending(s => s.Lender?.Name).ToList(),
+            "nextRunAt" => sortDir == "asc" ? all.OrderBy(s => s.NextRunAt).ToList() : all.OrderByDescending(s => s.NextRunAt).ToList(),
+            _           => all.OrderBy(s => s.Name).ToList()
+        };
+        var totalCount = sorted.Count;
+        var items = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        int totalPages = pageSize > 0 ? (int)Math.Ceiling((double)totalCount / pageSize) : 1;
+
+        return Json(new {
+            items = items.Select(s => new {
+                id          = s.Id,
+                name        = s.Name,
+                lender      = s.Lender?.Name ?? "",
+                companyType = s.Lender?.CompanyType ?? "",
+                frequency   = ScheduleCronHelper.Describe(s),
+                isEnabled   = s.IsEnabled,
+                nextRunAt   = s.NextRunAt.HasValue ? s.NextRunAt.Value.ToString("dd MMM yyyy HH:mm") : "",
+                lastRunAt   = s.LastRunAt.HasValue ? s.LastRunAt.Value.ToString("dd MMM yyyy HH:mm") : ""
+            }),
+            totalCount,
+            currentPage = page,
+            totalPages
         });
     }
 

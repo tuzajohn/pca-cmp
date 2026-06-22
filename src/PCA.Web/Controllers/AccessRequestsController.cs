@@ -48,24 +48,17 @@ public class AccessRequestsController : Controller
 
     [HttpGet]
     public async Task<IActionResult> Data(
-        int draw, int start, int length,
-        string? status, string? system, DateTime? from, DateTime? to,
-        [FromQuery(Name = "order[0][column]")] int orderCol = 6,
-        [FromQuery(Name = "order[0][dir]")] string orderDir = "desc")
+        int page = 1, int pageSize = 25,
+        string? sortCol = null, string? sortDir = "desc",
+        string? status = null, string? system = null, DateTime? from = null, DateTime? to = null)
     {
-        string[] cols = { "serial", "employee", "system", "type", "privileged", "status", "createdAt" };
-        var sortCol = orderCol < cols.Length ? cols[orderCol] : null;
-        int page = length > 0 ? (start / length) + 1 : 1;
-
         var user = await _userManager.GetUserAsync(User);
         var userId = User.IsInRole("Admin") ? null : user!.Id;
-        var result = await _svc.GetAccessRequestsPagedAsync(userId, status, system, from, to, page, length, sortCol, orderDir);
+        var result = await _svc.GetAccessRequestsPagedAsync(userId, status, system, from, to, page, pageSize, sortCol, sortDir);
+        int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
-            draw,
-            recordsTotal    = result.TotalCount,
-            recordsFiltered = result.TotalCount,
-            data = result.Items.Select(r => new {
+            items = result.Items.Select(r => new {
                 id         = r.Id,
                 serial     = string.IsNullOrEmpty(r.SerialNumber) ? "Draft" : r.SerialNumber,
                 employee   = r.EmployeeName,
@@ -75,7 +68,10 @@ public class AccessRequestsController : Controller
                 privileged = r.IsPrivileged,
                 status     = r.Status.ToString(),
                 createdAt  = r.CreatedAt.ToString("dd MMM yyyy")
-            })
+            }),
+            totalCount  = result.TotalCount,
+            currentPage = result.Page,
+            totalPages
         });
     }
 

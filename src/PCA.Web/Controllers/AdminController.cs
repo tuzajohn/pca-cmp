@@ -41,6 +41,36 @@ public class AdminController : Controller
         return View(templates);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> TemplatesData(int page = 1, int pageSize = 25, string? sortCol = null, string? sortDir = "asc")
+    {
+        var all = await _approvalService.GetTemplatesAsync();
+        var sorted = sortCol switch {
+            "name"       => sortDir == "asc" ? all.OrderBy(t => t.Name).ToList() : all.OrderByDescending(t => t.Name).ToList(),
+            "entityType" => sortDir == "asc" ? all.OrderBy(t => t.EntityType).ToList() : all.OrderByDescending(t => t.EntityType).ToList(),
+            _            => all.OrderBy(t => t.Name).ToList()
+        };
+        var totalCount = sorted.Count;
+        var items = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        int totalPages = pageSize > 0 ? (int)Math.Ceiling((double)totalCount / pageSize) : 1;
+
+        return Json(new {
+            items = items.Select(t => new {
+                id            = t.Id,
+                name          = t.Name,
+                entityType    = t.EntityType,
+                entitySubType = t.EntitySubType ?? "",
+                approvalMode  = t.ApprovalMode.ToString(),
+                trigger       = t.AutoTriggerOn.ToString(),
+                stepCount     = t.Steps.Count,
+                condition     = string.IsNullOrEmpty(t.ConditionField) ? "" : $"{t.ConditionField} = {t.ConditionValue}"
+            }),
+            totalCount,
+            currentPage = page,
+            totalPages
+        });
+    }
+
     public async Task<IActionResult> TemplateDetails(int id)
     {
         var template = await _approvalService.GetTemplateByIdAsync(id);

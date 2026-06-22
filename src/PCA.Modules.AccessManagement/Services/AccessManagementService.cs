@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PageSort;
 using PCA.Modules.AccessManagement.Models;
 using PCA.Shared;
 using PCA.Shared.Enums;
@@ -152,23 +153,24 @@ public class AccessManagementService : IAccessManagementService
 
     public async Task<PagedResult<AccessReviewEntry>> GetEntriesPagedAsync(int reviewId, int page, int pageSize, string? sortCol = null, string? sortDir = null)
     {
+        var propName = sortCol switch {
+            "employeeName"  => "EmployeeName",
+            "department"    => "Department",
+            "systemName"    => "SystemName",
+            "currentAccess" => "CurrentAccessLevel",
+            "outcome"       => "Outcome",
+            _               => "EmployeeName"
+        };
+        bool desc = string.Equals(sortDir, "desc", StringComparison.OrdinalIgnoreCase);
+
         var query = _db.AccessReviewEntries
             .Include(e => e.ReviewedBy)
-            .Where(e => e.AccessReviewId == reviewId)
-            .AsQueryable();
+            .Where(e => e.AccessReviewId == reviewId);
 
-        bool asc = string.Equals(sortDir, "asc", StringComparison.OrdinalIgnoreCase);
-        query = sortCol switch {
-            "employeeName"   => asc ? query.OrderBy(e => e.EmployeeName)   : query.OrderByDescending(e => e.EmployeeName),
-            "department"     => asc ? query.OrderBy(e => e.Department)     : query.OrderByDescending(e => e.Department),
-            "systemName"     => asc ? query.OrderBy(e => e.SystemName)     : query.OrderByDescending(e => e.SystemName),
-            "currentAccess"  => asc ? query.OrderBy(e => e.CurrentAccessLevel) : query.OrderByDescending(e => e.CurrentAccessLevel),
-            "outcome"        => asc ? query.OrderBy(e => e.Outcome)        : query.OrderByDescending(e => e.Outcome),
-            _                => query.OrderBy(e => e.EmployeeName)
-        };
+        var sorted = desc ? query.OrderByDescendingProperty(propName) : query.OrderByProperty(propName);
 
-        var total = await query.CountAsync();
-        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        var total = await sorted.CountAsync();
+        var items = await sorted.Page(page, pageSize).ToListAsync();
         return new PagedResult<AccessReviewEntry> { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
     }
 

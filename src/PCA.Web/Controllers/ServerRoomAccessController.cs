@@ -42,22 +42,15 @@ public class ServerRoomAccessController : Controller
 
     [HttpGet]
     public async Task<IActionResult> Data(
-        int draw, int start, int length,
-        string? status,
-        [FromQuery(Name = "order[0][column]")] int orderCol = 4,
-        [FromQuery(Name = "order[0][dir]")] string orderDir = "desc")
+        int page = 1, int pageSize = 25,
+        string? sortCol = null, string? sortDir = "desc",
+        string? status = null)
     {
-        string[] cols = { "serial", "visitor", "purpose", "entry", "status" };
-        var sortCol = orderCol < cols.Length ? cols[orderCol] : null;
-        int page = length > 0 ? (start / length) + 1 : 1;
-
-        var result = await _svc.GetServerRoomRequestsPagedAsync(status, page, length, sortCol, orderDir);
+        var result = await _svc.GetServerRoomRequestsPagedAsync(status, page, pageSize, sortCol, sortDir);
+        int totalPages = result.PageSize > 0 ? (int)Math.Ceiling((double)result.TotalCount / result.PageSize) : 1;
 
         return Json(new {
-            draw,
-            recordsTotal    = result.TotalCount,
-            recordsFiltered = result.TotalCount,
-            data = result.Items.Select(r => new {
+            items = result.Items.Select(r => new {
                 id             = r.Id,
                 serial         = r.SerialNumber,
                 visitorName    = r.VisitorName,
@@ -65,9 +58,12 @@ public class ServerRoomAccessController : Controller
                 isExternal     = r.IsExternal,
                 purpose        = r.Purpose,
                 plannedEntry   = r.PlannedEntryDateTime.ToString("dd MMM yyyy HH:mm"),
-                plannedExit    = r.PlannedExitDateTime.ToString("dd MMM yyyy HH:mm") ?? "",
+                plannedExit    = r.PlannedExitDateTime?.ToString("dd MMM yyyy HH:mm") ?? "",
                 status         = r.Status.ToString()
-            })
+            }),
+            totalCount  = result.TotalCount,
+            currentPage = result.Page,
+            totalPages
         });
     }
 
