@@ -18,13 +18,7 @@
 </div>
 
 <div class="card">
-    <div class="card-body p-0">
-        <table id="tbl-templates" class="table mb-0" style="font-size:13px;">
-            <thead style="background:var(--bs-tertiary-bg);"></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-    <div class="card-footer py-2" id="tbl-templates-pagination"></div>
+    <div id="tbl-templates"></div>
 </div>
 
 @section Scripts {
@@ -34,7 +28,6 @@ PagedTable.init({
     url: '/Admin/TemplatesData',
     pageSize: 25,
     defaultSort: { col: 'name', dir: 'asc' },
-    paginationId: 'tbl-templates-pagination',
     columns: [
         { key: 'name',         label: 'Name',       thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold' },
         { key: 'entityType',   label: 'Module',     tdClass: 'align-middle', render: r => `<span class="status-badge status-submitted">${r.entityType}</span>${r.entitySubType ? ` <span class="status-badge status-draft ms-1">${r.entitySubType}</span>` : ''}` },

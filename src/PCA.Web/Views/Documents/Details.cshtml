@@ -208,11 +208,7 @@ else if (reviewState == ReviewDueState.DueSoon)
             }
 
             <div class="form-section-body p-0">
-                <table id="dt-versions" class="table table-sm mb-0" style="font-size:13px;">
-                    <thead style="background:var(--bs-tertiary-bg);"></thead>
-                    <tbody></tbody>
-                </table>
-                <div id="dt-versions-pagination" class="px-3 py-2"></div>
+                <div id="dt-versions"></div>
             </div>
         </div>
 
@@ -674,10 +670,10 @@ else if (reviewState == ReviewDueState.DueSoon)
 
     PagedTable.init({
         tableId: 'dt-versions',
+        tableClass: 'table table-sm mb-0',
         url: '/Documents/VersionsData?id=' + docId,
         pageSize: 10,
         defaultSort: { col: 'versionNumber', dir: 'desc' },
-        paginationId: 'dt-versions-pagination',
         columns: [
             { key: 'versionNumber', label: 'Version', thClass: 'ps-3', tdClass: 'ps-3 align-middle',
               render: r => {

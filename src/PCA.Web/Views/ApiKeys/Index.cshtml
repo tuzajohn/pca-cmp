@@ -33,13 +33,7 @@
 @Html.AntiForgeryToken()
 
 <div class="card">
-    <div class="card-body p-0">
-        <table id="tbl-apikeys" class="table table-sm mb-0" style="font-size:13px;">
-            <thead style="background:var(--bs-tertiary-bg);"></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-    <div class="card-footer py-2" id="tbl-apikeys-pagination"></div>
+    <div id="tbl-apikeys"></div>
 </div>
 
 <div class="mt-4 p-3 rounded" style="background:var(--bs-tertiary-bg);font-size:13px;max-width:600px;">
@@ -77,10 +71,10 @@
     const csrf = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
     PagedTable.init({
         tableId: 'tbl-apikeys',
+        tableClass: 'table table-sm mb-0',
         url: '/ApiKeys/IndexData',
         pageSize: 25,
         defaultSort: { col: 'createdAt', dir: 'desc' },
-        paginationId: 'tbl-apikeys-pagination',
         columns: [
             { key: 'appName',   label: 'Application', thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold' },
             { key: 'prefix',    label: 'Key Prefix',  tdClass: 'align-middle', render: r => `<code>${r.prefix}…</code>` },

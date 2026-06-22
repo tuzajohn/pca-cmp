@@ -39,13 +39,7 @@
 </div>
 
 <div class="card">
-    <div class="card-body p-0">
-        <table id="tbl-dep" class="table mb-0" style="font-size:13px;">
-            <thead style="background:var(--bs-tertiary-bg);"></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-    <div class="card-footer py-2" id="tbl-dep-pagination"></div>
+    <div id="tbl-dep"></div>
 </div>
 
 @section Scripts {
@@ -62,7 +56,6 @@
             status:  document.getElementById('f-status').value,
             allTime: document.getElementById('f-alltime').checked
         }),
-        paginationId: 'tbl-dep-pagination',
         columns: [
             { key: 'serial',      label: 'Serial',        thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/Deprovisioning/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
             { key: 'employee',    label: 'Employee',      tdClass: 'align-middle' },

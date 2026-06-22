@@ -18,23 +18,17 @@
 }
 
 <div class="card">
-    <div class="card-body p-0">
-        <table id="tbl-schedules" class="table table-hover mb-0" style="font-size:13px;">
-            <thead style="background:var(--bs-tertiary-bg);"></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-    <div class="card-footer py-2" id="tbl-schedules-pagination"></div>
+    <div id="tbl-schedules"></div>
 </div>
 
 @section Scripts {
 <script>
 PagedTable.init({
     tableId: 'tbl-schedules',
+        tableClass: 'table table-hover mb-0',
     url: '/InvoiceSchedules/IndexData',
     pageSize: 25,
     defaultSort: { col: 'name', dir: 'asc' },
-    paginationId: 'tbl-schedules-pagination',
     columns: [
         { key: 'name',      label: 'Name',      thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold', render: r => `<a href="/InvoiceSchedules/Details/${r.id}" class="text-decoration-none" style="color:inherit;">${r.name}</a>` },
         { key: 'lender',    label: 'Lender',    tdClass: 'align-middle', render: r => `${r.lender}<div class="text-muted" style="font-size:11px;">${r.companyType}</div>` },

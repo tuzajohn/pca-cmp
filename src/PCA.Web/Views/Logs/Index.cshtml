@@ -57,13 +57,7 @@
 </div>
 
 <div class="card">
-    <div class="card-body p-0">
-        <table id="tbl-logs" class="table mb-0" style="font-size:12px;">
-            <thead style="background:var(--bs-tertiary-bg);"></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-    <div class="card-footer py-2" id="tbl-logs-pagination"></div>
+    <div id="tbl-logs"></div>
 </div>
 
 <!-- Clear modal -->
@@ -115,6 +109,7 @@
 
     const tbl = PagedTable.init({
         tableId: 'tbl-logs',
+        tableStyle: 'font-size:12px;',
         url: '/Logs/IndexData',
         pageSize: 50,
         defaultSort: { col: 'timestamp', dir: 'desc' },
@@ -126,7 +121,6 @@
             to:       g('f-to').value,
             search:   g('f-search').value
         }),
-        paginationId: 'tbl-logs-pagination',
         columns: [
             { key: 'timestamp', label: 'Timestamp', thClass: 'ps-3', tdClass: 'ps-3 align-middle text-muted', render: r => `<span style="white-space:nowrap;">${r.timestamp}</span>` },
             { key: 'level',     label: 'Level',     tdClass: 'align-middle', render: r => levelBadge(r.level) },

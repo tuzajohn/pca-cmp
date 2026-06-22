@@ -16,23 +16,17 @@
 </div>
 
 <div class="card">
-    <div class="card-body p-0">
-        <table id="tbl-reviews" class="table table-hover mb-0" style="font-size:13px;">
-            <thead style="background:var(--bs-tertiary-bg);"></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-    <div class="card-footer py-2" id="tbl-reviews-pagination"></div>
+    <div id="tbl-reviews"></div>
 </div>
 
 @section Scripts {
 <script>
 PagedTable.init({
     tableId: 'tbl-reviews',
+        tableClass: 'table table-hover mb-0',
     url: '/AccessReviews/IndexData',
     pageSize: 25,
     defaultSort: { col: 'dueDate', dir: 'desc' },
-    paginationId: 'tbl-reviews-pagination',
     columns: [
         { key: 'title',      label: 'Title',    thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold', render: r => `<a href="/AccessReviews/Details/${r.id}" class="text-decoration-none" style="color:inherit;">${r.title}</a>` },
         { key: 'cycle',      label: 'Cycle',    tdClass: 'align-middle', render: r => `<span class="badge ${r.cycle === 'Quarterly' ? 'bg-primary' : 'bg-info text-dark'}" style="font-size:10px;">${r.cycle}</span>` },

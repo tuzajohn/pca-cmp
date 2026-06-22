@@ -16,23 +16,17 @@
 }
 
 <div class="card">
-    <div class="card-body p-0">
-        <table id="tbl-lenders" class="table table-hover mb-0" style="font-size:13px;">
-            <thead style="background:var(--bs-tertiary-bg);"></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-    <div class="card-footer py-2" id="tbl-lenders-pagination"></div>
+    <div id="tbl-lenders"></div>
 </div>
 
 @section Scripts {
 <script>
 PagedTable.init({
     tableId: 'tbl-lenders',
+        tableClass: 'table table-hover mb-0',
     url: '/InvoiceLenders/IndexData',
     pageSize: 25,
     defaultSort: { col: 'name', dir: 'asc' },
-    paginationId: 'tbl-lenders-pagination',
     columns: [
         { key: 'name',          label: 'Name',           thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold' },
         { key: 'companyType',   label: 'Company Type',   tdClass: 'align-middle text-muted' },

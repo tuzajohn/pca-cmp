@@ -1,24 +1,30 @@
 /**
  * Fetch-based table loader with Bootstrap 5 pagination and sortable headers.
+ * The container element (tableId) is a plain <div>; all table DOM is created by this module.
  *
  * Usage:
  *   const tbl = PagedTable.init({
- *     tableId: 'my-table',
- *     url: '/Controller/Data',
- *     pageSize: 25,
+ *     tableId:     'my-container',          // id of a <div> — table is injected inside
+ *     url:         '/Controller/Data',
+ *     pageSize:    25,
  *     defaultSort: { col: 'name', dir: 'asc' },
- *     filters: () => ({ status: document.getElementById('f-status').value }),
+ *     filters:     () => ({ status: document.getElementById('f-status').value }),
+ *     tableClass:  'table mb-0',            // optional, default 'table mb-0'
+ *     tableStyle:  'font-size:13px;',       // optional, default 'font-size:13px;'
  *     columns: [
  *       { key: 'name',   label: 'Name',   render: row => `<a href="...">${row.name}</a>` },
- *       { key: 'status', label: 'Status', render: row => `<span class="badge ...">${row.status}</span>` },
+ *       { key: 'status', label: 'Status', sortable: false, render: row => `...` },
  *       { key: null,     label: '',       sortable: false, render: row => `<a href="...">View</a>` }
- *     ],
- *     paginationId: 'my-table-pagination'
+ *     ]
  *   });
  *   tbl.reload();   // re-fetch from page 1
  *   tbl.setPage(3); // jump to page 3
  */
 const PagedTable = (() => {
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
     function init(config) {
         const {
             tableId,
@@ -27,7 +33,8 @@ const PagedTable = (() => {
             defaultSort = null,
             filters = () => ({}),
             columns,
-            paginationId
+            tableClass = 'table mb-0',
+            tableStyle = 'font-size:13px;'
         } = config;
 
         const state = {
@@ -38,16 +45,32 @@ const PagedTable = (() => {
             totalPages: 1
         };
 
-        const table = document.getElementById(tableId);
-        if (!table) return { reload() {}, setPage() {} };
+        const container = document.getElementById(tableId);
+        if (!container) return { reload() {}, setPage() {} };
 
-        const tbody = table.querySelector('tbody') || table.appendChild(document.createElement('tbody'));
-        let thead = table.querySelector('thead');
-        if (!thead) { thead = document.createElement('thead'); table.prepend(thead); }
+        // Build table structure
+        container.innerHTML = '';
+
+        const table = document.createElement('table');
+        table.className = tableClass;
+        table.style.cssText = tableStyle;
+
+        const thead = document.createElement('thead');
+        thead.style.cssText = 'background:var(--bs-tertiary-bg);';
+
+        const tbody = document.createElement('tbody');
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        container.appendChild(table);
+
+        const paginationEl = document.createElement('div');
+        paginationEl.className = 'px-3 py-2';
+        container.appendChild(paginationEl);
 
         // Build header row
-        const headerRow = thead.querySelector('tr') || thead.appendChild(document.createElement('tr'));
-        headerRow.innerHTML = '';
+        const headerRow = document.createElement('tr');
+        thead.appendChild(headerRow);
+
         columns.forEach(col => {
             const th = document.createElement('th');
             if (col.thClass) th.className = col.thClass;
@@ -93,8 +116,7 @@ const PagedTable = (() => {
 
             const raw = { page: state.page, pageSize: state.pageSize };
             if (state.sortCol) { raw.sortCol = state.sortCol; raw.sortDir = state.sortDir; }
-            const f = filters();
-            Object.assign(raw, f);
+            Object.assign(raw, filters());
 
             const params = new URLSearchParams();
             Object.entries(raw).forEach(([k, v]) => {
@@ -106,7 +128,7 @@ const PagedTable = (() => {
                 const resp = await fetch(`${url}?${params}`);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 result = await resp.json();
-            } catch (err) {
+            } catch {
                 tbody.innerHTML = `<tr><td colspan="${colCount}" class="text-center py-3 text-danger">Failed to load data.</td></tr>`;
                 return;
             }
@@ -136,9 +158,7 @@ const PagedTable = (() => {
         }
 
         function renderPagination() {
-            const container = paginationId ? document.getElementById(paginationId) : null;
-            if (!container) return;
-            if (state.totalPages <= 1) { container.innerHTML = ''; return; }
+            if (state.totalPages <= 1) { paginationEl.innerHTML = ''; return; }
 
             const cur = state.page, tot = state.totalPages;
             let pages = [];
@@ -152,19 +172,19 @@ const PagedTable = (() => {
                 pages.push(tot);
             }
 
-            const items = pages.map(p =>
+            const pageItems = pages.map(p =>
                 p === '…'
                     ? `<li class="page-item disabled"><span class="page-link">…</span></li>`
                     : `<li class="page-item ${p === cur ? 'active' : ''}"><a class="page-link" href="#" data-p="${p}">${p}</a></li>`
             );
 
-            container.innerHTML = `<nav aria-label="Table pagination"><ul class="pagination pagination-sm mb-0 flex-wrap">
+            paginationEl.innerHTML = `<nav aria-label="Table pagination"><ul class="pagination pagination-sm mb-0 flex-wrap">
                 <li class="page-item ${cur === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-p="${cur - 1}">‹</a></li>
-                ${items.join('')}
+                ${pageItems.join('')}
                 <li class="page-item ${cur === tot ? 'disabled' : ''}"><a class="page-link" href="#" data-p="${cur + 1}">›</a></li>
             </ul></nav>`;
 
-            container.querySelectorAll('[data-p]').forEach(a => {
+            paginationEl.querySelectorAll('[data-p]').forEach(a => {
                 a.addEventListener('click', e => {
                     e.preventDefault();
                     const p = parseInt(a.dataset.p);
@@ -174,10 +194,6 @@ const PagedTable = (() => {
                     }
                 });
             });
-        }
-
-        function escHtml(s) {
-            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
         load();

@@ -45,13 +45,7 @@
 </div>
 
 <div class="card">
-    <div class="card-body p-0">
-        <table id="tbl-inc" class="table mb-0" style="font-size:13px;">
-            <thead style="background:var(--bs-tertiary-bg);"></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-    <div class="card-footer py-2" id="tbl-inc-pagination"></div>
+    <div id="tbl-inc"></div>
 </div>
 
 @section Scripts {
@@ -69,7 +63,6 @@
             severity: document.getElementById('f-severity').value,
             category: document.getElementById('f-category').value
         }),
-        paginationId: 'tbl-inc-pagination',
         columns: [
             { key: 'serial',     label: 'Serial',      thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/Incidents/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
             { key: 'title',      label: 'Title',       tdClass: 'align-middle' },

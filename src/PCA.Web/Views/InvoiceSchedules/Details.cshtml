@@ -45,11 +45,7 @@
         <div class="form-section">
             <div class="form-section-header"><i class="bi bi-clock-history"></i> Run History</div>
             <div class="form-section-body p-0">
-                <table id="dt-runs" class="table table-sm mb-0" style="font-size:13px;">
-                    <thead style="background:var(--bs-tertiary-bg);"></thead>
-                    <tbody></tbody>
-                </table>
-                <div id="dt-runs-pagination" class="px-3 py-2"></div>
+                <div id="dt-runs"></div>
             </div>
         </div>
 
@@ -203,9 +199,9 @@
     var scheduleId = @Model.Id;
     PagedTable.init({
         tableId: 'dt-runs',
+        tableClass: 'table table-sm mb-0',
         url: '/InvoiceSchedules/RunsData?id=' + scheduleId,
         pageSize: 25,
-        paginationId: 'dt-runs-pagination',
         columns: [
             { key: 'triggeredAt', label: 'Triggered At', thClass: 'ps-3', tdClass: 'ps-3 align-middle text-muted' },
             { key: 'triggeredBy', label: 'Triggered By', tdClass: 'align-middle text-muted' },

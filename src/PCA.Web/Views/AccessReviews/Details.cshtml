@@ -35,11 +35,7 @@
                 <span><i class="bi bi-people me-2"></i>Review Entries</span>
             </div>
             <div class="form-section-body p-0">
-                <table id="dt-entries" class="table table-sm mb-0" style="font-size:13px;">
-                    <thead style="background:var(--bs-tertiary-bg);"></thead>
-                    <tbody></tbody>
-                </table>
-                <div id="dt-entries-pagination" class="px-3 py-2"></div>
+                <div id="dt-entries"></div>
             </div>
         </div>
 
@@ -97,10 +93,10 @@
 
     PagedTable.init({
         tableId: 'dt-entries',
+        tableClass: 'table table-sm mb-0',
         url: '/AccessReviews/EntriesData?id=' + reviewId,
         pageSize: 25,
         defaultSort: { col: 'employeeName', dir: 'asc' },
-        paginationId: 'dt-entries-pagination',
         columns: [
             { key: 'employeeName',  label: 'Employee',       thClass: 'ps-3', tdClass: 'ps-3 align-middle',
               render: r => `<span class="fw-semibold">${r.employeeName}</span>${r.department ? `<div class="text-muted fw-normal" style="font-size:11px;">${r.department}</div>` : ''}` },
