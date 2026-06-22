@@ -58,10 +58,12 @@ public class InvoiceDocumentRegistrar : IInvoiceDocumentRegistrar
         if (existing != null)
             return existing.Id;
 
+        var systemUserId = await GetSystemUserIdAsync();
         var folder = await _docs.CreateFolderAsync(new DocumentFolder
         {
             Name        = "Invoices",
-            Description = "Auto-generated invoice files"
+            Description = "Auto-generated invoice files",
+            CreatedById = systemUserId
         });
 
         return folder.Id;
