@@ -24,14 +24,31 @@ public static class DbSeeder
             ?? Path.Combine(env.ContentRootPath, "uploads", "documents");
         Directory.CreateDirectory(Path.Combine(storageRoot, "invoices", "hcm-ref"));
 
-        // Create month folders for any existing invoice runs
-        var runMonths = await db.InvoiceRuns
-            .Where(r => r.TriggeredAt != default)
-            .Select(r => r.TriggeredAt.ToString("yyyy-MM"))
-            .Distinct()
+        // Create year/month folders for any existing invoice runs and migrate
+        // file paths from old flat layout (invoices/yyyy-MM/) to year/month (invoices/yyyy/MM/)
+        var existingRuns = await db.InvoiceRuns
+            .Where(r => r.FilePath != null && r.FilePath != "")
             .ToListAsync();
-        foreach (var month in runMonths)
-            Directory.CreateDirectory(Path.Combine(storageRoot, "invoices", month));
+        bool runsMigrated = false;
+        foreach (var run in existingRuns)
+        {
+            var newDir = Path.Combine(storageRoot, "invoices",
+                run.TriggeredAt.Year.ToString(), run.TriggeredAt.Month.ToString("D2"));
+            Directory.CreateDirectory(newDir);
+
+            if (run.FilePath == null) continue;
+            var fileName = Path.GetFileName(run.FilePath);
+            var newPath  = Path.Combine(newDir, fileName);
+
+            if (run.FilePath != newPath)
+            {
+                if (System.IO.File.Exists(run.FilePath) && !System.IO.File.Exists(newPath))
+                    System.IO.File.Move(run.FilePath, newPath);
+                run.FilePath = newPath;
+                runsMigrated = true;
+            }
+        }
+        if (runsMigrated) await db.SaveChangesAsync();
 
         // Seed roles
         foreach (var role in new[] { "Admin", "Approver", "Requester" })

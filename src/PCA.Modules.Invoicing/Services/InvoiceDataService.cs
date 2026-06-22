@@ -219,11 +219,10 @@ public class InvoiceDataService
         ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
         var now = DateTime.UtcNow;
-        var monthFolder = now.ToString("yyyy-MM");
-        var monthYear   = now.ToString("MMMMyyyy");
-        var fileName    = $"{SanitizeFileName(lenderName)}_Invoice_Breakdown_{monthYear}.xlsx";
+        var monthYear = now.ToString("MMMMyyyy");
+        var fileName  = $"{SanitizeFileName(lenderName)}_Invoice_Breakdown_{monthYear}.xlsx";
 
-        var dir = Path.Combine(storageRoot, "invoices", monthFolder);
+        var dir = Path.Combine(storageRoot, "invoices", now.Year.ToString(), now.ToString("MM"));
         Directory.CreateDirectory(dir);
         var filePath = Path.Combine(dir, fileName);
 
