@@ -69,7 +69,7 @@ public class InvoiceScheduleCreateViewModel
     public int? DayOfWeek { get; set; }
 
     [Display(Name = "Day of Month")]
-    [Range(1, 31)]
+    [Range(-1, 31)]
     public int? DayOfMonth { get; set; }
 
     [Required, Display(Name = "Time of Day")]
