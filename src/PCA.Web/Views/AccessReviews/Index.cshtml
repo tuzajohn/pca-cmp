@@ -23,19 +23,23 @@
 <script>
 PagedTable.init({
     tableId: 'tbl-reviews',
-        tableClass: 'table table-hover mb-0',
+    tableClass: 'table table-hover mb-0',
     url: '/AccessReviews/IndexData',
     pageSize: 20,
     defaultSort: { col: 'dueDate', dir: 'desc' },
+    filterBar: [
+        { key: 'status', label: 'Status', type: 'select', options: ['Active','Completed','Overdue'] },
+        { key: 'search', label: 'Search', type: 'text',   placeholder: 'Title…' }
+    ],
     columns: [
-        { key: 'title',      label: 'Title',    thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold', render: r => `<a href="/AccessReviews/Details/${r.id}" class="text-decoration-none" style="color:inherit;">${r.title}</a>` },
-        { key: 'cycle',      label: 'Cycle',    tdClass: 'align-middle', render: r => `<span class="badge ${r.cycle === 'Quarterly' ? 'bg-primary' : 'bg-info text-dark'}" style="font-size:10px;">${r.cycle}</span>` },
-        { key: 'period',     label: 'Period',   sortable: false, tdClass: 'align-middle text-muted' },
-        { key: 'dueDate',    label: 'Due Date', tdClass: 'align-middle', render: r => r.isOverdue ? `<span class="text-danger fw-semibold">${r.dueDate} <i class="bi bi-exclamation-circle ms-1"></i></span>` : `<span class="text-muted">${r.dueDate}</span>` },
-        { key: 'pct',        label: 'Progress', sortable: false, tdClass: 'align-middle', render: r => r.entryCount > 0
+        { key: 'title',  label: 'Title',    thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold', render: r => `<a href="/AccessReviews/Details/${r.id}" class="text-decoration-none" style="color:inherit;">${r.title}</a>` },
+        { key: 'cycle',  label: 'Cycle',    tdClass: 'align-middle', render: r => `<span class="badge ${r.cycle === 'Quarterly' ? 'bg-primary' : 'bg-info text-dark'}" style="font-size:10px;">${r.cycle}</span>` },
+        { key: 'period', label: 'Period',   sortable: false, tdClass: 'align-middle text-muted' },
+        { key: 'dueDate',label: 'Due Date', tdClass: 'align-middle', render: r => r.isOverdue ? `<span class="text-danger fw-semibold">${r.dueDate} <i class="bi bi-exclamation-circle ms-1"></i></span>` : `<span class="text-muted">${r.dueDate}</span>` },
+        { key: 'pct',    label: 'Progress', sortable: false, tdClass: 'align-middle', render: r => r.entryCount > 0
             ? `<div class="d-flex align-items-center gap-2"><div class="progress flex-grow-1" style="height:6px;min-width:80px;"><div class="progress-bar" style="width:${r.pct}%;background:var(--color-primary);"></div></div><span class="text-muted" style="font-size:11px;white-space:nowrap;">${r.doneCount}/${r.entryCount}</span></div>`
             : '<span class="text-muted">No entries</span>' },
-        { key: 'status',     label: 'Status',   tdClass: 'align-middle', render: r => `<span class="status-badge status-${r.status.toLowerCase()}" style="font-size:10px;">${r.status}</span>` },
+        { key: 'status', label: 'Status',   tdClass: 'align-middle', render: r => `<span class="status-badge status-${r.status.toLowerCase()}" style="font-size:10px;">${r.status}</span>` },
         { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle',
           render: r => `<a href="/AccessReviews/Details/${r.id}" class="btn btn-outline-primary btn-sm" style="padding:2px 8px;font-size:11px;"><i class="bi bi-eye"></i></a>` }
     ]

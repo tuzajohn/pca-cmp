@@ -97,9 +97,16 @@ public class AccessReviewsController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "desc")
+    public async Task<IActionResult> IndexData(int page = 1, int pageSize = 20, string? sortCol = null, string? sortDir = "desc", string? status = null, string? search = null)
     {
         var all = await _svc.GetAllAccessReviewsAsync();
+
+        if (!string.IsNullOrEmpty(status))
+            all = all.Where(r => r.Status.ToString() == status ||
+                (status == "Overdue" && r.Status != AccessReviewStatus.Completed && r.DueDate < DateTime.UtcNow)).ToList();
+        if (!string.IsNullOrEmpty(search))
+            all = all.Where(r => r.Title.Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
+
         var sorted = sortCol switch {
             "title"   => sortDir == "asc" ? all.OrderBy(r => r.Title).ToList() : all.OrderByDescending(r => r.Title).ToList(),
             "cycle"   => sortDir == "asc" ? all.OrderBy(r => r.Cycle).ToList() : all.OrderByDescending(r => r.Cycle).ToList(),

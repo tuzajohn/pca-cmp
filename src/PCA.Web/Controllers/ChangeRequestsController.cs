@@ -52,11 +52,11 @@ public class ChangeRequestsController : Controller
     public async Task<IActionResult> Data(
         int page = 1, int pageSize = 20,
         string? sortCol = null, string? sortDir = "desc",
-        string? status = null)
+        string? status = null, string? search = null)
     {
         var user = await _userManager.GetUserAsync(User);
         var userId = User.IsInRole("Admin") ? null : user!.Id;
-        var result = await _crService.GetPagedAsync(userId, status, page, pageSize, sortCol, sortDir);
+        var result = await _crService.GetPagedAsync(userId, status, page, pageSize, sortCol, sortDir, search);
 
         return Json(new {
             items = result.Collection.Select(cr => new {

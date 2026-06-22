@@ -55,11 +55,11 @@ public class IncidentsController : Controller
     public async Task<IActionResult> Data(
         int page = 1, int pageSize = 20,
         string? sortCol = null, string? sortDir = "desc",
-        string? status = null, string? severity = null, string? category = null)
+        string? status = null, string? severity = null, string? category = null, string? search = null)
     {
         var user = await _userManager.GetUserAsync(User);
         var userId = User.IsInRole("Admin") ? null : user!.Id;
-        var result = await _incidentService.GetPagedAsync(userId, status, severity, category, page, pageSize, sortCol, sortDir);
+        var result = await _incidentService.GetPagedAsync(userId, status, severity, category, page, pageSize, sortCol, sortDir, search);
 
         return Json(new {
             items = result.Collection.Select(i => new {

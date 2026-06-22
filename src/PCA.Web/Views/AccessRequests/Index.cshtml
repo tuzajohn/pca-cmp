@@ -1,4 +1,3 @@
-@using PCA.Shared.Enums
 @{
     ViewData["Title"] = "Access Requests";
 }
@@ -13,23 +12,6 @@
     </a>
 </div>
 
-<div class="card mb-3">
-    <div class="card-body py-2">
-        <div class="d-flex flex-wrap gap-2 align-items-center">
-            <select id="f-status" class="form-select form-select-sm" style="width:auto;">
-                <option value="">All Statuses</option>
-                @foreach (var s in Enum.GetValues<AccessRequestStatus>())
-                {
-                    <option value="@s">@s</option>
-                }
-            </select>
-            <input type="text" id="f-system" class="form-control form-control-sm" style="width:180px;" placeholder="System name…" />
-            <button class="btn btn-primary btn-sm" id="btn-filter">Filter</button>
-            <button class="btn btn-outline-secondary btn-sm" id="btn-clear">Clear</button>
-        </div>
-    </div>
-</div>
-
 <div class="card">
     <div id="tbl-ar"></div>
 </div>
@@ -39,15 +21,17 @@
 (function () {
     const badge = d => `<span class="status-badge status-${d.toLowerCase()}">${d}</span>`;
 
-    const tbl = PagedTable.init({
+    PagedTable.init({
         tableId: 'tbl-ar',
         url: '/AccessRequests/Data',
         pageSize: 20,
         defaultSort: { col: 'createdAt', dir: 'desc' },
-        filters: () => ({
-            status: document.getElementById('f-status').value,
-            system: document.getElementById('f-system').value
-        }),
+        filterBar: [
+            { key: 'status', label: 'Status', type: 'select', options: ['Pending','Approved','Rejected','Provisioned','Revoked'] },
+            { key: 'system', label: 'System', type: 'text',   placeholder: 'System name…' },
+            { key: 'from',   label: 'From',   type: 'date' },
+            { key: 'to',     label: 'To',     type: 'date' }
+        ],
         columns: [
             { key: 'serial',     label: 'Serial',     thClass: 'ps-3', tdClass: 'ps-3 align-middle', render: r => `<a href="/AccessRequests/Details/${r.id}" class="fw-semibold text-decoration-none">${r.serial}</a>` },
             { key: 'employee',   label: 'Employee',   tdClass: 'align-middle' },
@@ -59,13 +43,6 @@
             { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
               render: r => `<a href="/AccessRequests/Details/${r.id}" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;"><i class="bi bi-eye"></i></a>` }
         ]
-    });
-
-    document.getElementById('btn-filter').addEventListener('click', () => tbl.reload());
-    document.getElementById('btn-clear').addEventListener('click', () => {
-        document.getElementById('f-status').value = '';
-        document.getElementById('f-system').value = '';
-        tbl.reload();
     });
 })();
 </script>

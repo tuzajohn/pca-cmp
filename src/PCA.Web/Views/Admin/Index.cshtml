@@ -28,13 +28,17 @@ PagedTable.init({
     url: '/Admin/TemplatesData',
     pageSize: 20,
     defaultSort: { col: 'name', dir: 'asc' },
+    filterBar: [
+        { key: 'entityType', label: 'Module', type: 'select', options: ['ChangeRequest','Incident','AccessRequest','Deprovisioning','ServerRoomAccess','Invoice'] },
+        { key: 'search',     label: 'Search', type: 'text',   placeholder: 'Template name…' }
+    ],
     columns: [
-        { key: 'name',         label: 'Name',       thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold' },
-        { key: 'entityType',   label: 'Module',     tdClass: 'align-middle', render: r => `<span class="status-badge status-submitted">${r.entityType}</span>${r.entitySubType ? ` <span class="status-badge status-draft ms-1">${r.entitySubType}</span>` : ''}` },
-        { key: 'trigger',      label: 'Trigger',    tdClass: 'align-middle', render: r => r.trigger !== 'None' ? `<span class="status-badge status-underreview">⚡ ${r.trigger}</span>` : '<span class="text-muted">Manual</span>' },
-        { key: 'approvalMode', label: 'Mode',       tdClass: 'align-middle', render: r => r.approvalMode === 'AllMustApprove' ? '<span class="status-badge status-approved">All Must Approve</span>' : '<span class="status-badge status-implemented">Any Can Approve</span>' },
-        { key: 'stepCount',    label: 'Steps',      tdClass: 'align-middle text-muted', render: r => `${r.stepCount} step${r.stepCount === 1 ? '' : 's'}` },
-        { key: 'condition',    label: 'Condition',  sortable: false, tdClass: 'align-middle', render: r => r.condition ? `<code style="font-size:11px;">${r.condition}</code>` : '<span class="text-muted">—</span>' },
+        { key: 'name',         label: 'Name',      thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold' },
+        { key: 'entityType',   label: 'Module',    tdClass: 'align-middle', render: r => `<span class="status-badge status-submitted">${r.entityType}</span>${r.entitySubType ? ` <span class="status-badge status-draft ms-1">${r.entitySubType}</span>` : ''}` },
+        { key: 'trigger',      label: 'Trigger',   tdClass: 'align-middle', render: r => r.trigger !== 'None' ? `<span class="status-badge status-underreview">⚡ ${r.trigger}</span>` : '<span class="text-muted">Manual</span>' },
+        { key: 'approvalMode', label: 'Mode',      tdClass: 'align-middle', render: r => r.approvalMode === 'AllMustApprove' ? '<span class="status-badge status-approved">All Must Approve</span>' : '<span class="status-badge status-implemented">Any Can Approve</span>' },
+        { key: 'stepCount',    label: 'Steps',     tdClass: 'align-middle text-muted', render: r => `${r.stepCount} step${r.stepCount === 1 ? '' : 's'}` },
+        { key: 'condition',    label: 'Condition', sortable: false, tdClass: 'align-middle', render: r => r.condition ? `<code style="font-size:11px;">${r.condition}</code>` : '<span class="text-muted">—</span>' },
         { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
           render: r => `<a href="/Admin/TemplateDetails/${r.id}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye me-1"></i>Details</a>
                         <a href="/Admin/EditTemplate/${r.id}" class="btn btn-sm btn-outline-primary ms-1"><i class="bi bi-pencil me-1"></i>Edit</a>` }

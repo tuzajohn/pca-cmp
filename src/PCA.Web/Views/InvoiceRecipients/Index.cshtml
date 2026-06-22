@@ -23,14 +23,18 @@
 <script>
 PagedTable.init({
     tableId: 'tbl-recipients',
-        tableClass: 'table table-hover mb-0',
+    tableClass: 'table table-hover mb-0',
     url: '/InvoiceRecipients/IndexData',
     pageSize: 20,
     defaultSort: { col: 'name', dir: 'asc' },
+    filterBar: [
+        { key: 'isDefault', label: 'Default', type: 'select', options: [{ value: 'true', label: 'Default Only' }, { value: 'false', label: 'Non-default' }] },
+        { key: 'search',    label: 'Search',  type: 'text',   placeholder: 'Name or email…' }
+    ],
     columns: [
-        { key: 'name',      label: 'Name',      thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold' },
-        { key: 'email',     label: 'Email',     tdClass: 'align-middle text-muted' },
-        { key: 'isDefault', label: 'Default',   tdClass: 'align-middle', render: r => r.isDefault ? '<span class="badge bg-success" style="font-size:10px;">Default</span>' : '' },
+        { key: 'name',      label: 'Name',    thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold' },
+        { key: 'email',     label: 'Email',   tdClass: 'align-middle text-muted' },
+        { key: 'isDefault', label: 'Default', tdClass: 'align-middle', render: r => r.isDefault ? '<span class="badge bg-success" style="font-size:10px;">Default</span>' : '' },
         { key: null, label: '', sortable: false, thClass: 'pe-3', tdClass: 'pe-3 align-middle text-end',
           render: r => `<a href="/InvoiceRecipients/Edit/${r.id}" class="btn btn-outline-secondary btn-sm me-1" style="padding:2px 8px;font-size:11px;"><i class="bi bi-pencil"></i></a>
                         <button class="btn btn-outline-danger btn-sm" style="padding:2px 8px;font-size:11px;"

@@ -23,10 +23,15 @@
 <script>
 PagedTable.init({
     tableId: 'tbl-lenders',
-        tableClass: 'table table-hover mb-0',
+    tableClass: 'table table-hover mb-0',
     url: '/InvoiceLenders/IndexData',
     pageSize: 20,
     defaultSort: { col: 'name', dir: 'asc' },
+    filterBar: [
+        { key: 'companyType', label: 'Type',   type: 'select', options: ['Bank','Sacco','Insurance','Other'] },
+        { key: 'isActive',    label: 'Status', type: 'select', options: [{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }] },
+        { key: 'search',      label: 'Search', type: 'text',   placeholder: 'Name or code…' }
+    ],
     columns: [
         { key: 'name',          label: 'Name',           thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold' },
         { key: 'companyType',   label: 'Company Type',   tdClass: 'align-middle text-muted' },

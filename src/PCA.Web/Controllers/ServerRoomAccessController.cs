@@ -44,9 +44,9 @@ public class ServerRoomAccessController : Controller
     public async Task<IActionResult> Data(
         int page = 1, int pageSize = 20,
         string? sortCol = null, string? sortDir = "desc",
-        string? status = null)
+        string? status = null, string? search = null)
     {
-        var result = await _svc.GetServerRoomRequestsPagedAsync(status, page, pageSize, sortCol, sortDir);
+        var result = await _svc.GetServerRoomRequestsPagedAsync(status, page, pageSize, sortCol, sortDir, search);
 
         return Json(new {
             items = result.Collection.Select(r => new {

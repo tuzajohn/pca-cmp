@@ -75,6 +75,10 @@
         url: '/ApiKeys/IndexData',
         pageSize: 20,
         defaultSort: { col: 'createdAt', dir: 'desc' },
+        filterBar: [
+            { key: 'isActive', label: 'Status', type: 'select', options: [{ value: 'true', label: 'Active' }, { value: 'false', label: 'Revoked' }] },
+            { key: 'search',   label: 'Search', type: 'text',   placeholder: 'App name or prefix…' }
+        ],
         columns: [
             { key: 'appName',   label: 'Application', thClass: 'ps-3', tdClass: 'ps-3 align-middle fw-semibold' },
             { key: 'prefix',    label: 'Key Prefix',  tdClass: 'align-middle', render: r => `<code>${r.prefix}…</code>` },
