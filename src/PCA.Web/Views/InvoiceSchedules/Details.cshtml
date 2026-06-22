@@ -73,25 +73,26 @@
 
                 @if (!hasRefForThisMonth && otherFiles.Any())
                 {
+                    var first = otherFiles.First();
+                    var count = otherFiles.Count;
                     <div class="alert alert-info d-flex align-items-start gap-3 mb-3 py-2 px-3" style="font-size:13px;border-radius:8px;">
                         <i class="bi bi-lightbulb-fill mt-1 flex-shrink-0" style="color:var(--color-primary);"></i>
                         <div class="flex-grow-1">
-                            <div class="fw-semibold mb-1">A ref file for @currentMonth already exists on another schedule</div>
-                            <div class="d-flex flex-wrap gap-2 mt-2">
-                                @foreach (var other in otherFiles)
-                                {
-                                    <form asp-action="ReuseHcmRef" asp-route-id="@Model.Id" method="post" class="d-inline">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="sourceRefFileId" value="@other.Id" />
-                                        <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size:12px;">
-                                            <i class="bi bi-copy me-1"></i>
-                                            Use file from <strong>@(other.Schedule?.Name ?? "another schedule")</strong>
-                                            <span class="text-muted ms-1">(@other.OriginalFileName)</span>
-                                        </button>
-                                    </form>
-                                }
+                            <div class="fw-semibold mb-1">
+                                A ref file for @currentMonth is already shared across @count other schedule@(count == 1 ? "" : "s")
                             </div>
-                            <div class="text-muted mt-2" style="font-size:11px;">Or upload a different file below if this schedule needs its own.</div>
+                            <div class="text-muted mb-2" style="font-size:12px;">
+                                <i class="bi bi-file-earmark-excel me-1"></i>@first.OriginalFileName
+                                &nbsp;·&nbsp; uploaded @first.UploadedAt.ToString("dd MMM yyyy") by @(first.UploadedBy?.FullName ?? "—")
+                            </div>
+                            <form asp-action="ReuseHcmRef" asp-route-id="@Model.Id" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="sourceRefFileId" value="@first.Id" />
+                                <button type="submit" class="btn btn-sm btn-primary" style="font-size:12px;">
+                                    <i class="bi bi-copy me-1"></i> Use this file for @currentMonth
+                                </button>
+                            </form>
+                            <span class="text-muted ms-3" style="font-size:11px;">Or upload a different file below if this schedule needs its own.</span>
                         </div>
                     </div>
                 }
