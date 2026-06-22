@@ -50,17 +50,6 @@ public static class DbSeeder
         }
         if (runsMigrated) await db.SaveChangesAsync();
 
-        // Seed "Invoices" document folder
-        if (!await db.DocumentFolders.AnyAsync(f => f.Name == "Invoices" && f.ParentId == null))
-        {
-            db.DocumentFolders.Add(new PCA.Modules.Documents.Models.DocumentFolder
-            {
-                Name        = "Invoices",
-                Description = "Auto-generated invoice files"
-            });
-            await db.SaveChangesAsync();
-        }
-
         // Seed roles
         foreach (var role in new[] { "Admin", "Approver", "Requester" })
         {
@@ -90,6 +79,18 @@ public static class DbSeeder
                     await userManager.AddClaimAsync(admin,
                         new System.Security.Claims.Claim(AppModules.ClaimType, key));
             }
+        }
+
+        // Seed "Invoices" document folder
+        if (!await db.DocumentFolders.AnyAsync(f => f.Name == "Invoices" && f.ParentId == null))
+        {
+            db.DocumentFolders.Add(new PCA.Modules.Documents.Models.DocumentFolder
+            {
+                Name        = "Invoices",
+                Description = "Auto-generated invoice files",
+                CreatedById = admin!.Id
+            });
+            await db.SaveChangesAsync();
         }
 
         // Seed approval templates
