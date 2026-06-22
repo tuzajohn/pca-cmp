@@ -295,4 +295,21 @@ public class InvoiceSchedulesController : Controller
         TempData["Success"] = "HCM ref file deleted.";
         return RedirectToAction(nameof(Details), new { id });
     }
+
+    [HttpGet]
+    public async Task<IActionResult> DownloadHcmRef(int id, int refFileId)
+    {
+        var files = await _svc.GetHcmRefFilesAsync(id);
+        var refFile = files.FirstOrDefault(f => f.Id == refFileId);
+        if (refFile == null || !System.IO.File.Exists(refFile.FilePath))
+            return NotFound();
+
+        var bytes = await System.IO.File.ReadAllBytesAsync(refFile.FilePath);
+        var downloadName = string.IsNullOrEmpty(refFile.OriginalFileName)
+            ? Path.GetFileName(refFile.FilePath)
+            : refFile.OriginalFileName;
+        return File(bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            downloadName);
+    }
 }

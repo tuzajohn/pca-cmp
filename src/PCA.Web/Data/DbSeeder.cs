@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using PCA.Modules.Approvals.Models;
 using PCA.Modules.Identity.Models;
 
@@ -13,8 +14,24 @@ public static class DbSeeder
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        var config      = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var env         = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
 
         await db.Database.MigrateAsync();
+
+        // Ensure invoice storage folders exist
+        var storageRoot = config["InvoiceStoragePath"]
+            ?? Path.Combine(env.ContentRootPath, "uploads", "documents");
+        Directory.CreateDirectory(Path.Combine(storageRoot, "invoices", "hcm-ref"));
+
+        // Create month folders for any existing invoice runs
+        var runMonths = await db.InvoiceRuns
+            .Where(r => r.TriggeredAt != default)
+            .Select(r => r.TriggeredAt.ToString("yyyy-MM"))
+            .Distinct()
+            .ToListAsync();
+        foreach (var month in runMonths)
+            Directory.CreateDirectory(Path.Combine(storageRoot, "invoices", month));
 
         // Seed roles
         foreach (var role in new[] { "Admin", "Approver", "Requester" })
