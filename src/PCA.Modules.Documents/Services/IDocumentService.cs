@@ -19,6 +19,7 @@ public interface IDocumentService
     Task<List<Document>> SearchAsync(string query);
     Task<Document?> GetByIdAsync(int id);
     Task<Document> CreateAsync(Document document, IFormFile file, string changeNotes);
+    Task<Document> RegisterExistingFileAsync(Document document, string filePath, string originalFileName, long fileSizeBytes, string changeNotes);
     Task<Document> UpdateMetadataAsync(Document document);
     Task<bool> RetireAsync(int id, string userId);
 
