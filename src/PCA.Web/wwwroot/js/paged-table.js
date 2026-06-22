@@ -140,6 +140,7 @@ const PagedTable = (() => {
             const items = result.items || [];
             if (items.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="${colCount}" class="text-center py-4 text-muted">No records found.</td></tr>`;
+                paginationEl.innerHTML = '';
             } else {
                 items.forEach(row => {
                     const tr = document.createElement('tr');
@@ -151,16 +152,14 @@ const PagedTable = (() => {
                     });
                     tbody.appendChild(tr);
                 });
+                updateSortIcons();
+                renderPagination();
             }
-
-            updateSortIcons();
-            renderPagination();
         }
 
         function renderPagination() {
-            if (state.totalPages <= 1) { paginationEl.innerHTML = ''; return; }
-
             const cur = state.page, tot = state.totalPages;
+
             let pages = [];
             if (tot <= 7) {
                 pages = Array.from({ length: tot }, (_, i) => i + 1);
@@ -178,11 +177,23 @@ const PagedTable = (() => {
                     : `<li class="page-item ${p === cur ? 'active' : ''}"><a class="page-link" href="#" data-p="${p}">${p}</a></li>`
             );
 
-            paginationEl.innerHTML = `<nav aria-label="Table pagination"><ul class="pagination pagination-sm mb-0 flex-wrap">
-                <li class="page-item ${cur === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-p="${cur - 1}">‹</a></li>
-                ${pageItems.join('')}
-                <li class="page-item ${cur === tot ? 'disabled' : ''}"><a class="page-link" href="#" data-p="${cur + 1}">›</a></li>
-            </ul></nav>`;
+            const sizeOpts = [10, 20].map(n =>
+                `<option value="${n}"${state.pageSize === n ? ' selected' : ''}>${n}</option>`
+            ).join('');
+
+            paginationEl.innerHTML = `<div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <nav aria-label="Table pagination"><ul class="pagination pagination-sm mb-0 flex-wrap">
+                    <li class="page-item ${cur === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-p="${cur - 1}">‹</a></li>
+                    ${pageItems.join('')}
+                    <li class="page-item ${cur === tot ? 'disabled' : ''}"><a class="page-link" href="#" data-p="${cur + 1}">›</a></li>
+                </ul></nav>
+                <div class="d-flex align-items-center gap-1 text-muted" style="font-size:12px;">
+                    <label>Rows</label>
+                    <select class="form-select form-select-sm pt-size-select" style="width:auto;">
+                        ${sizeOpts}
+                    </select>
+                </div>
+            </div>`;
 
             paginationEl.querySelectorAll('[data-p]').forEach(a => {
                 a.addEventListener('click', e => {
@@ -193,6 +204,12 @@ const PagedTable = (() => {
                         load();
                     }
                 });
+            });
+
+            paginationEl.querySelector('.pt-size-select').addEventListener('change', function () {
+                state.pageSize = parseInt(this.value);
+                state.page = 1;
+                load();
             });
         }
 
