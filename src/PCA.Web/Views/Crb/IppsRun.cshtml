@@ -12,41 +12,124 @@
     </div>
 </div>
 
-@if (!ViewData.ModelState.IsValid)
-{
-    <div class="alert alert-danger">
-        @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
-        {
-            <div>@error.ErrorMessage</div>
-        }
-    </div>
-}
-
-<div class="row">
-    <div class="col-lg-6">
-        <div class="card shadow-sm">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-upload me-2"></i>Upload IPPS File</h5>
-            </div>
-            <div class="card-body">
-                <form method="post" action="/Crb/IppsGenerate" enctype="multipart/form-data">
-                    @Html.AntiForgeryToken()
-
-                    <div class="mb-4">
-                        <label for="ippsFile" class="form-label fw-semibold">IPPS Numbers File</label>
-                        <input type="file" class="form-control" id="ippsFile" name="ippsFile"
-                               accept=".txt,.csv,.xlsx,.xls" required>
-                        <div class="form-text">
-                            Accepted: <strong>.txt</strong>, <strong>.csv</strong>, <strong>.xlsx</strong>.<br>
-                            One IPPS number per row or comma-separated. Numbers padded to 15 digits automatically.
+<div id="step-upload">
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header"><h5 class="mb-0"><i class="bi bi-upload me-2"></i>Upload IPPS File</h5></div>
+                <div class="card-body">
+                    <div id="upload-error" class="alert alert-danger d-none"></div>
+                    <form id="upload-form" novalidate>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">IPPS Numbers File</label>
+                            <input type="file" class="form-control" id="ippsFile" accept=".txt,.csv,.xlsx,.xls" required>
+                            <div class="form-text">One IPPS number per row or comma-separated. Padded to 15 digits automatically.</div>
                         </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-play-fill me-1"></i>Generate IPPS Report
-                    </button>
-                </form>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-play-fill me-1"></i>Generate IPPS Report
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<div id="step-processing" class="d-none text-center py-5">
+    <div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;"></div>
+    <p class="text-muted">Processing…</p>
+</div>
+
+<div id="step-results" class="d-none">
+    <div class="alert alert-success"><i class="bi bi-check-circle-fill me-2"></i>Report generated successfully.</div>
+    <div class="row g-4 mb-4" id="result-files"></div>
+    <div class="card shadow-sm">
+        <div class="card-header"><h6 class="mb-0">Run Log</h6></div>
+        <div class="card-body p-0"><table class="table table-sm mb-0" id="run-log"></table></div>
+    </div>
+    <div class="mt-3">
+        <button class="btn btn-outline-secondary btn-sm" id="btn-run-again">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Run Again
+        </button>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const show = id => document.getElementById(id).classList.remove('d-none');
+    const hide = id => document.getElementById(id).classList.add('d-none');
+    const showError = msg => {
+        const el = document.getElementById('upload-error');
+        el.textContent = msg; el.classList.remove('d-none');
+    };
+
+    document.getElementById('upload-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        const file = document.getElementById('ippsFile').files[0];
+        if (!file) { showError('Please select a file.'); return; }
+
+        document.getElementById('upload-error').classList.add('d-none');
+        hide('step-upload'); show('step-processing');
+
+        const fd = new FormData();
+        fd.append('ippsFile', file);
+
+        let data;
+        try {
+            const res = await fetch('/Crb/IppsGenerate', { method: 'POST', body: fd });
+            data = await res.json();
+        } catch (err) {
+            hide('step-processing'); show('step-upload');
+            showError('Request failed: ' + err.message);
+            return;
+        }
+
+        hide('step-processing');
+        if (data.status === 'error') {
+            show('step-upload'); showError(data.message);
+        } else {
+            buildResults(data);
+            show('step-results');
+        }
+    });
+
+    document.getElementById('btn-run-again').addEventListener('click', () => {
+        hide('step-results'); show('step-upload');
+        document.getElementById('upload-form').reset();
+    });
+
+    function buildResults(data) {
+        const filesEl = document.getElementById('result-files');
+        filesEl.innerHTML = `
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="mb-1"><i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i>IPPS Report</h5>
+                        <p class="text-muted small mb-3">${data.file.name}</p>
+                        <a href="${data.file.url}" class="btn btn-primary mt-auto">
+                            <i class="bi bi-download me-1"></i>Download
+                        </a>
+                    </div>
+                </div>
+            </div>`;
+
+        const s = data.stats || {};
+        const rows = [
+            ['Total submitted',       s.totalSubmitted],
+            ['Matched',               s.matched],
+            ['Unmatched',             s.unmatched],
+            ['With stat > 0',         s.withStat],
+            ['With allow > 0',        s.withAllow],
+            ['With ded > 0',          s.withDed],
+            ['With stanbic > 0',      s.withStanbic],
+            ['Affordability = 0',     s.zeroAfford],
+        ];
+        document.getElementById('run-log').innerHTML =
+            '<tbody>' + rows.map(([l, v]) =>
+                `<tr><td class="text-muted ps-3">${l}</td><td class="fw-semibold text-end pe-3">${v ?? 0}</td></tr>`
+            ).join('') + '</tbody>';
+    }
+})();
+</script>
+}
