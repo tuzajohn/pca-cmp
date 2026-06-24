@@ -40,6 +40,8 @@ public class CrbController : Controller
     // ── Module 1: HCM upload — JSON endpoint ─────────────────────────────────
 
     [HttpPost]
+    [DisableRequestSizeLimit]
+    [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue, ValueLengthLimit = int.MaxValue)]
     public async Task<IActionResult> HcmUpload(
         IFormFile? hcmFile, IFormFile? stanbicFile, CancellationToken ct)
     {
@@ -117,6 +119,8 @@ public class CrbController : Controller
     // ── Module 2: standalone IPPS — JSON endpoint ─────────────────────────────
 
     [HttpPost]
+    [DisableRequestSizeLimit]
+    [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue, ValueLengthLimit = int.MaxValue)]
     public async Task<IActionResult> IppsGenerate(IFormFile? ippsFile, CancellationToken ct)
     {
         if (ippsFile == null || ippsFile.Length == 0)
