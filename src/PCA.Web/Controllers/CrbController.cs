@@ -43,7 +43,7 @@ public class CrbController : Controller
     [DisableRequestSizeLimit]
     [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue, ValueLengthLimit = int.MaxValue)]
     public async Task<IActionResult> HcmUpload(
-        IFormFile? hcmFile, IFormFile? stanbicFile, CancellationToken ct)
+        [FromForm] IFormFile? hcmFile, [FromForm] IFormFile? stanbicFile, CancellationToken ct)
     {
         if (hcmFile == null || stanbicFile == null)
             return Json(new { status = "error", message = "Both files are required." });
@@ -121,7 +121,7 @@ public class CrbController : Controller
     [HttpPost]
     [DisableRequestSizeLimit]
     [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue, ValueLengthLimit = int.MaxValue)]
-    public async Task<IActionResult> IppsGenerate(IFormFile? ippsFile, CancellationToken ct)
+    public async Task<IActionResult> IppsGenerate([FromForm] IFormFile? ippsFile, CancellationToken ct)
     {
         if (ippsFile == null || ippsFile.Length == 0)
             return Json(new { status = "error", message = "Please select an IPPS file." });
