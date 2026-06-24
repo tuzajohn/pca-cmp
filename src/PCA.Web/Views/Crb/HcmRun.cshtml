@@ -119,13 +119,17 @@
     };
 
     // ── Upload form submit ──────────────────────────────────────────────────
+    // Clear error as soon as a file is chosen
+    document.getElementById('hcmFile').addEventListener('change',     () => document.getElementById('upload-error').classList.add('d-none'));
+    document.getElementById('stanbicFile').addEventListener('change', () => document.getElementById('upload-error').classList.add('d-none'));
+
     document.getElementById('upload-form').addEventListener('submit', async e => {
         e.preventDefault();
+        document.getElementById('upload-error').classList.add('d-none');
         const hcmFile     = document.getElementById('hcmFile').files[0];
         const stanbicFile = document.getElementById('stanbicFile').files[0];
         if (!hcmFile || !stanbicFile) { showError('Both files are required.'); return; }
 
-        document.getElementById('upload-error').classList.add('d-none');
         document.getElementById('processing-msg').textContent = 'Checking mappings and loading files…';
         hide('step-upload'); show('step-processing');
 
