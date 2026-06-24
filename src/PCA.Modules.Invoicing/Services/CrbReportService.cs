@@ -154,8 +154,8 @@ public class CrbReportService
                 Vote:       reader.GetString("vote"),
                 VoteName:   reader.GetString("votename"),
                 Salary:     ReadDecimal(reader, "salary"),
-                Terms:      reader.IsDBNull(reader.GetOrdinal("terms"))    ? null : reader.GetString("terms"),
-                IsActive:   reader.IsDBNull(reader.GetOrdinal("isactive")) ? null : reader.GetString("isactive"));
+                Terms:      reader.IsDBNull(reader.GetOrdinal("terms"))    ? "" : reader.GetString("terms"),
+                IsActive:   reader.IsDBNull(reader.GetOrdinal("isactive")) ? "" : reader.GetString("isactive"));
             matched.Add(ipps);
         }
 
