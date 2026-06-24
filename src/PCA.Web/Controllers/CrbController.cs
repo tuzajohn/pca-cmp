@@ -42,9 +42,10 @@ public class CrbController : Controller
     [HttpPost]
     [DisableRequestSizeLimit]
     [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue, ValueLengthLimit = int.MaxValue)]
-    public async Task<IActionResult> HcmUpload(
-        [FromForm] IFormFile? hcmFile, [FromForm] IFormFile? stanbicFile, CancellationToken ct)
+    public async Task<IActionResult> HcmUpload([FromForm] HcmUploadForm form, CancellationToken ct)
     {
+        var hcmFile     = form.HcmFile;
+        var stanbicFile = form.StanbicFile;
         if (hcmFile == null || stanbicFile == null)
             return Json(new { status = "error", message = "Both files are required." });
 
@@ -121,8 +122,9 @@ public class CrbController : Controller
     [HttpPost]
     [DisableRequestSizeLimit]
     [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue, ValueLengthLimit = int.MaxValue)]
-    public async Task<IActionResult> IppsGenerate([FromForm] IFormFile? ippsFile, CancellationToken ct)
+    public async Task<IActionResult> IppsGenerate([FromForm] IppsUploadForm form, CancellationToken ct)
     {
+        var ippsFile = form.IppsFile;
         if (ippsFile == null || ippsFile.Length == 0)
             return Json(new { status = "error", message = "Please select an IPPS file." });
 
@@ -199,6 +201,19 @@ public class CrbController : Controller
         using var fs = System.IO.File.Create(path);
         await file.CopyToAsync(fs);
     }
+}
+
+// ── Form models for file uploads ──────────────────────────────────────────────
+
+public class HcmUploadForm
+{
+    public IFormFile? HcmFile     { get; set; }
+    public IFormFile? StanbicFile { get; set; }
+}
+
+public class IppsUploadForm
+{
+    public IFormFile? IppsFile { get; set; }
 }
 
 // ── Request model for SaveMappings ────────────────────────────────────────────
