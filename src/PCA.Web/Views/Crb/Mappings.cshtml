@@ -1,0 +1,68 @@
+@model List<PCA.Modules.Invoicing.Models.HcmMapping>
+@{
+    ViewData["Title"] = "HCM Mapping Table";
+}
+
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">HCM Mapping Table</h1>
+        <p class="text-muted mb-0">Classifications for COSTITEM and VENDOR_NAME values from HCM files.</p>
+    </div>
+    <a asp-controller="Crb" asp-action="Index" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">
+        No mappings saved yet. Run Module 1 with an HCM file to populate this table automatically.
+    </div>
+}
+else
+{
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Source Column</th>
+                        <th>Raw Value</th>
+                        <th>Classification</th>
+                        <th>Canonical Name</th>
+                        <th>Aliases</th>
+                        <th>Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in Model)
+                    {
+                        <tr>
+                            <td>
+                                <span class="badge @(m.SourceColumn == "COSTITEM" ? "bg-primary" : "bg-secondary")">
+                                    @m.SourceColumn
+                                </span>
+                            </td>
+                            <td class="font-monospace small">@m.RawValue</td>
+                            <td>
+                                @{
+                                    var badgeClass = m.Classification switch {
+                                        "BASIC_SALARY"   => "bg-success",
+                                        "ALLOWANCE"      => "bg-info text-dark",
+                                        "STATUTORY"      => "bg-warning text-dark",
+                                        "LOAN_DEDUCTION" => "bg-danger",
+                                        _                => "bg-secondary"
+                                    };
+                                }
+                                <span class="badge @badgeClass">@m.Classification.Replace("_", " ")</span>
+                            </td>
+                            <td class="small text-muted">@m.CanonicalName</td>
+                            <td class="small text-muted">@m.Aliases</td>
+                            <td class="small text-muted">@m.UpdatedAt.ToString("dd MMM yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

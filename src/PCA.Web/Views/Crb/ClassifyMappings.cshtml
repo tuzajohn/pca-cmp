@@ -1,0 +1,79 @@
+@using PCA.Modules.Invoicing.Models
+@{
+    ViewData["Title"] = "Classify Unknown Mappings";
+    var runId    = ViewBag.RunId as string ?? "";
+    var unknowns = ViewBag.Unknowns as List<(string RawValue, string SourceColumn)>
+                   ?? new List<(string, string)>();
+}
+
+<div class="page-header d-flex align-items-center mb-4">
+    <a asp-controller="Crb" asp-action="HcmRun" class="btn btn-sm btn-outline-secondary me-3">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h1 class="page-title">Classify Unknown Values</h1>
+        <p class="text-muted mb-0">
+            <strong>@unknowns.Count</strong> unrecognised value(s) found in the HCM file.
+            Classify each one to proceed.
+        </p>
+    </div>
+</div>
+
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    Processing has been <strong>paused</strong>. Classify all values below and click
+    <strong>Save &amp; Resume</strong> to continue generating the report.
+</div>
+
+<form method="post" action="/Crb/SaveMappings">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="runId" value="@runId">
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body p-0">
+            <table class="table table-bordered mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Source Column</th>
+                        <th>Raw Value</th>
+                        <th style="width:220px;">Classification</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < unknowns.Count; i++)
+                    {
+                        var (rawValue, sourceColumn) = unknowns[i];
+                        <tr>
+                            <td>
+                                <span class="badge @(sourceColumn == HcmMapping.SourceColumns.CostItem ? "bg-primary" : "bg-secondary")">
+                                    @sourceColumn
+                                </span>
+                                <input type="hidden" name="rawValues[@i]"     value="@rawValue">
+                                <input type="hidden" name="sourceColumns[@i]" value="@sourceColumn">
+                            </td>
+                            <td class="font-monospace">@rawValue</td>
+                            <td>
+                                <select name="classifications[@i]" class="form-select form-select-sm" required>
+                                    <option value="">— select —</option>
+                                    @foreach (var cls in HcmMapping.Classifications.All)
+                                    {
+                                        <option value="@cls">@cls.Replace("_", " ")</option>
+                                    }
+                                </select>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i>Save &amp; Resume Processing
+        </button>
+        <a asp-controller="Crb" asp-action="HcmRun" class="btn btn-outline-secondary">
+            Cancel
+        </a>
+    </div>
+</form>

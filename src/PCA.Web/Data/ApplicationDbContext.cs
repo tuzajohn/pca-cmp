@@ -77,6 +77,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>,
     public DbSet<InvoiceScheduleRecipient> InvoiceScheduleRecipients => Set<InvoiceScheduleRecipient>();
     public DbSet<InvoiceRun> InvoiceRuns => Set<InvoiceRun>();
     public DbSet<InvoiceHcmRefFile> InvoiceHcmRefFiles => Set<InvoiceHcmRefFile>();
+    public DbSet<HcmMapping> HcmMappings => Set<HcmMapping>();
 
     // Attachments
     public DbSet<Attachment> Attachments => Set<Attachment>();

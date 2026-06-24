@@ -23,5 +23,13 @@ public class ModuleRegistration
         services.AddScoped(sp => new CrbReportService(
             ipps,
             sp.GetRequiredService<ILogger<CrbReportService>>()));
+
+        services.AddScoped<HcmMappingService>();
+
+        services.AddScoped(sp => new HcmReportService(
+            hcm,
+            sp.GetRequiredService<HcmMappingService>(),
+            sp.GetRequiredService<CrbReportService>(),
+            sp.GetRequiredService<ILogger<HcmReportService>>()));
     }
 }

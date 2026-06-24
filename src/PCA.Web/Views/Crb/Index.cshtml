@@ -1,118 +1,88 @@
 @{
-    ViewData["Title"] = "CRB Payroll Deductions Report";
+    ViewData["Title"] = "CRB Payroll Deductions";
 }
 
-<div class="page-header d-flex justify-content-between align-items-center mb-4">
+<div class="page-header d-flex align-items-center mb-4">
     <div>
         <h1 class="page-title">CRB Payroll Deductions</h1>
-        <p class="text-muted mb-0">Upload an IPPS numbers file to generate the deductions report.</p>
+        <p class="text-muted mb-0">Generate monthly CRB deductions reports from HCM and IPPS sources.</p>
     </div>
 </div>
 
-@if (!ViewData.ModelState.IsValid)
-{
-    <div class="alert alert-danger">
-        @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
-        {
-            <div>@error.ErrorMessage</div>
-        }
-    </div>
-}
-
-<div class="row justify-content-center">
-    <div class="col-lg-7">
-
-        <div class="card shadow-sm mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-upload me-2"></i>Upload IPPS File</h5>
-            </div>
-            <div class="card-body">
-                <form method="post" action="/Crb/Generate" enctype="multipart/form-data">
-                    @Html.AntiForgeryToken()
-
-                    <div class="mb-4">
-                        <label for="ippsFile" class="form-label fw-semibold">IPPS Numbers File</label>
-                        <input type="file" class="form-control" id="ippsFile" name="ippsFile"
-                               accept=".txt,.csv,.xlsx,.xls" required>
-                        <div class="form-text">
-                            Accepted formats: <strong>.txt</strong>, <strong>.csv</strong>, <strong>.xlsx</strong><br>
-                            One IPPS number per row (or comma-separated). Numbers are automatically padded to 15 digits.
-                        </div>
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center me-3"
+                         style="width:48px;height:48px;background:var(--color-primary);color:#fff;font-size:20px;">
+                        <i class="bi bi-1-circle-fill"></i>
                     </div>
-
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-play-fill me-1"></i>Generate Report
-                        </button>
+                    <div>
+                        <h5 class="mb-0">Module 1 — HCM Report</h5>
+                        <small class="text-muted">+ Auto-runs Module 2 for unmatched IPPS</small>
                     </div>
-                </form>
+                </div>
+                <p class="text-muted small flex-grow-1">
+                    Upload the <strong>HCM Excel file</strong> and the <strong>Stanbic monthly IPPS reference</strong>.
+                    Matches Stanbic employees in HCM data, computes salary/stat/allow from the file,
+                    then queries the HCM DB for live deduction figures.
+                    Unmatched IPPS numbers are automatically passed to Module 2.
+                </p>
+                <div class="mt-3">
+                    <a asp-controller="Crb" asp-action="HcmRun" class="btn btn-primary">
+                        <i class="bi bi-play-fill me-1"></i>Run HCM Report
+                    </a>
+                </div>
             </div>
         </div>
-
-        <div class="card shadow-sm">
-            <div class="card-header">
-                <h6 class="mb-0 text-muted"><i class="bi bi-info-circle me-1"></i>Report Contents</h6>
-            </div>
-            <div class="card-body p-0">
-                <table class="table table-sm mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Sheet</th>
-                            <th>Columns</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="fw-semibold">CRB Deductions</td>
-                            <td class="text-muted small">
-                                IPPS, Employee ID, Employee Name, VOTE, VOTE Name,
-                                Salary, Terms, Active, Statutory, Allowance,
-                                Deductions, Stanbic, Affordability, Notes
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="fw-semibold">Unmatched IPPS</td>
-                            <td class="text-muted small">
-                                IPPS numbers from the uploaded file with no match in the system
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
     </div>
 
-    <div class="col-lg-5">
-        <div class="card shadow-sm border-0 bg-light">
-            <div class="card-body">
-                <h6 class="fw-semibold mb-3"><i class="bi bi-diagram-3 me-1"></i>Processing Stages</h6>
-                <ol class="small mb-0" style="padding-left:1.2rem;">
-                    <li class="mb-2">
-                        <strong>Stage 1 — Employee Match</strong><br>
-                        <span class="text-muted">Matches uploaded IPPS numbers against the payroll database. Unmatched numbers are written to a separate sheet.</span>
-                    </li>
-                    <li class="mb-2">
-                        <strong>Stage 2 — Statutory Deductions</strong><br>
-                        <span class="text-muted">Fetches the latest payroll run's statutory deductions per employee.</span>
-                    </li>
-                    <li class="mb-2">
-                        <strong>Stage 3 — Allowances</strong><br>
-                        <span class="text-muted">Fetches recurring allowances. If the allowance payroll date differs from the statutory date, the allowance is set to 0 and flagged.</span>
-                    </li>
-                    <li class="mb-2">
-                        <strong>Stage 4 — Loan Deductions</strong><br>
-                        <span class="text-muted">Sums all active and reserved loan deductions. Stanbic (code 265) is reported separately.</span>
-                    </li>
-                    <li class="mb-2">
-                        <strong>Stage 5 — Affordability</strong><br>
-                        <span class="text-muted">Computed as <code>MAX(0, Salary × 48% − (Statutory + Deductions))</code></span>
-                    </li>
-                    <li>
-                        <strong>Stage 6 — Excel Output</strong><br>
-                        <span class="text-muted">Builds <code>CRB_Deductions_YYYYMMDD.xlsx</code> with main and unmatched sheets.</span>
-                    </li>
-                </ol>
+    <div class="col-md-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center me-3"
+                         style="width:48px;height:48px;background:#6c757d;color:#fff;font-size:20px;">
+                        <i class="bi bi-2-circle-fill"></i>
+                    </div>
+                    <div>
+                        <h5 class="mb-0">Module 2 — IPPS Report</h5>
+                        <small class="text-muted">Standalone run for IPPS-only employees</small>
+                    </div>
+                </div>
+                <p class="text-muted small flex-grow-1">
+                    Upload a plain list of <strong>IPPS numbers</strong>.
+                    Queries the IPPS DB directly for employee data, statutory deductions,
+                    allowances, and loan deductions.
+                    Use this independently when no HCM file is available.
+                </p>
+                <div class="mt-3">
+                    <a asp-controller="Crb" asp-action="IppsRun" class="btn btn-outline-secondary">
+                        <i class="bi bi-play me-1"></i>Run IPPS Report
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100 shadow-sm border-0 bg-light">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="bi bi-table text-muted me-2" style="font-size:1.4rem;"></i>
+                    <h6 class="mb-0">Mapping Table</h6>
+                </div>
+                <p class="text-muted small flex-grow-1">
+                    Manage how HCM <code>COSTITEM</code> and <code>VENDOR_NAME</code> values
+                    are classified (Basic Salary, Allowance, Statutory, Loan, Ignore).
+                    Unknown values are flagged during Module 1 processing.
+                </p>
+                <div class="mt-3">
+                    <a asp-controller="Crb" asp-action="Mappings" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-pencil-square me-1"></i>View / Edit Mappings
+                    </a>
+                </div>
             </div>
         </div>
     </div>
