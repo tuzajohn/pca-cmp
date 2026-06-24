@@ -25,7 +25,7 @@ public static class DbSeeder
                 Id             INT          NOT NULL AUTO_INCREMENT,
                 RawValue       VARCHAR(500) NOT NULL,
                 CanonicalName  VARCHAR(200) NULL,
-                Classification VARCHAR(50)  NOT NULL,
+                Classification VARCHAR(50)  NOT NULL DEFAULT 'IGNORE',
                 SourceColumn   VARCHAR(50)  NOT NULL,
                 Aliases        TEXT         NULL,
                 CreatedAt      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
