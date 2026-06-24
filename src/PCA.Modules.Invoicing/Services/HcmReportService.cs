@@ -289,8 +289,8 @@ public class HcmReportService
         while (await reader.ReadAsync(ct))
         {
             var num = reader.GetString("employeenumber");
-            isActive[num] = reader.IsDBNull("isactive") ? null : reader.GetString("isactive");
-            terms[num]    = reader.IsDBNull("terms")    ? null : reader.GetString("terms");
+            isActive[num] = reader.IsDBNull(reader.GetOrdinal("isactive")) ? null : reader.GetString("isactive");
+            terms[num]    = reader.IsDBNull(reader.GetOrdinal("terms"))    ? null : reader.GetString("terms");
         }
         return (isActive, terms);
     }

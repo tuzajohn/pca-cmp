@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using MySqlConnector;
 using OfficeOpenXml;
@@ -153,8 +154,8 @@ public class CrbReportService
                 Vote:       reader.GetString("vote"),
                 VoteName:   reader.GetString("votename"),
                 Salary:     ReadDecimal(reader, "salary"),
-                Terms:      reader.IsDBNull("terms")    ? null : reader.GetString("terms"),
-                IsActive:   reader.IsDBNull("isactive") ? null : reader.GetString("isactive"));
+                Terms:      reader.IsDBNull(reader.GetOrdinal("terms"))    ? null : reader.GetString("terms"),
+                IsActive:   reader.IsDBNull(reader.GetOrdinal("isactive")) ? null : reader.GetString("isactive"));
             matched.Add(ipps);
         }
 
@@ -189,7 +190,7 @@ public class CrbReportService
         {
             var id    = reader.GetInt32("employeeid");
             var total = ReadDecimal(reader, "total_statutory");
-            var date  = reader.IsDBNull("stat_payrolldate") ? (DateTime?)null : reader.GetDateTime("stat_payrolldate");
+            var date  = reader.IsDBNull(reader.GetOrdinal("stat_payrolldate")) ? (DateTime?)null : reader.GetDateTime("stat_payrolldate");
             result[id] = (total, date);
         }
         return result;
@@ -229,7 +230,7 @@ public class CrbReportService
         {
             var id          = reader.GetInt32("employeeid");
             var total       = ReadDecimal(reader, "total_allowance");
-            var allowDate   = reader.IsDBNull("allow_payrolldate") ? (DateTime?)null : reader.GetDateTime("allow_payrolldate");
+            var allowDate   = reader.IsDBNull(reader.GetOrdinal("allow_payrolldate")) ? (DateTime?)null : reader.GetDateTime("allow_payrolldate");
             var statDate    = statMap.TryGetValue(id, out var s) ? s.Date : null;
 
             if (allowDate.HasValue && statDate.HasValue &&
@@ -472,7 +473,7 @@ public class CrbReportService
 
     // ── Public IPPS file parser (used by controller) ──────────────────────────
 
-    public static List<string> ParseIppsFile(Microsoft.AspNetCore.Http.IFormFile file)
+    public static List<string> ParseIppsFile(IFormFile file)
     {
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (ext is ".xlsx" or ".xls")
@@ -480,7 +481,7 @@ public class CrbReportService
         return ParseIppsText(file);
     }
 
-    private static List<string> ParseIppsText(Microsoft.AspNetCore.Http.IFormFile file)
+    private static List<string> ParseIppsText(IFormFile file)
     {
         var numbers = new List<string>();
         using var reader = new System.IO.StreamReader(file.OpenReadStream());
@@ -498,7 +499,7 @@ public class CrbReportService
         return numbers;
     }
 
-    private static List<string> ParseIppsExcel(Microsoft.AspNetCore.Http.IFormFile file)
+    private static List<string> ParseIppsExcel(IFormFile file)
     {
         ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
         var numbers = new List<string>();
