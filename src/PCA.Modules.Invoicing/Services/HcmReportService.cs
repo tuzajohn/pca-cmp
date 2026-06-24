@@ -368,9 +368,8 @@ public class HcmReportService
 
         string[] headers =
         {
-            "IPPS", "Employee ID", "Employee Name", "VOTE", "VOTE Name",
-            "Salary", "Active", "Terms", "Statutory", "Allowance",
-            "Deductions", "Stanbic", "Affordability"
+            "IPPSNO", "SALARY", "ISACTIVE", "STAT", "ALLOW",
+            "DEDS", "STANBIC", "AFFORDABILITY", "PROBATION", "VOTE"
         };
 
         WriteHeaders(ws, headers);
@@ -380,20 +379,17 @@ public class HcmReportService
             var r   = rows[i];
             var row = i + 2;
             ws.Cells[row, 1].Value  = r.Ipps;
-            ws.Cells[row, 2].Value  = r.EmployeeId;
-            ws.Cells[row, 3].Value  = r.EmpName;
-            ws.Cells[row, 4].Value  = r.Vote;
-            ws.Cells[row, 5].Value  = r.VoteName;
-            ws.Cells[row, 6].Value  = r.Salary;
-            ws.Cells[row, 7].Value  = r.IsActive;
-            ws.Cells[row, 8].Value  = r.Terms;
-            ws.Cells[row, 9].Value  = r.Stat;
-            ws.Cells[row, 10].Value = r.Allow;
-            ws.Cells[row, 11].Value = r.Ded;
-            ws.Cells[row, 12].Value = r.Stanbic;
-            ws.Cells[row, 13].Value = r.Affordability;
+            ws.Cells[row, 2].Value  = r.Salary;
+            ws.Cells[row, 3].Value  = r.IsActive ?? "0";
+            ws.Cells[row, 4].Value  = r.Stat;
+            ws.Cells[row, 5].Value  = r.Allow;
+            ws.Cells[row, 6].Value  = r.Ded;
+            ws.Cells[row, 7].Value  = r.Stanbic;
+            ws.Cells[row, 8].Value  = r.Affordability;
+            ws.Cells[row, 9].Value  = r.Terms ?? "0";
+            ws.Cells[row, 10].Value = r.Vote;
 
-            foreach (int col in new[] { 6, 9, 10, 11, 12, 13 })
+            foreach (int col in new[] { 2, 4, 5, 6, 7, 8 })
                 ws.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
         }
 
