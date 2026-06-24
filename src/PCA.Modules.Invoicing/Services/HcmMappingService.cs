@@ -7,8 +7,8 @@ public class HcmMappingService
 {
     private readonly IApplicationDbContextForInvoicing _db;
 
-    // key = "SOURCECOL|rawvalue" (upper-cased for lookup)
-    private Dictionary<string, string> _cache = new(StringComparer.OrdinalIgnoreCase);
+    // key = "SOURCECOL|rawvalue" (upper-cased), value = full mapping entry
+    private Dictionary<string, HcmMapping> _cache = new(StringComparer.OrdinalIgnoreCase);
     private bool _loaded;
     private readonly SemaphoreSlim _lock = new(1, 1);
 
@@ -24,20 +24,42 @@ public class HcmMappingService
 
     public async Task RefreshCacheAsync()
     {
-        var all = await _db.HcmMappings.AsNoTracking().ToListAsync();
-        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var all  = await _db.HcmMappings.AsNoTracking().ToListAsync();
+        var dict = new Dictionary<string, HcmMapping>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var m in all)
-            dict[CacheKey(m.SourceColumn, m.RawValue)] = m.Classification;
+        {
+            // Primary raw value
+            dict[CacheKey(m.SourceColumn, m.RawValue)] = m;
+
+            // Aliases — comma-separated alternate raw strings that map to the same entry
+            if (!string.IsNullOrWhiteSpace(m.Aliases))
+            {
+                foreach (var alias in m.Aliases.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    dict[CacheKey(m.SourceColumn, alias)] = m;
+            }
+        }
+
         _cache  = dict;
         _loaded = true;
     }
 
     public string? GetClassification(string rawValue, string sourceColumn)
-        => _cache.TryGetValue(CacheKey(sourceColumn, rawValue), out var c) ? c : null;
+        => _cache.TryGetValue(CacheKey(sourceColumn, rawValue), out var m) ? m.Classification : null;
 
     /// <summary>
-    /// Returns raw values that have no mapping yet, grouped by source column.
+    /// Returns the canonical group name for a raw value.
+    /// Falls back to the raw value itself when no CanonicalName is set.
+    /// Used to collapse aliases when aggregating stat/allow.
     /// </summary>
+    public string GetCanonical(string rawValue, string sourceColumn)
+    {
+        if (_cache.TryGetValue(CacheKey(sourceColumn, rawValue), out var m) &&
+            !string.IsNullOrWhiteSpace(m.CanonicalName))
+            return m.CanonicalName;
+        return rawValue;
+    }
+
     public async Task<List<(string RawValue, string SourceColumn)>> FindUnknownsAsync(
         IEnumerable<string> costItems,
         IEnumerable<string> vendorNames)
@@ -58,9 +80,6 @@ public class HcmMappingService
         return unknowns;
     }
 
-    /// <summary>
-    /// Upserts a batch of mappings and refreshes the cache.
-    /// </summary>
     public async Task SaveMappingsAsync(List<HcmMapping> mappings)
     {
         foreach (var m in mappings)

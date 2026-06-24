@@ -235,6 +235,8 @@ public class HcmReportService
     }
 
     // ── Stage 4: stat ─────────────────────────────────────────────────────────
+    // Group by canonical name so aliases (same union, different raw strings)
+    // collapse into one group before taking MAX, preventing double-counting.
 
     private Dictionary<string, decimal> ComputeStat(
         Dictionary<string, List<HcmSheetRow>> empRows)
@@ -245,7 +247,8 @@ public class HcmReportService
             var stat = rows
                 .Where(r => _mappings.GetClassification(r.VendorName, HcmMapping.SourceColumns.VendorName)
                              == HcmMapping.Classifications.Statutory)
-                .GroupBy(r => r.VendorName, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(r => _mappings.GetCanonical(r.VendorName, HcmMapping.SourceColumns.VendorName),
+                         StringComparer.OrdinalIgnoreCase)
                 .Sum(g => g.Max(r => r.VendorAmount));
             result[empNo] = stat;
         }
@@ -253,6 +256,7 @@ public class HcmReportService
     }
 
     // ── Stage 5: allow ────────────────────────────────────────────────────────
+    // Same canonical grouping so aliased cost items don't sum separately.
 
     private Dictionary<string, decimal> ComputeAllow(
         Dictionary<string, List<HcmSheetRow>> empRows)
@@ -263,7 +267,8 @@ public class HcmReportService
             var allow = rows
                 .Where(r => _mappings.GetClassification(r.CostItem, HcmMapping.SourceColumns.CostItem)
                              == HcmMapping.Classifications.Allowance)
-                .GroupBy(r => r.CostItem, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(r => _mappings.GetCanonical(r.CostItem, HcmMapping.SourceColumns.CostItem),
+                         StringComparer.OrdinalIgnoreCase)
                 .Sum(g => g.Max(r => r.CostItemAmt));
             result[empNo] = allow;
         }
