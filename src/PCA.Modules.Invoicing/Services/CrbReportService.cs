@@ -179,12 +179,14 @@ public class CrbReportService
                        SUM(stat.deductionamount) AS total_statutory,
                        MAX(stat.payrolldate)     AS stat_payrolldate
                 FROM statutorydeductions stat
+                INNER JOIN (
+                    SELECT employeeid, MAX(payrolldate) AS max_date
+                    FROM statutorydeductions
+                    WHERE employeeid IN ({inClause})
+                    GROUP BY employeeid
+                ) latest ON stat.employeeid = latest.employeeid
+                        AND stat.payrolldate = latest.max_date
                 WHERE stat.employeeid IN ({inClause})
-                  AND stat.payrolldate = (
-                      SELECT MAX(stat3.payrolldate)
-                      FROM statutorydeductions stat3
-                      WHERE stat3.employeeid = stat.employeeid
-                  )
                 GROUP BY stat.employeeid";
 
             using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -221,13 +223,15 @@ public class CrbReportService
                        MAX(stat.payrolldate) AS allow_payrolldate
                 FROM employeeallowances stat
                 LEFT JOIN systemcodes s ON stat.code = s.code
+                INNER JOIN (
+                    SELECT employeeid, MAX(payrolldate) AS max_date
+                    FROM employeeallowances
+                    WHERE employeeid IN ({inClause})
+                    GROUP BY employeeid
+                ) latest ON stat.employeeid = latest.employeeid
+                        AND stat.payrolldate = latest.max_date
                 WHERE stat.employeeid IN ({inClause})
                   AND s.IsRecurring = '1'
-                  AND stat.payrolldate = (
-                      SELECT MAX(stat3.payrolldate)
-                      FROM employeeallowances stat3
-                      WHERE stat3.employeeid = stat.employeeid
-                  )
                 GROUP BY stat.employeeid";
 
             using var reader = await cmd.ExecuteReaderAsync(ct);
