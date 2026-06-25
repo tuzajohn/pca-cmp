@@ -10,14 +10,14 @@ public class InvoiceRunOrchestrator
     private readonly IInvoiceEmailSender _email;
     private readonly IInvoiceDocumentRegistrar? _docRegistrar;
     private readonly string _storageRoot;
-    private readonly ILogger _logger;
+    private readonly ILogger<InvoiceRunOrchestrator> _logger;
 
     public InvoiceRunOrchestrator(
         IInvoicingService svc,
         InvoiceDataService dataSvc,
         IInvoiceEmailSender email,
         string storageRoot,
-        ILogger logger,
+        ILogger<InvoiceRunOrchestrator> logger,
         IInvoiceDocumentRegistrar? docRegistrar = null)
     {
         _svc          = svc;

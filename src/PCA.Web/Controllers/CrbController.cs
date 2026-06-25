@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using PCA.Modules.Invoicing.Models;
 using PCA.Modules.Invoicing.Services;
 using PCA.Web.Services;
@@ -15,6 +16,7 @@ public class CrbController : Controller
     private readonly HcmMappingService _mappings;
     private readonly CrbProgressStore  _progress;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<CrbController> _logger;
     private readonly string _storageRoot;
 
     private static readonly JsonSerializerOptions _jsonOpts = new()
@@ -26,6 +28,7 @@ public class CrbController : Controller
         HcmMappingService mappings,
         CrbProgressStore progress,
         IServiceScopeFactory scopeFactory,
+        ILogger<CrbController> logger,
         IConfiguration config,
         IWebHostEnvironment env)
     {
@@ -34,6 +37,7 @@ public class CrbController : Controller
         _mappings     = mappings;
         _progress     = progress;
         _scopeFactory = scopeFactory;
+        _logger       = logger;
         _storageRoot  = config["InvoiceStoragePath"]
             ?? Path.Combine(env.ContentRootPath, "uploads", "documents");
     }
@@ -223,6 +227,7 @@ public class CrbController : Controller
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "CRB IPPS background run {RunId} failed", runId);
                 _progress.Fail(runId, ex.Message);
             }
         });
@@ -272,6 +277,7 @@ public class CrbController : Controller
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "CRB HCM background run {RunId} failed", runId);
                 _progress.Fail(runId, ex.Message);
             }
         });
