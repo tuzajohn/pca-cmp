@@ -113,9 +113,10 @@ public class HcmReportService
             .GroupBy(r => r.EmployeeNo, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
-        var salaryMap = ComputeSalary(empRows);
-        var statMap   = ComputeStat(empRows);
-        var allowMap  = ComputeAllow(empRows);
+        var classEntries = BuildClassEntries(empRows);
+        var salaryMap    = ComputeSalary(classEntries);
+        var statMap      = ComputeStat(classEntries);
+        var allowMap     = ComputeAllow(classEntries);
 
         _logger.LogInformation("HCM CRB Stages 3-5: salary computed for {Count} employees", salaryMap.Count);
 
@@ -215,62 +216,85 @@ public class HcmReportService
         return await _mappings.FindUnknownsAsync(costItems, vendorNames);
     }
 
-    // ── Stage 3: salary ───────────────────────────────────────────────────────
+    // ── Unified classification entry ──────────────────────────────────────────
+    // Each HcmSheetRow yields up to 2 entries — one from COSTITEM, one from VENDOR_NAME.
 
-    private Dictionary<string, decimal> ComputeSalary(
-        Dictionary<string, List<HcmSheetRow>> empRows)
+    private record ClassEntry(string EmpNo, string Canonical, decimal Amount, string Classification);
+
+    private List<ClassEntry> BuildClassEntries(Dictionary<string, List<HcmSheetRow>> empRows)
     {
-        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var entries = new List<ClassEntry>();
         foreach (var (empNo, rows) in empRows)
         {
-            var salary = rows
-                .Where(r => _mappings.GetClassification(r.CostItem, HcmMapping.SourceColumns.CostItem)
-                             == HcmMapping.Classifications.BasicSalary)
-                .Select(r => r.CostItemAmt)
-                .DefaultIfEmpty(0m)
-                .Max();
-            result[empNo] = salary;
+            foreach (var r in rows)
+            {
+                if (!string.IsNullOrWhiteSpace(r.CostItem))
+                {
+                    var cls = _mappings.GetClassification(r.CostItem, HcmMapping.SourceColumns.CostItem);
+                    if (cls != null && cls != HcmMapping.Classifications.Ignore)
+                        entries.Add(new ClassEntry(
+                            empNo,
+                            _mappings.GetCanonical(r.CostItem, HcmMapping.SourceColumns.CostItem),
+                            r.CostItemAmt,
+                            cls));
+                }
+
+                if (!string.IsNullOrWhiteSpace(r.VendorName))
+                {
+                    var cls = _mappings.GetClassification(r.VendorName, HcmMapping.SourceColumns.VendorName);
+                    if (cls != null && cls != HcmMapping.Classifications.Ignore)
+                        entries.Add(new ClassEntry(
+                            empNo,
+                            _mappings.GetCanonical(r.VendorName, HcmMapping.SourceColumns.VendorName),
+                            r.VendorAmount,
+                            cls));
+                }
+            }
         }
+        return entries;
+    }
+
+    // ── Stage 3: salary ───────────────────────────────────────────────────────
+    // First BASIC_SALARY entry per employee (no dedup needed — salary is a single item).
+
+    private static Dictionary<string, decimal> ComputeSalary(List<ClassEntry> entries)
+    {
+        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in entries.Where(e => e.Classification == HcmMapping.Classifications.BasicSalary))
+            result.TryAdd(e.EmpNo, e.Amount);
         return result;
     }
 
     // ── Stage 4: stat ─────────────────────────────────────────────────────────
-    // Group by canonical name so aliases (same union, different raw strings)
-    // collapse into one group before taking MAX, preventing double-counting.
+    // Sources: any COSTITEM or VENDOR_NAME classified STATUTORY.
+    // Step 1 — deduplicate by (empNo, canonical): keep MAX amount per canonical group.
+    // Step 2 — sum the deduplicated canonicals per employee.
 
-    private Dictionary<string, decimal> ComputeStat(
-        Dictionary<string, List<HcmSheetRow>> empRows)
-    {
-        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (empNo, rows) in empRows)
-        {
-            var stat = rows
-                .Where(r => _mappings.GetClassification(r.VendorName, HcmMapping.SourceColumns.VendorName)
-                             == HcmMapping.Classifications.Statutory)
-                .GroupBy(r => _mappings.GetCanonical(r.VendorName, HcmMapping.SourceColumns.VendorName),
-                         StringComparer.OrdinalIgnoreCase)
-                .Sum(g => g.Max(r => r.VendorAmount));
-            result[empNo] = stat;
-        }
-        return result;
-    }
+    private static Dictionary<string, decimal> ComputeStat(List<ClassEntry> entries)
+        => AggregateByCanonical(entries, HcmMapping.Classifications.Statutory);
 
     // ── Stage 5: allow ────────────────────────────────────────────────────────
-    // Same canonical grouping so aliased cost items don't sum separately.
+    // Same two-step logic as stat but for ALLOWANCE classification.
 
-    private Dictionary<string, decimal> ComputeAllow(
-        Dictionary<string, List<HcmSheetRow>> empRows)
+    private static Dictionary<string, decimal> ComputeAllow(List<ClassEntry> entries)
+        => AggregateByCanonical(entries, HcmMapping.Classifications.Allowance);
+
+    // Step 1: for each (empNo, canonical) keep MAX amount (removes duplicates/aliases).
+    // Step 2: sum the deduplicated canonicals per employee.
+    private static Dictionary<string, decimal> AggregateByCanonical(
+        List<ClassEntry> entries, string classification)
     {
         var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (empNo, rows) in empRows)
+        var byEmp  = entries
+            .Where(e => e.Classification == classification)
+            .GroupBy(e => e.EmpNo, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var empGroup in byEmp)
         {
-            var allow = rows
-                .Where(r => _mappings.GetClassification(r.CostItem, HcmMapping.SourceColumns.CostItem)
-                             == HcmMapping.Classifications.Allowance)
-                .GroupBy(r => _mappings.GetCanonical(r.CostItem, HcmMapping.SourceColumns.CostItem),
-                         StringComparer.OrdinalIgnoreCase)
-                .Sum(g => g.Max(r => r.CostItemAmt));
-            result[empNo] = allow;
+            var total = empGroup
+                .GroupBy(e => e.Canonical, StringComparer.OrdinalIgnoreCase)
+                .Sum(g => g.Max(e => e.Amount));
+            result[empGroup.Key] = total;
         }
         return result;
     }
