@@ -79,24 +79,29 @@ public class InvoiceDataService
         using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
-            var amountRaw = reader.GetValue(reader.GetOrdinal("installmentamount"));
-            var amount = amountRaw == DBNull.Value
+            // Read by ordinal position to match the SELECT order above exactly:
+            // 0=employeenumber, 1=referencecode, 2=deductiontype, 3=installmentamount, 4=datecreated
+            var empRaw    = reader.IsDBNull(0) ? "" : reader.GetString(0);
+            var refCode   = reader.IsDBNull(1) ? "" : reader.GetString(1);
+            var dedType   = reader.IsDBNull(2) ? "" : reader.GetString(2);
+            var amountRaw = reader.GetValue(3);
+            var amount    = amountRaw == DBNull.Value
                 ? 0m
                 : decimal.TryParse(amountRaw.ToString(), System.Globalization.NumberStyles.Any,
                     System.Globalization.CultureInfo.InvariantCulture, out var parsed)
                     ? parsed : 0m;
+            var dateCreated = reader.IsDBNull(4) ? DateTime.MinValue : reader.GetDateTime(4);
 
-            var empRaw = reader.GetString("employeenumber");
             if (!long.TryParse(empRaw, out var empNumber))
                 _logger.LogWarning("FetchDeductions [{Source}]: could not parse employee number '{Raw}' — skipping row",
                     source, empRaw);
 
             rows.Add(new DeductionRow(
                 EmployeeNumber:    empNumber,
-                ReferenceCode:     reader.GetString("referencecode"),
-                DeductionType:     reader.GetString("deductiontype"),
+                ReferenceCode:     refCode,
+                DeductionType:     dedType,
                 InstallmentAmount: amount,
-                DateCreated:       reader.GetDateTime("datecreated"),
+                DateCreated:       dateCreated,
                 Source:            source));
         }
 
