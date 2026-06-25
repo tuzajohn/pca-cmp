@@ -37,6 +37,22 @@ public class CrbController : Controller
     public async Task<IActionResult> Mappings()
         => View(await _mappings.GetAllAsync());
 
+    [HttpPost]
+    public async Task<IActionResult> UpdateMapping([FromBody] UpdateMappingRequest req)
+    {
+        if (req.Id <= 0)
+            return Json(new { ok = false, message = "Invalid id." });
+        try
+        {
+            await _mappings.UpdateMappingAsync(req.Id, req.Classification, req.CanonicalName, req.Aliases);
+            return Json(new { ok = true });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { ok = false, message = ex.Message });
+        }
+    }
+
     // ── Module 1: HCM upload — JSON endpoint ─────────────────────────────────
 
     [HttpPost]
@@ -231,6 +247,16 @@ public class MappingEntry
     public string  SourceColumn   { get; set; } = string.Empty;
     public string  Classification { get; set; } = string.Empty;
     public string? CanonicalName  { get; set; }
+}
+
+// ── Request model for UpdateMapping ──────────────────────────────────────────
+
+public class UpdateMappingRequest
+{
+    public int     Id             { get; set; }
+    public string  Classification { get; set; } = string.Empty;
+    public string? CanonicalName  { get; set; }
+    public string? Aliases        { get; set; }
 }
 
 // ── IFormFile wrapper for resuming from disk ──────────────────────────────────

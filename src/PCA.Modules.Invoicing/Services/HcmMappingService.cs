@@ -103,6 +103,18 @@ public class HcmMappingService
         await RefreshCacheAsync();
     }
 
+    public async Task UpdateMappingAsync(int id, string classification, string? canonicalName, string? aliases)
+    {
+        var m = await _db.HcmMappings.FindAsync(id)
+            ?? throw new InvalidOperationException($"Mapping {id} not found.");
+        m.Classification = classification;
+        m.CanonicalName  = string.IsNullOrWhiteSpace(canonicalName) ? null : canonicalName.Trim();
+        m.Aliases        = string.IsNullOrWhiteSpace(aliases)       ? null : aliases.Trim();
+        m.UpdatedAt      = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        await RefreshCacheAsync();
+    }
+
     public async Task<List<HcmMapping>> GetAllAsync()
         => await _db.HcmMappings.AsNoTracking()
             .OrderBy(m => m.SourceColumn).ThenBy(m => m.RawValue)
