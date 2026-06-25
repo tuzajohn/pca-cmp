@@ -247,6 +247,10 @@ const PagedTable = (() => {
             state.page = result.currentPage || state.page;
 
             tbody.innerHTML = '';
+            if (result.error) {
+                tbody.innerHTML = `<tr><td colspan="${colCount}" class="text-center py-3 text-danger small">Error: ${escHtml(result.error)}</td></tr>`;
+                return;
+            }
             const items = result.items || [];
             if (items.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="${colCount}" class="text-center py-4 text-muted">No records found.</td></tr>`;
