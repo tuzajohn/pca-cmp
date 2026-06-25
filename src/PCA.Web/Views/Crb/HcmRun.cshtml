@@ -73,7 +73,12 @@
         <div class="card-body p-0">
             <table class="table table-bordered mb-0" id="classify-table">
                 <thead class="table-light">
-                    <tr><th>Source</th><th>Raw Value</th><th style="width:200px;">Classification</th></tr>
+                    <tr>
+                        <th>Source</th>
+                        <th>Raw Value</th>
+                        <th style="width:200px;">Classification</th>
+                        <th style="width:200px;">Canonical Name <span class="text-muted fw-normal small">(optional)</span></th>
+                    </tr>
                 </thead>
                 <tbody id="classify-body"></tbody>
             </table>
@@ -160,9 +165,10 @@
             if (!sel.value) { sel.classList.add('is-invalid'); valid = false; }
             else { sel.classList.remove('is-invalid'); }
             mappings.push({
-                rawValue:       row.dataset.raw,
-                sourceColumn:   row.dataset.source,
-                classification: sel.value
+                rawValue:      row.dataset.raw,
+                sourceColumn:  row.dataset.source,
+                classification: sel.value,
+                canonicalName: (row.querySelector('.canonical-input')?.value || '').trim() || null
             });
         });
         if (!valid) return;
@@ -229,7 +235,8 @@
             tr.innerHTML = `
                 <td>${badge}</td>
                 <td class="font-monospace small">${u.rawValue}</td>
-                <td><select class="form-select form-select-sm"><option value="">— select —</option>${opts}</select></td>`;
+                <td><select class="form-select form-select-sm"><option value="">— select —</option>${opts}</select></td>
+                <td><input type="text" class="form-control form-control-sm canonical-input" placeholder="e.g. NSSF"></td>`;
             tbody.appendChild(tr);
         });
     }

@@ -88,7 +88,8 @@ public class CrbController : Controller
             {
                 RawValue       = m.RawValue,
                 SourceColumn   = m.SourceColumn,
-                Classification = m.Classification
+                Classification = m.Classification,
+                CanonicalName  = string.IsNullOrWhiteSpace(m.CanonicalName) ? null : m.CanonicalName.Trim()
             }).ToList());
         }
         catch (Exception ex)
@@ -226,9 +227,10 @@ public class SaveMappingsRequest
 
 public class MappingEntry
 {
-    public string RawValue       { get; set; } = string.Empty;
-    public string SourceColumn   { get; set; } = string.Empty;
-    public string Classification { get; set; } = string.Empty;
+    public string  RawValue       { get; set; } = string.Empty;
+    public string  SourceColumn   { get; set; } = string.Empty;
+    public string  Classification { get; set; } = string.Empty;
+    public string? CanonicalName  { get; set; }
 }
 
 // ── IFormFile wrapper for resuming from disk ──────────────────────────────────
