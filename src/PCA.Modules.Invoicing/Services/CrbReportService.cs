@@ -461,6 +461,8 @@ public class CrbReportService
         var raw = reader.GetValue(ordinal)?.ToString();
         return int.TryParse(raw, out var v) ? v : 0;
     }
+
+    private static decimal ReadDecimal(MySqlDataReader reader, string column)
     {
         var ordinal = reader.GetOrdinal(column);
         if (reader.IsDBNull(ordinal)) return 0m;
