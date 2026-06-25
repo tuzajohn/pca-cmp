@@ -144,31 +144,54 @@ else
         btnCancel.addEventListener('click', exitEdit);
 
         btnSave.addEventListener('click', async () => {
-            const id           = parseInt(row.dataset.id);
-            const cls          = row.querySelector('.edit-cls').value;
-            const canonicalName = row.querySelector('.edit-canonical').value.trim() || null;
-            const aliases      = row.querySelector('.edit-aliases').value.trim() || null;
-
             btnSave.disabled = true;
             try {
-                const res  = await fetch('/Crb/UpdateMapping', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id, classification: cls, canonicalName, aliases })
-                });
-                const data = await res.json();
+                const id            = parseInt(row.dataset.id);
+                const clsEl         = row.querySelector('.edit-cls');
+                const canonicalEl   = row.querySelector('.edit-canonical');
+                const aliasesEl     = row.querySelector('.edit-aliases');
+
+                if (!clsEl) throw new Error('Classification input not found.');
+                const cls           = clsEl.value;
+                const canonicalName = canonicalEl?.value.trim() || null;
+                const aliases       = aliasesEl?.value.trim() || null;
+
+                let data;
+                try {
+                    const res = await fetch('/Crb/UpdateMapping', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, classification: cls, canonicalName, aliases })
+                    });
+                    if (!res.ok) {
+                        const text = await res.text();
+                        throw new Error(`Server error ${res.status}: ${text.substring(0, 200)}`);
+                    }
+                    data = await res.json();
+                } catch (fetchErr) {
+                    alert('Request failed: ' + fetchErr.message);
+                    return;
+                }
+
                 if (!data.ok) { alert(data.message || 'Save failed.'); return; }
 
                 // Update view cells
                 const badge = row.querySelector('.cls-badge');
-                badge.textContent  = cls.replace(/_/g, ' ');
-                badge.className    = 'badge ' + (clsBadgeClass[cls] || 'bg-secondary');
-                row.querySelector('.canonical-text').textContent = canonicalName ?? '';
-                row.querySelector('.aliases-text').textContent   = aliases ?? '';
-                row.querySelector('.updated-cell').textContent   =
+                if (badge) {
+                    badge.textContent = cls.replace(/_/g, ' ');
+                    badge.className   = 'badge ' + (clsBadgeClass[cls] || 'bg-secondary');
+                }
+                const canonicalText = row.querySelector('.canonical-text');
+                const aliasesText   = row.querySelector('.aliases-text');
+                const updatedCell   = row.querySelector('.updated-cell');
+                if (canonicalText) canonicalText.textContent = canonicalName ?? '';
+                if (aliasesText)   aliasesText.textContent   = aliases ?? '';
+                if (updatedCell)   updatedCell.textContent   =
                     new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
 
                 exitEdit();
+            } catch (err) {
+                alert('Unexpected error: ' + err.message);
             } finally {
                 btnSave.disabled = false;
             }
