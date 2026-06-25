@@ -94,9 +94,10 @@ public class HcmReportService
             stanbicIpps.Select(n => n.Trim().PadLeft(15, '0')),
             StringComparer.OrdinalIgnoreCase);
 
-        var matched   = hcmRows.Where(r => stanbicSet.Contains(PadIpps(r.EmpNumber))).ToList();
-        var unmatched = stanbicIpps
-            .Where(n => !matched.Any(r => PadIpps(r.EmpNumber) == n.Trim().PadLeft(15, '0')))
+        var matched       = hcmRows.Where(r => stanbicSet.Contains(PadIpps(r.EmpNumber))).ToList();
+        var matchedIpps   = new HashSet<string>(matched.Select(r => PadIpps(r.EmpNumber)), StringComparer.OrdinalIgnoreCase);
+        var unmatched     = stanbicIpps
+            .Where(n => !matchedIpps.Contains(n.Trim().PadLeft(15, '0')))
             .ToList();
 
         Step($"Stage 1 — Cross-reference complete: {matched.GroupBy(r => r.EmployeeNo).Count()} matched, {unmatched.Count} unmatched");
