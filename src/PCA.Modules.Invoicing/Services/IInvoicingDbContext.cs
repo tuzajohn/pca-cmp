@@ -11,6 +11,7 @@ public interface IApplicationDbContextForInvoicing
     DbSet<InvoiceScheduleRecipient> InvoiceScheduleRecipients { get; }
     DbSet<InvoiceRun> InvoiceRuns { get; }
     DbSet<InvoiceHcmRefFile> InvoiceHcmRefFiles { get; }
+    DbSet<HcmMapping> HcmMappings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -75,6 +75,7 @@ new PCA.Modules.Approvals.ModuleRegistration().Register(builder.Services, config
 new PCA.Modules.Incidents.ModuleRegistration().Register(builder.Services, config);
 new PCA.Modules.AccessManagement.ModuleRegistration().Register(builder.Services, config);
 new PCA.Modules.Invoicing.ModuleRegistration().Register(builder.Services, config);
+builder.Services.AddSingleton<PCA.Web.Services.CrbProgressStore>();
 
 // Document storage
 var docsStorageRoot = builder.Configuration["DocumentStoragePath"]

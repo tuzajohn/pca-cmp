@@ -19,6 +19,21 @@ public static class DbSeeder
 
         await db.Database.MigrateAsync();
 
+        // HcmMappings table — managed outside EF migrations
+        await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS HcmMappings (
+                Id             INT          NOT NULL AUTO_INCREMENT,
+                RawValue       VARCHAR(500) NOT NULL,
+                CanonicalName  VARCHAR(200) NULL,
+                Classification VARCHAR(50)  NOT NULL DEFAULT 'IGNORE',
+                SourceColumn   VARCHAR(50)  NOT NULL,
+                Aliases        TEXT         NULL,
+                CreatedAt      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UpdatedAt      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (Id),
+                UNIQUE KEY UQ_HcmMapping (RawValue(200), SourceColumn)
+            ) CHARACTER SET utf8mb4");
+
         // Ensure invoice storage folders exist
         var storageRoot = config["InvoiceStoragePath"]
             ?? Path.Combine(env.ContentRootPath, "uploads", "documents");

@@ -1,0 +1,194 @@
+@{
+    ViewData["Title"] = "Module 2 — IPPS CRB Report";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">Module 2 — IPPS CRB Report</h1>
+        <p class="page-header-sub mb-0">Standalone run for employees not found in HCM.</p>
+    </div>
+    <a asp-controller="Crb" asp-action="Index" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+<div id="step-upload">
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header"><h5 class="mb-0"><i class="bi bi-upload me-2"></i>Upload IPPS File</h5></div>
+                <div class="card-body">
+                    <div id="upload-error" class="alert alert-danger d-none"></div>
+                    <form id="upload-form" novalidate>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">IPPS Numbers File</label>
+                            <input type="file" class="form-control" id="ippsFile" accept=".txt,.csv,.xlsx,.xls" required>
+                            <div class="form-text">One IPPS number per row or comma-separated. Padded to 15 digits automatically.</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-play-fill me-1"></i>Generate IPPS Report
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="step-processing" class="d-none">
+    <div class="card shadow-sm">
+        <div class="card-header d-flex align-items-center gap-2">
+            <div class="spinner-border spinner-border-sm text-primary" id="run-spinner"></div>
+            <h6 class="mb-0">Processing</h6>
+        </div>
+        <ul class="list-group list-group-flush" id="step-list"></ul>
+    </div>
+</div>
+
+<div id="step-results" class="d-none">
+    <div class="alert alert-success"><i class="bi bi-check-circle-fill me-2"></i>Report generated successfully.</div>
+    <div class="row g-4 mb-4" id="result-files"></div>
+    <div class="card shadow-sm">
+        <div class="card-header"><h6 class="mb-0">Run Log</h6></div>
+        <div class="card-body p-0"><table class="table table-sm mb-0" id="run-log"></table></div>
+    </div>
+    <div class="mt-3">
+        <button class="btn btn-outline-secondary btn-sm" id="btn-run-again">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Run Again
+        </button>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    let activeSource = null;
+
+    const show = id => document.getElementById(id).classList.remove('d-none');
+    const hide = id => document.getElementById(id).classList.add('d-none');
+    const showError = msg => {
+        const el = document.getElementById('upload-error');
+        el.textContent = msg; el.classList.remove('d-none');
+    };
+
+    document.getElementById('upload-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        const file = document.getElementById('ippsFile').files[0];
+        if (!file) { showError('Please select a file.'); return; }
+
+        document.getElementById('upload-error').classList.add('d-none');
+        clearSteps(); hide('step-upload'); show('step-processing');
+
+        const fd = new FormData();
+        fd.append('ippsFile', file);
+
+        let data;
+        try {
+            const res = await fetch('/Crb/IppsGenerate', { method: 'POST', body: fd });
+            data = await res.json();
+        } catch (err) {
+            hide('step-processing'); show('step-upload');
+            showError('Request failed: ' + err.message);
+            return;
+        }
+
+        if (data.status === 'error') {
+            hide('step-processing'); show('step-upload'); showError(data.message);
+        } else if (data.status === 'running') {
+            openStream(data.runId);
+        }
+    });
+
+    document.getElementById('btn-run-again').addEventListener('click', () => {
+        hide('step-results'); show('step-upload');
+        document.getElementById('upload-form').reset();
+    });
+
+    function openStream(runId) {
+        if (activeSource) { activeSource.close(); activeSource = null; }
+        const src = new EventSource('/Crb/RunStream?runId=' + runId);
+        activeSource = src;
+
+        src.onmessage = e => {
+            const evt = JSON.parse(e.data);
+            if (evt.t === 'step') {
+                addStep(evt.msg);
+            } else if (evt.t === 'done') {
+                stopSpinner();
+                src.close(); activeSource = null;
+                hide('step-processing');
+                buildResults(evt.result);
+                show('step-results');
+            } else if (evt.t === 'error') {
+                failLastStep(evt.msg);
+                stopSpinner();
+                src.close(); activeSource = null;
+                setTimeout(() => {
+                    hide('step-processing'); show('step-upload');
+                    showError(evt.msg);
+                }, 1500);
+            }
+        };
+
+        src.onerror = () => {
+            src.close(); activeSource = null;
+            hide('step-processing'); show('step-upload');
+            showError('Connection to server lost. Please try again.');
+        };
+    }
+
+    function clearSteps() {
+        document.getElementById('step-list').innerHTML = '';
+        document.getElementById('run-spinner').classList.remove('d-none');
+    }
+    function stopSpinner() {
+        document.getElementById('run-spinner').classList.add('d-none');
+    }
+    function addStep(msg) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-start gap-2 py-2';
+        li.innerHTML = `<i class="bi bi-check-circle-fill text-success mt-1 flex-shrink-0"></i><span class="small">${msg}</span>`;
+        document.getElementById('step-list').appendChild(li);
+        li.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    function failLastStep(msg) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-start gap-2 py-2 list-group-item-danger';
+        li.innerHTML = `<i class="bi bi-x-circle-fill text-danger mt-1 flex-shrink-0"></i><span class="small">${msg}</span>`;
+        document.getElementById('step-list').appendChild(li);
+    }
+
+    function buildResults(data) {
+        const filesEl = document.getElementById('result-files');
+        filesEl.innerHTML = `
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="mb-1"><i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i>IPPS Report</h5>
+                        <p class="text-muted small mb-3">${data.file.name}</p>
+                        <a href="${data.file.url}" class="btn btn-primary mt-auto">
+                            <i class="bi bi-download me-1"></i>Download
+                        </a>
+                    </div>
+                </div>
+            </div>`;
+
+        const s = data.stats || {};
+        const rows = [
+            ['Total submitted',   s.totalSubmitted],
+            ['Matched',           s.matched],
+            ['Unmatched',         s.unmatched],
+            ['With stat > 0',     s.withStat],
+            ['With allow > 0',    s.withAllow],
+            ['With ded > 0',      s.withDed],
+            ['With stanbic > 0',  s.withStanbic],
+            ['Affordability = 0', s.zeroAfford],
+        ];
+        document.getElementById('run-log').innerHTML =
+            '<tbody>' + rows.map(([l, v]) =>
+                `<tr><td class="text-muted ps-3">${l}</td><td class="fw-semibold text-end pe-3">${v ?? 0}</td></tr>`
+            ).join('') + '</tbody>';
+    }
+})();
+</script>
+}

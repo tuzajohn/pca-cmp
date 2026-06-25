@@ -68,6 +68,7 @@
                 bool canInc = isAdmin || User.HasClaim("Module", "Incidents");
                 bool canAM = isAdmin || User.HasClaim("Module", "AccessManagement");
                 bool canInv = isAdmin || User.HasClaim("Module", "Invoicing");
+                bool canCrb = isAdmin || User.HasClaim("Module", "CRB");
                 bool canDocs = isAdmin || User.HasClaim("Module", "Documents");
             }
             <nav class="sidebar-nav">
@@ -170,6 +171,17 @@
                        class="sidebar-link @ActiveIf("InvoiceRecipients")">
                         <i class="bi bi-envelope-at"></i>
                         <span>Recipients</span>
+                    </a>
+                }
+
+                @if (canCrb)
+                {
+                    <div class="sidebar-section-label">Payroll</div>
+
+                    <a asp-controller="Crb" asp-action="Index"
+                       class="sidebar-link @ActiveIf("Crb")">
+                        <i class="bi bi-file-earmark-spreadsheet"></i>
+                        <span>CRB Deductions</span>
                     </a>
                 }
 

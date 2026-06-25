@@ -1,0 +1,202 @@
+@model List<PCA.Modules.Invoicing.Models.HcmMapping>
+@{
+    ViewData["Title"] = "HCM Mapping Table";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-header-title">HCM Mapping Table</h1>
+        <p class="page-header-sub mb-0">Classifications for COSTITEM and VENDOR_NAME values from HCM files.</p>
+    </div>
+    <a asp-controller="Crb" asp-action="Index" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">
+        No mappings saved yet. Run Module 1 with an HCM file to populate this table automatically.
+    </div>
+}
+else
+{
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0 align-middle" id="mappings-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>Source</th>
+                        <th>Raw Value</th>
+                        <th>Classification</th>
+                        <th>Canonical Name</th>
+                        <th>Aliases <span class="text-muted fw-normal small">(comma-separated)</span></th>
+                        <th>Updated</th>
+                        <th style="width:90px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in Model)
+                    {
+                        <tr data-id="@m.Id">
+                            <td>
+                                <span class="badge @(m.SourceColumn == "COSTITEM" ? "bg-primary" : "bg-secondary")">
+                                    @m.SourceColumn
+                                </span>
+                            </td>
+                            <td class="font-monospace small">@m.RawValue</td>
+
+                            @* ── view mode ── *@
+                            <td class="view-mode">
+                                @{
+                                    var bc = m.Classification switch {
+                                        "BASIC_SALARY" => "bg-success",
+                                        "ALLOWANCE"    => "bg-info text-dark",
+                                        "STATUTORY"    => "bg-warning text-dark",
+                                        "IGNORE"       => "bg-secondary",
+                                        _              => "bg-secondary"
+                                    };
+                                }
+                                <span class="badge @bc cls-badge">@m.Classification.Replace("_", " ")</span>
+                            </td>
+                            <td class="view-mode small text-muted canonical-text">@m.CanonicalName</td>
+                            <td class="view-mode small text-muted aliases-text">@m.Aliases</td>
+
+                            @* ── edit mode (hidden) ── *@
+                            <td class="edit-mode d-none">
+                                <select class="form-select form-select-sm edit-cls">
+                                    @foreach (var c in PCA.Modules.Invoicing.Models.HcmMapping.Classifications.All)
+                                    {
+                                        <option value="@c" selected="@(m.Classification == c ? "true" :"false")">
+                                            @c.Replace("_", " ")
+                                        </option>
+                                    }
+                                </select>
+                            </td>
+                            <td class="edit-mode d-none">
+                                <input type="text" class="form-control form-control-sm edit-canonical"
+                                       value="@m.CanonicalName" placeholder="e.g. NSSF">
+                            </td>
+                            <td class="edit-mode d-none">
+                                <input type="text" class="form-control form-control-sm edit-aliases"
+                                       value="@m.Aliases" placeholder="alt name, another name">
+                            </td>
+
+                            <td class="small text-muted updated-cell">@m.UpdatedAt.ToString("dd MMM yyyy")</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-secondary btn-edit">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-primary btn-save d-none">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary btn-cancel d-none">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+(function () {
+    const CLASSIFICATIONS = @Html.Raw(
+        System.Text.Json.JsonSerializer.Serialize(
+            PCA.Modules.Invoicing.Models.HcmMapping.Classifications.All));
+
+    const clsBadgeClass = {
+        'BASIC_SALARY': 'bg-success',
+        'ALLOWANCE':    'bg-info text-dark',
+        'STATUTORY':    'bg-warning text-dark',
+        'IGNORE':       'bg-secondary'
+    };
+
+    document.querySelectorAll('#mappings-table tbody tr').forEach(row => {
+        const btnEdit   = row.querySelector('.btn-edit');
+        const btnSave   = row.querySelector('.btn-save');
+        const btnCancel = row.querySelector('.btn-cancel');
+
+        const viewCells = row.querySelectorAll('.view-mode');
+        const editCells = row.querySelectorAll('.edit-mode');
+
+        function enterEdit() {
+            viewCells.forEach(c => c.classList.add('d-none'));
+            editCells.forEach(c => c.classList.remove('d-none'));
+            btnEdit.classList.add('d-none');
+            btnSave.classList.remove('d-none');
+            btnCancel.classList.remove('d-none');
+        }
+
+        function exitEdit() {
+            editCells.forEach(c => c.classList.add('d-none'));
+            viewCells.forEach(c => c.classList.remove('d-none'));
+            btnSave.classList.add('d-none');
+            btnCancel.classList.add('d-none');
+            btnEdit.classList.remove('d-none');
+        }
+
+        btnEdit.addEventListener('click', enterEdit);
+        btnCancel.addEventListener('click', exitEdit);
+
+        btnSave.addEventListener('click', async () => {
+            btnSave.disabled = true;
+            try {
+                const id            = parseInt(row.dataset.id);
+                const clsEl         = row.querySelector('.edit-cls');
+                const canonicalEl   = row.querySelector('.edit-canonical');
+                const aliasesEl     = row.querySelector('.edit-aliases');
+
+                if (!clsEl) throw new Error('Classification input not found.');
+                const cls           = clsEl.value;
+                const canonicalName = canonicalEl?.value.trim() || null;
+                const aliases       = aliasesEl?.value.trim() || null;
+
+                let data;
+                try {
+                    const res = await fetch('/Crb/UpdateMapping', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, classification: cls, canonicalName, aliases })
+                    });
+                    if (!res.ok) {
+                        const text = await res.text();
+                        throw new Error(`Server error ${res.status}: ${text.substring(0, 200)}`);
+                    }
+                    data = await res.json();
+                } catch (fetchErr) {
+                    alert('Request failed: ' + fetchErr.message);
+                    return;
+                }
+
+                if (!data.ok) { alert(data.message || 'Save failed.'); return; }
+
+                // Update view cells
+                const badge = row.querySelector('.cls-badge');
+                if (badge) {
+                    badge.textContent = cls.replace(/_/g, ' ');
+                    badge.className   = 'badge ' + (clsBadgeClass[cls] || 'bg-secondary');
+                }
+                const canonicalText = row.querySelector('.canonical-text');
+                const aliasesText   = row.querySelector('.aliases-text');
+                const updatedCell   = row.querySelector('.updated-cell');
+                if (canonicalText) canonicalText.textContent = canonicalName ?? '';
+                if (aliasesText)   aliasesText.textContent   = aliases ?? '';
+                if (updatedCell)   updatedCell.textContent   =
+                    new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+
+                exitEdit();
+            } catch (err) {
+                alert('Unexpected error: ' + err.message);
+            } finally {
+                btnSave.disabled = false;
+            }
+        });
+    });
+})();
+</script>
+}

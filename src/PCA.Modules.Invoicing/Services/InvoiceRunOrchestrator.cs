@@ -85,6 +85,15 @@ public class InvoiceRunOrchestrator
 
                 _logger.LogInformation("InvoiceRun {RunId}: split complete — IPPS sheet={IppsSheet}, HCM sheet={HcmSheet}",
                     run.Id, ippsSheet.Count, hcmSheetRows.Count);
+
+                if (hcmSheetRows.Count == 0)
+                {
+                    var warn = hcmRows.Count == 0
+                        ? $"Warning: HCM database returned 0 rows for deduction code {lender.DeductionCode}. Check the HCM DB connection and deduction filter."
+                        : $"Warning: HCM DB returned {hcmRows.Count} rows but none matched the ref file ({refFile.OriginalFileName}). Verify the ref file contains matching IPPS numbers.";
+                    _logger.LogWarning("InvoiceRun {RunId}: {Warn}", run.Id, warn);
+                    run.ErrorMessage = warn;
+                }
             }
             else
             {

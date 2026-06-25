@@ -79,7 +79,8 @@ public static class SshTunnelService
             UserID = cfg.Username,
             Password = cfg.Password,
             SslMode = MySqlSslMode.Disabled,
-            AllowPublicKeyRetrieval = true
+            AllowPublicKeyRetrieval = true,
+            DefaultCommandTimeout = 300   // 5 minutes per query
         }.ConnectionString;
 
         var conn = new MySqlConnection(cs);

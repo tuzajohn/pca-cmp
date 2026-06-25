@@ -19,5 +19,17 @@ public class ModuleRegistration
         services.AddSingleton(sp => new InvoiceDataService(
             ipps, hcm,
             sp.GetRequiredService<ILogger<InvoiceDataService>>()));
+
+        services.AddScoped(sp => new CrbReportService(
+            ipps,
+            sp.GetRequiredService<ILogger<CrbReportService>>()));
+
+        services.AddScoped<HcmMappingService>();
+
+        services.AddScoped(sp => new HcmReportService(
+            hcm,
+            sp.GetRequiredService<HcmMappingService>(),
+            sp.GetRequiredService<CrbReportService>(),
+            sp.GetRequiredService<ILogger<HcmReportService>>()));
     }
 }
