@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PCA.Modules.Invoicing.Models;
 using PCA.Modules.Invoicing.Services;
+using PCA.Web.Services;
+using System.Text.Json;
 
 namespace PCA.Web.Controllers;
 
@@ -11,19 +13,28 @@ public class CrbController : Controller
     private readonly HcmReportService  _hcmSvc;
     private readonly CrbReportService  _ippsSvc;
     private readonly HcmMappingService _mappings;
+    private readonly CrbProgressStore  _progress;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly string _storageRoot;
+
+    private static readonly JsonSerializerOptions _jsonOpts = new()
+        { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     public CrbController(
         HcmReportService hcmSvc,
         CrbReportService ippsSvc,
         HcmMappingService mappings,
+        CrbProgressStore progress,
+        IServiceScopeFactory scopeFactory,
         IConfiguration config,
         IWebHostEnvironment env)
     {
-        _hcmSvc      = hcmSvc;
-        _ippsSvc     = ippsSvc;
-        _mappings    = mappings;
-        _storageRoot = config["InvoiceStoragePath"]
+        _hcmSvc       = hcmSvc;
+        _ippsSvc      = ippsSvc;
+        _mappings     = mappings;
+        _progress     = progress;
+        _scopeFactory = scopeFactory;
+        _storageRoot  = config["InvoiceStoragePath"]
             ?? Path.Combine(env.ContentRootPath, "uploads", "documents");
     }
 
@@ -53,7 +64,40 @@ public class CrbController : Controller
         }
     }
 
-    // ── Module 1: HCM upload — JSON endpoint ─────────────────────────────────
+    // ── SSE stream endpoint ───────────────────────────────────────────────────
+
+    [HttpGet]
+    public async Task RunStream(string runId, CancellationToken ct)
+    {
+        Response.ContentType = "text/event-stream";
+        Response.Headers["Cache-Control"]      = "no-cache";
+        Response.Headers["X-Accel-Buffering"]  = "no";
+
+        var reader = _progress.GetReader(runId);
+        if (reader == null)
+        {
+            await Response.WriteAsync($"data: {JsonSerializer.Serialize(new { t = "error", msg = "Run not found." }, _jsonOpts)}\n\n");
+            return;
+        }
+
+        try
+        {
+            await foreach (var evt in reader.ReadAllAsync(ct))
+            {
+                var json = JsonSerializer.Serialize(evt, _jsonOpts);
+                await Response.WriteAsync($"data: {json}\n\n");
+                await Response.Body.FlushAsync(ct);
+                if (evt.T is "done" or "error") break;
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            _progress.Remove(runId);
+        }
+    }
+
+    // ── Module 1: HCM upload ──────────────────────────────────────────────────
 
     [HttpPost]
     [DisableRequestSizeLimit]
@@ -65,31 +109,33 @@ public class CrbController : Controller
         if (hcmFile == null || stanbicFile == null)
             return Json(new { status = "error", message = "Both files are required." });
 
+        // Pre-flight: check for unknown mappings (quick, synchronous)
         List<(string RawValue, string SourceColumn)> unknowns;
         try { unknowns = await _hcmSvc.CheckUnknownsAsync(hcmFile, stanbicFile); }
         catch (Exception ex)
         { return Json(new { status = "error", message = $"Could not read files: {ex.Message}" }); }
 
-        if (unknowns.Count > 0)
-        {
-            var runId   = Guid.NewGuid().ToString("N")[..12];
-            var pending = PendingFolder(runId);
-            Directory.CreateDirectory(pending);
-            await SaveToFile(hcmFile,     Path.Combine(pending, "hcm.xlsx"));
-            await SaveToFile(stanbicFile, Path.Combine(pending, "stanbic.xlsx"));
+        // Always save to pending so the background task can read the files
+        var runId   = Guid.NewGuid().ToString("N")[..12];
+        var pending = PendingFolder(runId);
+        Directory.CreateDirectory(pending);
+        await SaveToFile(hcmFile,     Path.Combine(pending, "hcm.xlsx"));
+        await SaveToFile(stanbicFile, Path.Combine(pending, "stanbic.xlsx"));
 
+        if (unknowns.Count > 0)
             return Json(new
             {
                 status   = "classify",
                 runId,
                 unknowns = unknowns.Select(u => new { u.RawValue, u.SourceColumn }).ToList()
             });
-        }
 
-        return await RunAndRespond(hcmFile, stanbicFile, ct);
+        // No unknowns — kick off background run and return stream runId
+        StartHcmBackground(runId, pending);
+        return Json(new { status = "running", runId });
     }
 
-    // ── Module 1: save mappings + resume — JSON endpoint ──────────────────────
+    // ── Module 1: save mappings + resume ─────────────────────────────────────
 
     [HttpPost]
     public async Task<IActionResult> SaveMappings(
@@ -118,23 +164,11 @@ public class CrbController : Controller
         if (!System.IO.File.Exists(hcmPath) || !System.IO.File.Exists(stanbicPath))
             return Json(new { status = "error", message = "Pending run files not found. Please re-upload." });
 
-        try
-        {
-            using var hcmStream     = System.IO.File.OpenRead(hcmPath);
-            using var stanbicStream = System.IO.File.OpenRead(stanbicPath);
-            var result = await _hcmSvc.RunAsync(
-                new PhysicalFormFile(hcmStream, "hcm.xlsx"),
-                new PhysicalFormFile(stanbicStream, "stanbic.xlsx"),
-                _storageRoot, ct);
-
-            try { Directory.Delete(pending, recursive: true); } catch { /* non-fatal */ }
-            return Json(BuildCompleteResponse(result));
-        }
-        catch (Exception ex)
-        { return Json(new { status = "error", message = ex.Message }); }
+        StartHcmBackground(req.RunId, pending);
+        return Json(new { status = "running", runId = req.RunId });
     }
 
-    // ── Module 2: standalone IPPS — JSON endpoint ─────────────────────────────
+    // ── Module 2: standalone IPPS ─────────────────────────────────────────────
 
     [HttpPost]
     [DisableRequestSizeLimit]
@@ -153,22 +187,47 @@ public class CrbController : Controller
         if (numbers.Count == 0)
             return Json(new { status = "error", message = "No valid IPPS numbers found." });
 
-        CrbReportResult result;
-        try { result = await _ippsSvc.GenerateAsync(numbers, _storageRoot, ct); }
-        catch (Exception ex)
-        { return Json(new { status = "error", message = ex.Message }); }
+        // Buffer the file so the background task can read it after this request ends
+        var runId    = _progress.CreateRun();
+        var fileData = new MemoryStream();
+        await ippsFile.CopyToAsync(fileData);
+        fileData.Position = 0;
 
-        return Json(new
+        var storageRoot = _storageRoot;
+        _ = Task.Run(async () =>
         {
-            status = "complete",
-            file   = new { url = Url.Action("DownloadResult", new { path = result.FilePath, name = result.FileName }), name = result.FileName },
-            stats  = new
+            using var scope  = _scopeFactory.CreateScope();
+            var ippsSvc = scope.ServiceProvider.GetRequiredService<CrbReportService>();
+            try
             {
-                result.TotalSubmitted, result.Matched, result.Unmatched,
-                result.WithStat, result.WithAllow, result.WithDed,
-                result.WithStanbic, result.ZeroAfford
+                var result = await ippsSvc.GenerateAsync(
+                    numbers, storageRoot,
+                    msg => _progress.Report(runId, msg));
+
+                var response = new
+                {
+                    status = "complete",
+                    file   = new
+                    {
+                        url  = Url.Action("DownloadResult", "Crb", new { path = result.FilePath, name = result.FileName }),
+                        name = result.FileName
+                    },
+                    stats = new
+                    {
+                        result.TotalSubmitted, result.Matched, result.Unmatched,
+                        result.WithStat, result.WithAllow, result.WithDed,
+                        result.WithStanbic, result.ZeroAfford
+                    }
+                };
+                _progress.Complete(runId, response);
+            }
+            catch (Exception ex)
+            {
+                _progress.Fail(runId, ex.Message);
             }
         });
+
+        return Json(new { status = "running", runId });
     }
 
     // ── Download ──────────────────────────────────────────────────────────────
@@ -186,23 +245,43 @@ public class CrbController : Controller
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private async Task<IActionResult> RunAndRespond(
-        IFormFile hcmFile, IFormFile stanbicFile, CancellationToken ct)
+    private void StartHcmBackground(string runId, string pendingFolder)
     {
-        try
+        _progress.CreateRunWithId(runId);
+        var storageRoot = _storageRoot;
+
+        _ = Task.Run(async () =>
         {
-            var result = await _hcmSvc.RunAsync(hcmFile, stanbicFile, _storageRoot, ct);
-            return Json(BuildCompleteResponse(result));
-        }
-        catch (Exception ex)
-        { return Json(new { status = "error", message = ex.Message }); }
+            using var scope  = _scopeFactory.CreateScope();
+            var hcmSvc = scope.ServiceProvider.GetRequiredService<HcmReportService>();
+            try
+            {
+                using var hcmStream     = System.IO.File.OpenRead(Path.Combine(pendingFolder, "hcm.xlsx"));
+                using var stanbicStream = System.IO.File.OpenRead(Path.Combine(pendingFolder, "stanbic.xlsx"));
+
+                var result = await hcmSvc.RunAsync(
+                    new PhysicalFormFile(hcmStream, "hcm.xlsx"),
+                    new PhysicalFormFile(stanbicStream, "stanbic.xlsx"),
+                    storageRoot,
+                    msg => _progress.Report(runId, msg));
+
+                try { Directory.Delete(pendingFolder, recursive: true); } catch { /* non-fatal */ }
+
+                var response = BuildCompleteResponse(result);
+                _progress.Complete(runId, response);
+            }
+            catch (Exception ex)
+            {
+                _progress.Fail(runId, ex.Message);
+            }
+        });
     }
 
     private object BuildCompleteResponse(HcmRunResult result) => new
     {
         status   = "complete",
-        hcmFile  = new { url = Url.Action("DownloadResult", new { path = result.HcmFilePath,  name = result.HcmFileName  }), name = result.HcmFileName  },
-        ippsFile = new { url = Url.Action("DownloadResult", new { path = result.IppsFilePath, name = result.IppsFileName }), name = result.IppsFileName },
+        hcmFile  = new { url = Url.Action("DownloadResult", "Crb", new { path = result.HcmFilePath,  name = result.HcmFileName  }), name = result.HcmFileName  },
+        ippsFile = new { url = Url.Action("DownloadResult", "Crb", new { path = result.IppsFilePath, name = result.IppsFileName }), name = result.IppsFileName },
         stats    = new
         {
             result.TotalStanbicSubmitted, result.MatchedToHcm, result.PassedToIpps,
@@ -259,7 +338,7 @@ public class UpdateMappingRequest
     public string? Aliases        { get; set; }
 }
 
-// ── IFormFile wrapper for resuming from disk ──────────────────────────────────
+// ── IFormFile wrapper for reading from disk/memory in background tasks ────────
 
 internal sealed class PhysicalFormFile : IFormFile
 {

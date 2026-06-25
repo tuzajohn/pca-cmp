@@ -35,9 +35,14 @@
     </div>
 </div>
 
-<div id="step-processing" class="d-none text-center py-5">
-    <div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;"></div>
-    <p class="text-muted">Processing…</p>
+<div id="step-processing" class="d-none">
+    <div class="card shadow-sm">
+        <div class="card-header d-flex align-items-center gap-2">
+            <div class="spinner-border spinner-border-sm text-primary" id="run-spinner"></div>
+            <h6 class="mb-0">Processing</h6>
+        </div>
+        <ul class="list-group list-group-flush" id="step-list"></ul>
+    </div>
 </div>
 
 <div id="step-results" class="d-none">
@@ -57,6 +62,8 @@
 @section Scripts {
 <script>
 (function () {
+    let activeSource = null;
+
     const show = id => document.getElementById(id).classList.remove('d-none');
     const hide = id => document.getElementById(id).classList.add('d-none');
     const showError = msg => {
@@ -70,7 +77,7 @@
         if (!file) { showError('Please select a file.'); return; }
 
         document.getElementById('upload-error').classList.add('d-none');
-        hide('step-upload'); show('step-processing');
+        clearSteps(); hide('step-upload'); show('step-processing');
 
         const fd = new FormData();
         fd.append('ippsFile', file);
@@ -85,12 +92,10 @@
             return;
         }
 
-        hide('step-processing');
         if (data.status === 'error') {
-            show('step-upload'); showError(data.message);
-        } else {
-            buildResults(data);
-            show('step-results');
+            hide('step-processing'); show('step-upload'); showError(data.message);
+        } else if (data.status === 'running') {
+            openStream(data.runId);
         }
     });
 
@@ -98,6 +103,60 @@
         hide('step-results'); show('step-upload');
         document.getElementById('upload-form').reset();
     });
+
+    function openStream(runId) {
+        if (activeSource) { activeSource.close(); activeSource = null; }
+        const src = new EventSource('/Crb/RunStream?runId=' + runId);
+        activeSource = src;
+
+        src.onmessage = e => {
+            const evt = JSON.parse(e.data);
+            if (evt.t === 'step') {
+                addStep(evt.msg);
+            } else if (evt.t === 'done') {
+                stopSpinner();
+                src.close(); activeSource = null;
+                hide('step-processing');
+                buildResults(evt.result);
+                show('step-results');
+            } else if (evt.t === 'error') {
+                failLastStep(evt.msg);
+                stopSpinner();
+                src.close(); activeSource = null;
+                setTimeout(() => {
+                    hide('step-processing'); show('step-upload');
+                    showError(evt.msg);
+                }, 1500);
+            }
+        };
+
+        src.onerror = () => {
+            src.close(); activeSource = null;
+            hide('step-processing'); show('step-upload');
+            showError('Connection to server lost. Please try again.');
+        };
+    }
+
+    function clearSteps() {
+        document.getElementById('step-list').innerHTML = '';
+        document.getElementById('run-spinner').classList.remove('d-none');
+    }
+    function stopSpinner() {
+        document.getElementById('run-spinner').classList.add('d-none');
+    }
+    function addStep(msg) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-start gap-2 py-2';
+        li.innerHTML = `<i class="bi bi-check-circle-fill text-success mt-1 flex-shrink-0"></i><span class="small">${msg}</span>`;
+        document.getElementById('step-list').appendChild(li);
+        li.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    function failLastStep(msg) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-start gap-2 py-2 list-group-item-danger';
+        li.innerHTML = `<i class="bi bi-x-circle-fill text-danger mt-1 flex-shrink-0"></i><span class="small">${msg}</span>`;
+        document.getElementById('step-list').appendChild(li);
+    }
 
     function buildResults(data) {
         const filesEl = document.getElementById('result-files');
@@ -116,14 +175,14 @@
 
         const s = data.stats || {};
         const rows = [
-            ['Total submitted',       s.totalSubmitted],
-            ['Matched',               s.matched],
-            ['Unmatched',             s.unmatched],
-            ['With stat > 0',         s.withStat],
-            ['With allow > 0',        s.withAllow],
-            ['With ded > 0',          s.withDed],
-            ['With stanbic > 0',      s.withStanbic],
-            ['Affordability = 0',     s.zeroAfford],
+            ['Total submitted',   s.totalSubmitted],
+            ['Matched',           s.matched],
+            ['Unmatched',         s.unmatched],
+            ['With stat > 0',     s.withStat],
+            ['With allow > 0',    s.withAllow],
+            ['With ded > 0',      s.withDed],
+            ['With stanbic > 0',  s.withStanbic],
+            ['Affordability = 0', s.zeroAfford],
         ];
         document.getElementById('run-log').innerHTML =
             '<tbody>' + rows.map(([l, v]) =>

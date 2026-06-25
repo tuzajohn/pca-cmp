@@ -77,16 +77,16 @@ public class HcmReportService
         IFormFile hcmFile,
         IFormFile stanbicFile,
         string storageRoot,
+        Action<string>? progress = null,
         CancellationToken ct = default)
     {
-        // Parse inputs
+        void Step(string msg) { progress?.Invoke(msg); _logger.LogInformation("HCM: {Msg}", msg); }
+
+        // Stage 1 — parse + cross-reference
+        Step("Stage 1 — Parsing files and cross-referencing IPPS numbers…");
         var stanbicIpps = CrbReportService.ParseIppsFile(stanbicFile);
         var hcmRows     = ParseHcmExcel(hcmFile);
 
-        _logger.LogInformation("HCM CRB: {StanbicCount} Stanbic IPPS, {HcmRows} HCM rows",
-            stanbicIpps.Count, hcmRows.Count);
-
-        // Stage 1 — cross-reference
         var stanbicSet = new HashSet<string>(
             stanbicIpps.Select(n => n.Trim().PadLeft(15, '0')),
             StringComparer.OrdinalIgnoreCase);
@@ -96,10 +96,10 @@ public class HcmReportService
             .Where(n => !matched.Any(r => PadIpps(r.EmpNumber) == n.Trim().PadLeft(15, '0')))
             .ToList();
 
-        _logger.LogInformation("HCM CRB Stage 1: matched={Matched}, unmatched→IPPS={Unmatched}",
-            matched.Count, unmatched.Count);
+        Step($"Stage 1 — Cross-reference complete: {matched.GroupBy(r => r.EmployeeNo).Count()} matched, {unmatched.Count} unmatched");
 
         // Stage 2 — mapping check (caller must have already resolved unknowns)
+        Step("Stage 2 — Verifying all mappings are classified…");
         await _mappings.EnsureLoadedAsync();
         var allCostItems   = matched.Select(r => r.CostItem).Where(v => !string.IsNullOrWhiteSpace(v));
         var allVendorNames = matched.Select(r => r.VendorName).Where(v => !string.IsNullOrWhiteSpace(v));
@@ -108,7 +108,10 @@ public class HcmReportService
             throw new InvalidOperationException(
                 $"Unclassified values remain: {string.Join(", ", unknowns.Select(u => $"{u.SourceColumn}={u.RawValue}"))}");
 
-        // Stages 3–5 — salary, stat, allow from HCM file data
+        Step("Stage 2 — All mappings verified");
+
+        // Stage 3 — salary, stat, allow from HCM file data
+        Step("Stage 3 — Computing salary, statutory deductions and allowances from HCM data…");
         var empRows = matched
             .GroupBy(r => r.EmployeeNo, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
@@ -118,18 +121,23 @@ public class HcmReportService
         var statMap      = ComputeStat(classEntries);
         var allowMap     = ComputeAllow(classEntries);
 
-        _logger.LogInformation("HCM CRB Stages 3-5: salary computed for {Count} employees", salaryMap.Count);
+        Step($"Stage 3 — Computed salary/stat/allow for {salaryMap.Count} employees");
 
-        // Stage 6 — query HCM DB
+        // Stage 4 — query HCM DB
+        Step("Stage 4 — Opening HCM database connection…");
         var empNumbers = empRows.Keys.ToList();
         using var tunnel = await SshTunnelService.OpenAsync(_hcmDb, _logger);
         var conn = tunnel.Connection;
 
+        Step("Stage 4 — Querying employee records (isactive, terms)…");
         var (isActiveMap, termsMap) = await QueryEmployeeFieldsAsync(conn, empNumbers, ct);
-        var dedMap                  = await QueryDedAsync(conn, empNumbers, ct);
-        var stanbicDedMap           = await QueryStanbicDedAsync(conn, empNumbers, ct);
 
-        // Stage 7 — affordability + assemble output
+        Step("Stage 5 — Querying deductions…");
+        var dedMap        = await QueryDedAsync(conn, empNumbers, ct);
+        var stanbicDedMap = await QueryStanbicDedAsync(conn, empNumbers, ct);
+        Step($"Stage 5 — Deductions loaded for {dedMap.Count} employees");
+
+        // Stage 6 — affordability + assemble output
         var outputRows    = new List<CrbOutputRow>();
         int withStat = 0, withAllow = 0, withDed = 0, withStanbic = 0, zeroAfford = 0;
 
@@ -170,11 +178,16 @@ public class HcmReportService
                 Notes:        string.Empty));
         }
 
-        // Stage 8 — write HCM Excel
-        var hcmFilePath = WriteExcel(outputRows, storageRoot, isHcm: true);
+        Step($"Stage 6 — Affordability computed for {outputRows.Count} employees");
 
-        // Run Module 2 for unmatched IPPS
-        var ippsResult = await _ippsModule.GenerateAsync(unmatched, storageRoot, ct);
+        // Stage 7 — write HCM Excel
+        Step("Stage 7 — Writing HCM output file…");
+        var hcmFilePath = WriteExcel(outputRows, storageRoot, isHcm: true);
+        Step("Stage 7 — HCM file written");
+
+        // Stage 8 — Run Module 2 for unmatched IPPS
+        Step($"Stage 8 — Running Module 2 for {unmatched.Count} unmatched IPPS numbers…");
+        var ippsResult = await _ippsModule.GenerateAsync(unmatched, storageRoot, progress, ct);
 
         _logger.LogInformation(
             "HCM CRB run log:\n  Total Stanbic IPPS submitted:     {Total}\n  Matched to HCM Sheet1:            {Matched}\n  Passed to IPPS module:            {Unmatched}\n  Unknown COSTITEM/VENDOR flagged:  0 (already resolved)\n  Employees with stat > 0:          {Stat}\n  Employees with allow > 0:         {Allow}\n  Employees with ded > 0:           {Ded}\n  Employees with stanbic > 0:       {Stanbic}\n  Employees with affordability = 0: {ZeroAff}",

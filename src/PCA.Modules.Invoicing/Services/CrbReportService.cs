@@ -66,41 +66,38 @@ public class CrbReportService
     public async Task<CrbReportResult> GenerateAsync(
         List<string> rawIppsNumbers,
         string storageRoot,
+        Action<string>? progress = null,
         CancellationToken ct = default)
     {
-        var totalSubmitted = rawIppsNumbers.Count;
-        _logger.LogInformation("CRB: starting run — {Total} IPPS numbers submitted", totalSubmitted);
+        void Step(string msg) { progress?.Invoke(msg); _logger.LogInformation("CRB: {Msg}", msg); }
 
-        // Pad all numbers to 15 chars as the DB stores them
+        var totalSubmitted = rawIppsNumbers.Count;
+
         var paddedList = rawIppsNumbers
             .Select(n => n.Trim().PadLeft(15, '0'))
             .Distinct()
             .ToList();
 
+        Step("Module 2 — Opening IPPS database connection…");
         using var tunnel = await SshTunnelService.OpenAsync(_ipps, _logger);
         var conn = tunnel.Connection;
 
-        // Stage 1 — match employees
+        Step($"Module 2 — Matching {totalSubmitted} IPPS numbers to employee records…");
         var (empMap, unmatched) = await Stage1_MatchEmployeesAsync(conn, paddedList, ct);
-        _logger.LogInformation("CRB Stage 1: matched={Matched}, unmatched={Unmatched}",
-            empMap.Count, unmatched.Count);
+        Step($"Module 2 — {empMap.Count} matched, {unmatched.Count} unmatched");
 
         var employeeIds = empMap.Keys.ToList();
 
-        // Stage 2 — statutory deductions
+        Step("Module 2 — Querying statutory deductions…");
         var statMap = await Stage2_StatutoryAsync(conn, employeeIds, ct);
-        _logger.LogInformation("CRB Stage 2: stat records={Count}", statMap.Count);
 
-        // Stage 3 — allowances (with date-match check against Stage 2)
+        Step("Module 2 — Querying allowances…");
         var (allowMap, mismatches) = await Stage3_AllowancesAsync(conn, employeeIds, statMap, ct);
-        _logger.LogInformation("CRB Stage 3: allow records={Count}, mismatches={Mismatches}",
-            allowMap.Count, mismatches.Count);
 
-        // Stage 4 — loan deductions
+        Step("Module 2 — Querying loan deductions…");
         var dedMap = await Stage4_DeductionsAsync(conn, employeeIds, ct);
-        _logger.LogInformation("CRB Stage 4: ded records={Count}", dedMap.Count);
 
-        // Stage 5 + 6 — compute affordability and write Excel
+        Step("Module 2 — Computing affordability and writing output file…");
         var (outputRows, result) = BuildOutput(
             paddedList, empMap, statMap, allowMap, mismatches, dedMap, unmatched);
 

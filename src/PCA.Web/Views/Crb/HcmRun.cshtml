@@ -56,10 +56,15 @@
     </div>
 </div>
 
-@* processing spinner *@
-<div id="step-processing" class="d-none text-center py-5">
-    <div class="spinner-border text-primary mb-3" style="width:3rem;height:3rem;"></div>
-    <p class="text-muted" id="processing-msg">Processing files…</p>
+@* processing — live step list *@
+<div id="step-processing" class="d-none">
+    <div class="card shadow-sm">
+        <div class="card-header d-flex align-items-center gap-2">
+            <div class="spinner-border spinner-border-sm text-primary" id="run-spinner"></div>
+            <h6 class="mb-0">Processing</h6>
+        </div>
+        <ul class="list-group list-group-flush" id="step-list"></ul>
+    </div>
 </div>
 
 @* classify unknowns *@
@@ -114,20 +119,20 @@
 (function () {
     const CLASSIFICATIONS = ['BASIC_SALARY','ALLOWANCE','STATUTORY','IGNORE'];
     let pendingRunId = null;
+    let activeSource = null;
 
     const show = id => document.getElementById(id).classList.remove('d-none');
     const hide = id => document.getElementById(id).classList.add('d-none');
     const showError = msg => {
         const el = document.getElementById('upload-error');
-        el.textContent = msg;
-        el.classList.remove('d-none');
+        el.textContent = msg; el.classList.remove('d-none');
     };
 
-    // ── Upload form submit ──────────────────────────────────────────────────
-    // Clear error as soon as a file is chosen
+    // ── Clear error on file select ──────────────────────────────────────────
     document.getElementById('hcmFile').addEventListener('change',     () => document.getElementById('upload-error').classList.add('d-none'));
     document.getElementById('stanbicFile').addEventListener('change', () => document.getElementById('upload-error').classList.add('d-none'));
 
+    // ── Upload form ─────────────────────────────────────────────────────────
     document.getElementById('upload-form').addEventListener('submit', async e => {
         e.preventDefault();
         document.getElementById('upload-error').classList.add('d-none');
@@ -135,11 +140,10 @@
         const stanbicFile = document.getElementById('stanbicFile').files[0];
         if (!hcmFile || !stanbicFile) { showError('Both files are required.'); return; }
 
-        document.getElementById('processing-msg').textContent = 'Checking mappings and loading files…';
-        hide('step-upload'); show('step-processing');
+        clearSteps(); hide('step-upload'); show('step-processing');
 
         const fd = new FormData();
-        fd.append('hcmFile',     hcmFile);
+        fd.append('hcmFile', hcmFile);
         fd.append('stanbicFile', stanbicFile);
 
         let data;
@@ -151,7 +155,6 @@
             showError('Request failed: ' + err.message);
             return;
         }
-
         handleResponse(data);
     });
 
@@ -163,18 +166,17 @@
         rows.forEach(row => {
             const sel = row.querySelector('select');
             if (!sel.value) { sel.classList.add('is-invalid'); valid = false; }
-            else { sel.classList.remove('is-invalid'); }
+            else sel.classList.remove('is-invalid');
             mappings.push({
-                rawValue:      row.dataset.raw,
-                sourceColumn:  row.dataset.source,
+                rawValue:       row.dataset.raw,
+                sourceColumn:   row.dataset.source,
                 classification: sel.value,
-                canonicalName: (row.querySelector('.canonical-input')?.value || '').trim() || null
+                canonicalName:  (row.querySelector('.canonical-input')?.value || '').trim() || null
             });
         });
         if (!valid) return;
 
-        document.getElementById('processing-msg').textContent = 'Saving mappings and resuming…';
-        hide('step-classify'); show('step-processing');
+        clearSteps(); hide('step-classify'); show('step-processing');
 
         let data;
         try {
@@ -189,15 +191,12 @@
             alert('Request failed: ' + err.message);
             return;
         }
-
         handleResponse(data);
     });
 
     document.getElementById('btn-cancel-classify').addEventListener('click', () => {
-        hide('step-classify'); show('step-upload');
-        pendingRunId = null;
+        hide('step-classify'); show('step-upload'); pendingRunId = null;
     });
-
     document.getElementById('btn-run-again').addEventListener('click', () => {
         hide('step-results'); show('step-upload');
         document.getElementById('upload-form').reset();
@@ -205,17 +204,74 @@
 
     // ── Response router ─────────────────────────────────────────────────────
     function handleResponse(data) {
-        hide('step-processing');
         if (data.status === 'error') {
-            show('step-upload'); showError(data.message);
+            hide('step-processing'); show('step-upload'); showError(data.message);
         } else if (data.status === 'classify') {
+            hide('step-processing');
             pendingRunId = data.runId;
             buildClassifyTable(data.unknowns);
             show('step-classify');
+        } else if (data.status === 'running') {
+            openStream(data.runId);
         } else if (data.status === 'complete') {
-            buildResults(data);
-            show('step-results');
+            hide('step-processing'); buildResults(data); show('step-results');
         }
+    }
+
+    // ── SSE stream ──────────────────────────────────────────────────────────
+    function openStream(runId) {
+        if (activeSource) { activeSource.close(); activeSource = null; }
+        const src = new EventSource('/Crb/RunStream?runId=' + runId);
+        activeSource = src;
+
+        src.onmessage = e => {
+            const evt = JSON.parse(e.data);
+            if (evt.t === 'step') {
+                addStep(evt.msg);
+            } else if (evt.t === 'done') {
+                stopSpinner();
+                src.close(); activeSource = null;
+                hide('step-processing');
+                buildResults(evt.result);
+                show('step-results');
+            } else if (evt.t === 'error') {
+                failLastStep(evt.msg);
+                stopSpinner();
+                src.close(); activeSource = null;
+                setTimeout(() => {
+                    hide('step-processing'); show('step-upload');
+                    showError(evt.msg);
+                }, 1500);
+            }
+        };
+
+        src.onerror = () => {
+            src.close(); activeSource = null;
+            hide('step-processing'); show('step-upload');
+            showError('Connection to server lost. Please try again.');
+        };
+    }
+
+    // ── Step list helpers ───────────────────────────────────────────────────
+    function clearSteps() {
+        document.getElementById('step-list').innerHTML = '';
+        document.getElementById('run-spinner').classList.remove('d-none');
+    }
+    function stopSpinner() {
+        document.getElementById('run-spinner').classList.add('d-none');
+    }
+    function addStep(msg) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-start gap-2 py-2';
+        li.innerHTML = `<i class="bi bi-check-circle-fill text-success mt-1 flex-shrink-0"></i><span class="small">${msg}</span>`;
+        document.getElementById('step-list').appendChild(li);
+        li.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    function failLastStep(msg) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex align-items-start gap-2 py-2 list-group-item-danger';
+        li.innerHTML = `<i class="bi bi-x-circle-fill text-danger mt-1 flex-shrink-0"></i><span class="small">${msg}</span>`;
+        document.getElementById('step-list').appendChild(li);
     }
 
     // ── Build classify table ─────────────────────────────────────────────────
@@ -243,7 +299,6 @@
 
     // ── Build results ────────────────────────────────────────────────────────
     function buildResults(data) {
-        // File download cards
         const filesEl = document.getElementById('result-files');
         filesEl.innerHTML = '';
         const files = data.hcmFile
@@ -267,31 +322,30 @@
             filesEl.appendChild(col);
         });
 
-        // Run log
         const s = data.stats || {};
-        const logEl = document.getElementById('run-log');
-        const rows = data.hcmFile ? [
-            ['Total Stanbic IPPS submitted',    s.totalStanbicSubmitted],
-            ['Matched to HCM Sheet1',           s.matchedToHcm],
-            ['Passed to IPPS module',           s.passedToIpps],
-            ['Employees with stat > 0',         s.withStat],
-            ['Employees with allow > 0',        s.withAllow],
-            ['Employees with ded > 0',          s.withDed],
-            ['Employees with stanbic > 0',      s.withStanbic],
-            ['Employees with affordability = 0',s.zeroAfford],
+        const logRows = data.hcmFile ? [
+            ['Total Stanbic IPPS submitted',     s.totalStanbicSubmitted],
+            ['Matched to HCM Sheet1',            s.matchedToHcm],
+            ['Passed to IPPS module',            s.passedToIpps],
+            ['Employees with stat > 0',          s.withStat],
+            ['Employees with allow > 0',         s.withAllow],
+            ['Employees with ded > 0',           s.withDed],
+            ['Employees with stanbic > 0',       s.withStanbic],
+            ['Employees with affordability = 0', s.zeroAfford],
         ] : [
-            ['Total submitted',      s.totalSubmitted],
-            ['Matched',              s.matched],
-            ['Unmatched',            s.unmatched],
-            ['With stat > 0',        s.withStat],
-            ['With allow > 0',       s.withAllow],
-            ['With ded > 0',         s.withDed],
-            ['With stanbic > 0',     s.withStanbic],
-            ['Affordability = 0',    s.zeroAfford],
+            ['Total submitted',    s.totalSubmitted],
+            ['Matched',            s.matched],
+            ['Unmatched',          s.unmatched],
+            ['With stat > 0',      s.withStat],
+            ['With allow > 0',     s.withAllow],
+            ['With ded > 0',       s.withDed],
+            ['With stanbic > 0',   s.withStanbic],
+            ['Affordability = 0',  s.zeroAfford],
         ];
-        logEl.innerHTML = '<tbody>' + rows.map(([label, val]) =>
-            `<tr><td class="text-muted ps-3">${label}</td><td class="fw-semibold text-end pe-3">${val ?? 0}</td></tr>`
-        ).join('') + '</tbody>';
+        document.getElementById('run-log').innerHTML =
+            '<tbody>' + logRows.map(([label, val]) =>
+                `<tr><td class="text-muted ps-3">${label}</td><td class="fw-semibold text-end pe-3">${val ?? 0}</td></tr>`
+            ).join('') + '</tbody>';
     }
 })();
 </script>
