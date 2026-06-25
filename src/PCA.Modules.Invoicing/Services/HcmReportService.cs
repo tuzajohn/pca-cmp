@@ -231,7 +231,7 @@ public class HcmReportService
                 if (!string.IsNullOrWhiteSpace(r.CostItem))
                 {
                     var cls = _mappings.GetClassification(r.CostItem, HcmMapping.SourceColumns.CostItem);
-                    if (cls != null)
+                    if (cls != null && cls != HcmMapping.Classifications.Ignore)
                         entries.Add(new ClassEntry(
                             empNo,
                             _mappings.GetCanonical(r.CostItem, HcmMapping.SourceColumns.CostItem),
@@ -242,7 +242,7 @@ public class HcmReportService
                 if (!string.IsNullOrWhiteSpace(r.VendorName))
                 {
                     var cls = _mappings.GetClassification(r.VendorName, HcmMapping.SourceColumns.VendorName);
-                    if (cls != null)
+                    if (cls != null && cls != HcmMapping.Classifications.Ignore)
                         entries.Add(new ClassEntry(
                             empNo,
                             _mappings.GetCanonical(r.VendorName, HcmMapping.SourceColumns.VendorName),

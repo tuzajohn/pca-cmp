@@ -5,7 +5,7 @@ public class HcmMapping
     public int     Id             { get; set; }
     public string  RawValue       { get; set; } = string.Empty;
     public string? CanonicalName  { get; set; }
-    public string  Classification { get; set; } = string.Empty; // BASIC_SALARY|ALLOWANCE|STATUTORY
+    public string  Classification { get; set; } = string.Empty; // BASIC_SALARY|ALLOWANCE|STATUTORY|IGNORE
     public string  SourceColumn   { get; set; } = string.Empty; // COSTITEM|VENDOR_NAME
     public string? Aliases        { get; set; }                 // comma-separated alternate raw values
     public DateTime CreatedAt     { get; set; } = DateTime.UtcNow;
@@ -16,8 +16,9 @@ public class HcmMapping
         public const string BasicSalary = "BASIC_SALARY";
         public const string Allowance   = "ALLOWANCE";
         public const string Statutory   = "STATUTORY";
+        public const string Ignore      = "IGNORE";
 
-        public static readonly string[] All = { BasicSalary, Allowance, Statutory };
+        public static readonly string[] All = { BasicSalary, Allowance, Statutory, Ignore };
     }
 
     public static class SourceColumns
