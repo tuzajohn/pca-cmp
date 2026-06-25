@@ -186,18 +186,18 @@ public class InvoiceDataService
             "SplitRows: trueHCM={TrueHcm}, droppedIPPS={DroppedIpps}, listD_hcm={DHcm}, listD_ipps={DIpps}",
             trueHcm.Count, droppedIpps, listD_hcm.Count, listD_ipps.Count);
 
-        // HCM sheet: HCM DB records matched to ref, deduped by (EmployeeNumber, ReferenceCode)
+        // HCM sheet: one occurrence per employee expected; just sort
         var hcmSheet = trueHcm
-            .GroupBy(r => (r.EmployeeNumber, r.ReferenceCode))
-            .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
             .OrderBy(r => r.EmployeeNumber)
             .ToList();
 
-        // IPPS sheet: listD deduped by (EmployeeNumber, ReferenceCode) — same loan in both
-        // sources keeps the higher amount; different loans for same employee are all kept
+        // IPPS sheet: sort by employee ASC then amount DESC first, then dedup by employee
+        // keeping the first row (= highest amount) per employee number
         var ippsSheet = listD_hcm.Concat(listD_ipps)
-            .GroupBy(r => (r.EmployeeNumber, r.ReferenceCode))
-            .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
+            .OrderBy(r => r.EmployeeNumber)
+            .ThenByDescending(r => r.InstallmentAmount)
+            .GroupBy(r => r.EmployeeNumber)
+            .Select(g => g.First())
             .OrderBy(r => r.EmployeeNumber)
             .ToList();
 
