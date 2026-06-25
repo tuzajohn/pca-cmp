@@ -83,10 +83,13 @@ public class HcmReportService
         void Step(string msg) { progress?.Invoke(msg); _logger.LogInformation("HCM: {Msg}", msg); }
 
         // Stage 1 — parse + cross-reference
-        Step("Stage 1 — Parsing files and cross-referencing IPPS numbers…");
+        Step("Stage 1 — Parsing Stanbic IPPS file…");
         var stanbicIpps = CrbReportService.ParseIppsFile(stanbicFile);
-        var hcmRows     = ParseHcmExcel(hcmFile);
 
+        Step($"Stage 1 — Parsing HCM Excel file ({stanbicIpps.Count} Stanbic IPPS numbers loaded)…");
+        var hcmRows = ParseHcmExcel(hcmFile);
+
+        Step($"Stage 1 — Cross-referencing {hcmRows.Count} HCM rows against Stanbic list…");
         var stanbicSet = new HashSet<string>(
             stanbicIpps.Select(n => n.Trim().PadLeft(15, '0')),
             StringComparer.OrdinalIgnoreCase);
