@@ -144,7 +144,7 @@ public class CrbReportService
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var id   = reader.GetInt32("employeeid");
+                var id   = ReadInt(reader, "employeeid");
                 var ipps = reader.GetString("ipps");
                 empMap[id] = new CrbEmployeeRow(
                     EmployeeId: id,
@@ -190,7 +190,7 @@ public class CrbReportService
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var id    = reader.GetInt32("employeeid");
+                var id    = ReadInt(reader, "employeeid");
                 var total = ReadDecimal(reader, "total_statutory");
                 var date  = reader.IsDBNull(reader.GetOrdinal("stat_payrolldate")) ? (DateTime?)null : reader.GetDateTime("stat_payrolldate");
                 result[id] = (total, date);
@@ -233,7 +233,7 @@ public class CrbReportService
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var id        = reader.GetInt32("employeeid");
+                var id        = ReadInt(reader, "employeeid");
                 var total     = ReadDecimal(reader, "total_allowance");
                 var allowDate = reader.IsDBNull(reader.GetOrdinal("allow_payrolldate")) ? (DateTime?)null : reader.GetDateTime("allow_payrolldate");
                 var statDate  = statMap.TryGetValue(id, out var s) ? s.Date : null;
@@ -287,7 +287,7 @@ public class CrbReportService
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var id      = reader.GetInt32("employeeid");
+                var id      = ReadInt(reader, "employeeid");
                 var ded     = ReadDecimal(reader, "ded");
                 var stanbic = ReadDecimal(reader, "stanbic");
                 result[id] = (ded, stanbic);
@@ -454,7 +454,13 @@ public class CrbReportService
             yield return source.GetRange(i, Math.Min(BatchSize, source.Count - i));
     }
 
-    private static decimal ReadDecimal(MySqlDataReader reader, string column)
+    private static int ReadInt(MySqlDataReader reader, string column)
+    {
+        var ordinal = reader.GetOrdinal(column);
+        if (reader.IsDBNull(ordinal)) return 0;
+        var raw = reader.GetValue(ordinal)?.ToString();
+        return int.TryParse(raw, out var v) ? v : 0;
+    }
     {
         var ordinal = reader.GetOrdinal(column);
         if (reader.IsDBNull(ordinal)) return 0m;
