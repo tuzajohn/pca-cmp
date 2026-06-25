@@ -67,7 +67,7 @@ else
                                 <select class="form-select form-select-sm edit-cls">
                                     @foreach (var c in PCA.Modules.Invoicing.Models.HcmMapping.Classifications.All)
                                     {
-                                        <option value="@c" @(m.Classification == c ? "selected" : "")>
+                                        <option value="@c" selected="@(m.Classification == c ? "true" :"false")">
                                             @c.Replace("_", " ")
                                         </option>
                                     }
