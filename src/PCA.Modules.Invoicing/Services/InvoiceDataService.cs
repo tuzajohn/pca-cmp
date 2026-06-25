@@ -167,29 +167,29 @@ public class InvoiceDataService
         var refNumbers = ReadHcmRefNumbers(refFilePath);
         _logger.LogInformation("SplitRows: ref file contains {RefCount} IPPS numbers", refNumbers.Count);
 
-        // listA (IPPS DB) in ref  → HCM sheet
-        var hcmSheet_raw = ippsRows.Where(r =>  refNumbers.Contains(r.EmployeeNumber)).ToList();
-        // listB (HCM DB)  in ref  → dropped
-        var droppedHcm   = hcmRows.Count(r =>   refNumbers.Contains(r.EmployeeNumber));
+        // listA (HCM DB) in ref → HCM sheet
+        var trueHcm    = hcmRows.Where(r =>  refNumbers.Contains(r.EmployeeNumber)).ToList();
+        // listB (IPPS DB) in ref → dropped
+        var droppedIpps = ippsRows.Count(r => refNumbers.Contains(r.EmployeeNumber));
 
-        // listA (IPPS DB) not in ref → listD
-        var listD_ipps   = ippsRows.Where(r => !refNumbers.Contains(r.EmployeeNumber)).ToList();
-        // listB (HCM DB)  not in ref → listD
-        var listD_hcm    = hcmRows.Where(r =>  !refNumbers.Contains(r.EmployeeNumber)).ToList();
+        // listA (HCM DB)  not in ref → listD
+        var listD_hcm  = hcmRows.Where(r =>  !refNumbers.Contains(r.EmployeeNumber)).ToList();
+        // listB (IPPS DB) not in ref → listD
+        var listD_ipps = ippsRows.Where(r => !refNumbers.Contains(r.EmployeeNumber)).ToList();
 
         _logger.LogInformation(
-            "SplitRows: hcmSheet(raw)={HcmRaw}, droppedHCM={DroppedHcm}, listD_ipps={DIpps}, listD_hcm={DHcm}",
-            hcmSheet_raw.Count, droppedHcm, listD_ipps.Count, listD_hcm.Count);
+            "SplitRows: trueHCM={TrueHcm}, droppedIPPS={DroppedIpps}, listD_hcm={DHcm}, listD_ipps={DIpps}",
+            trueHcm.Count, droppedIpps, listD_hcm.Count, listD_ipps.Count);
 
-        // HCM sheet: IPPS records matched to ref, deduped by max amount
-        var hcmSheet = hcmSheet_raw
+        // HCM sheet: HCM DB records matched to ref, deduped by max amount
+        var hcmSheet = trueHcm
             .GroupBy(r => r.EmployeeNumber)
             .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
             .OrderBy(r => r.EmployeeNumber)
             .ToList();
 
-        // IPPS sheet: listD sorted by IPPS asc + amount desc, first row per IPPS kept
-        var ippsSheet = listD_ipps.Concat(listD_hcm)
+        // IPPS sheet: listD sorted by IPPS asc + amount desc, deduplicated (first = max amount)
+        var ippsSheet = listD_hcm.Concat(listD_ipps)
             .OrderBy(r => r.EmployeeNumber)
             .ThenByDescending(r => r.InstallmentAmount)
             .GroupBy(r => r.EmployeeNumber)
