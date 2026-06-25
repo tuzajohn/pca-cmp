@@ -325,18 +325,21 @@ public class HcmReportService
         var terms    = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         if (empNumbers.Count == 0) return (isActive, terms);
 
-        var (inClause, cmd) = BuildInClause(empNumbers, conn);
-        cmd.CommandText = $@"
-            SELECT e.employeenumber, e.isactive, e.terms
-            FROM employees e
-            WHERE e.employeenumber IN ({inClause})";
-
-        using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
+        foreach (var batch in Batch(empNumbers))
         {
-            var num = reader.GetString("employeenumber");
-            isActive[num] = reader.IsDBNull(reader.GetOrdinal("isactive")) ? null : reader.GetString("isactive");
-            terms[num]    = reader.IsDBNull(reader.GetOrdinal("terms"))    ? null : reader.GetString("terms");
+            var (inClause, cmd) = BuildInClause(batch, conn);
+            cmd.CommandText = $@"
+                SELECT e.employeenumber, e.isactive, e.terms
+                FROM employees e
+                WHERE e.employeenumber IN ({inClause})";
+
+            using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                var num = reader.GetString("employeenumber");
+                isActive[num] = reader.IsDBNull(reader.GetOrdinal("isactive")) ? null : reader.GetString("isactive");
+                terms[num]    = reader.IsDBNull(reader.GetOrdinal("terms"))    ? null : reader.GetString("terms");
+            }
         }
         return (isActive, terms);
     }
@@ -347,25 +350,28 @@ public class HcmReportService
         var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         if (empNumbers.Count == 0) return result;
 
-        var (inClause, cmd) = BuildInClause(empNumbers, conn);
-        cmd.CommandText = $@"
-            SELECT e.employeenumber,
-                   SUM(CASE WHEN d.rep_amount > d.installmentamount
-                            THEN d.rep_amount ELSE d.installmentamount END) AS ded
-            FROM deductions d
-            INNER JOIN employees e ON d.employeeid = e.id
-            WHERE e.employeenumber IN ({inClause})
-              AND (
-                  (d.status = 'takenup'  AND d.isactive = 'Y')
-                  OR (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
-                  OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
-                  OR (d.status = 'reserved' AND d.is_bank_res = 'Y')
-              )
-            GROUP BY e.employeenumber";
+        foreach (var batch in Batch(empNumbers))
+        {
+            var (inClause, cmd) = BuildInClause(batch, conn);
+            cmd.CommandText = $@"
+                SELECT e.employeenumber,
+                       SUM(CASE WHEN d.rep_amount > d.installmentamount
+                                THEN d.rep_amount ELSE d.installmentamount END) AS ded
+                FROM deductions d
+                INNER JOIN employees e ON d.employeeid = e.id
+                WHERE e.employeenumber IN ({inClause})
+                  AND (
+                      (d.status = 'takenup'  AND d.isactive = 'Y')
+                      OR (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
+                      OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
+                      OR (d.status = 'reserved' AND d.is_bank_res = 'Y')
+                  )
+                GROUP BY e.employeenumber";
 
-        using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
-            result[reader.GetString("employeenumber")] = ReadDecimal(reader, "ded");
+            using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+                result[reader.GetString("employeenumber")] = ReadDecimal(reader, "ded");
+        }
         return result;
     }
 
@@ -375,24 +381,27 @@ public class HcmReportService
         var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         if (empNumbers.Count == 0) return result;
 
-        var (inClause, cmd) = BuildInClause(empNumbers, conn);
-        cmd.CommandText = $@"
-            SELECT e.employeenumber,
-                   SUM(CASE WHEN d.rep_amount > d.installmentamount
-                            THEN d.rep_amount ELSE d.installmentamount END) AS stanbic
-            FROM deductions d
-            INNER JOIN employees e ON d.employeeid = e.id
-            WHERE e.employeenumber IN ({inClause})
-              AND (
-                  (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
-                  OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
-                  OR (d.status = 'reserved' AND d.is_bank_res = 'Y')
-              )
-            GROUP BY e.employeenumber";
+        foreach (var batch in Batch(empNumbers))
+        {
+            var (inClause, cmd) = BuildInClause(batch, conn);
+            cmd.CommandText = $@"
+                SELECT e.employeenumber,
+                       SUM(CASE WHEN d.rep_amount > d.installmentamount
+                                THEN d.rep_amount ELSE d.installmentamount END) AS stanbic
+                FROM deductions d
+                INNER JOIN employees e ON d.employeeid = e.id
+                WHERE e.employeenumber IN ({inClause})
+                  AND (
+                      (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
+                      OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
+                      OR (d.status = 'reserved' AND d.is_bank_res = 'Y')
+                  )
+                GROUP BY e.employeenumber";
 
-        using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
-            result[reader.GetString("employeenumber")] = ReadDecimal(reader, "stanbic");
+            using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+                result[reader.GetString("employeenumber")] = ReadDecimal(reader, "stanbic");
+        }
         return result;
     }
 
@@ -507,6 +516,14 @@ public class HcmReportService
     }
 
     // ── Shared helpers ────────────────────────────────────────────────────────
+
+    private const int BatchSize = 1000;
+
+    private static IEnumerable<List<T>> Batch<T>(List<T> source)
+    {
+        for (int i = 0; i < source.Count; i += BatchSize)
+            yield return source.GetRange(i, Math.Min(BatchSize, source.Count - i));
+    }
 
     private static (string clause, MySqlCommand cmd) BuildInClause<T>(
         List<T> values, MySqlConnection conn)

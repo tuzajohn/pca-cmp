@@ -119,41 +119,44 @@ public class CrbReportService
     private static async Task<(Dictionary<int, CrbEmployeeRow> empMap, List<string> unmatched)>
         Stage1_MatchEmployeesAsync(MySqlConnection conn, List<string> padded, CancellationToken ct)
     {
-        var empMap   = new Dictionary<int, CrbEmployeeRow>();
-        var matched  = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var empMap  = new Dictionary<int, CrbEmployeeRow>();
+        var matched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (padded.Count == 0)
             return (empMap, padded);
 
-        var (inClause, cmd) = BuildInClause(padded, conn);
-        cmd.CommandText = $@"
-            SELECT e.id AS employeeid,
-                   e.employeenumber AS ipps,
-                   CONCAT_WS(' ', e.firstname, e.lastname) AS emp_name,
-                   dep.code AS vote,
-                   dep.description AS votename,
-                   e.salary,
-                   e.terms,
-                   e.isactive
-            FROM employees e
-            INNER JOIN departments dep ON e.department = dep.code
-            WHERE e.employeenumber IN ({inClause})";
-
-        using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
+        foreach (var batch in Batch(padded))
         {
-            var id   = reader.GetInt32("employeeid");
-            var ipps = reader.GetString("ipps");
-            empMap[id] = new CrbEmployeeRow(
-                EmployeeId: id,
-                Ipps:       ipps,
-                EmpName:    reader.GetString("emp_name"),
-                Vote:       reader.GetString("vote"),
-                VoteName:   reader.GetString("votename"),
-                Salary:     ReadDecimal(reader, "salary"),
-                Terms:      reader.IsDBNull(reader.GetOrdinal("terms"))    ? "" : reader.GetString("terms"),
-                IsActive:   reader.IsDBNull(reader.GetOrdinal("isactive")) ? "" : reader.GetString("isactive"));
-            matched.Add(ipps);
+            var (inClause, cmd) = BuildInClause(batch, conn);
+            cmd.CommandText = $@"
+                SELECT e.id AS employeeid,
+                       e.employeenumber AS ipps,
+                       CONCAT_WS(' ', e.firstname, e.lastname) AS emp_name,
+                       dep.code AS vote,
+                       dep.description AS votename,
+                       e.salary,
+                       e.terms,
+                       e.isactive
+                FROM employees e
+                INNER JOIN departments dep ON e.department = dep.code
+                WHERE e.employeenumber IN ({inClause})";
+
+            using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                var id   = reader.GetInt32("employeeid");
+                var ipps = reader.GetString("ipps");
+                empMap[id] = new CrbEmployeeRow(
+                    EmployeeId: id,
+                    Ipps:       ipps,
+                    EmpName:    reader.GetString("emp_name"),
+                    Vote:       reader.GetString("vote"),
+                    VoteName:   reader.GetString("votename"),
+                    Salary:     ReadDecimal(reader, "salary"),
+                    Terms:      reader.IsDBNull(reader.GetOrdinal("terms"))    ? "" : reader.GetString("terms"),
+                    IsActive:   reader.IsDBNull(reader.GetOrdinal("isactive")) ? "" : reader.GetString("isactive"));
+                matched.Add(ipps);
+            }
         }
 
         var unmatched = padded.Where(p => !matched.Contains(p)).ToList();
@@ -168,27 +171,30 @@ public class CrbReportService
         var result = new Dictionary<int, (decimal, DateTime?)>();
         if (ids.Count == 0) return result;
 
-        var (inClause, cmd) = BuildInClause(ids, conn);
-        cmd.CommandText = $@"
-            SELECT stat.employeeid,
-                   SUM(stat.deductionamount) AS total_statutory,
-                   MAX(stat.payrolldate)     AS stat_payrolldate
-            FROM statutorydeductions stat
-            WHERE stat.employeeid IN ({inClause})
-              AND stat.payrolldate = (
-                  SELECT MAX(stat3.payrolldate)
-                  FROM statutorydeductions stat3
-                  WHERE stat3.employeeid = stat.employeeid
-              )
-            GROUP BY stat.employeeid";
-
-        using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
+        foreach (var batch in Batch(ids))
         {
-            var id    = reader.GetInt32("employeeid");
-            var total = ReadDecimal(reader, "total_statutory");
-            var date  = reader.IsDBNull(reader.GetOrdinal("stat_payrolldate")) ? (DateTime?)null : reader.GetDateTime("stat_payrolldate");
-            result[id] = (total, date);
+            var (inClause, cmd) = BuildInClause(batch, conn);
+            cmd.CommandText = $@"
+                SELECT stat.employeeid,
+                       SUM(stat.deductionamount) AS total_statutory,
+                       MAX(stat.payrolldate)     AS stat_payrolldate
+                FROM statutorydeductions stat
+                WHERE stat.employeeid IN ({inClause})
+                  AND stat.payrolldate = (
+                      SELECT MAX(stat3.payrolldate)
+                      FROM statutorydeductions stat3
+                      WHERE stat3.employeeid = stat.employeeid
+                  )
+                GROUP BY stat.employeeid";
+
+            using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                var id    = reader.GetInt32("employeeid");
+                var total = ReadDecimal(reader, "total_statutory");
+                var date  = reader.IsDBNull(reader.GetOrdinal("stat_payrolldate")) ? (DateTime?)null : reader.GetDateTime("stat_payrolldate");
+                result[id] = (total, date);
+            }
         }
         return result;
     }
@@ -206,39 +212,42 @@ public class CrbReportService
         var mismatches = new HashSet<int>();
         if (ids.Count == 0) return (allowMap, mismatches);
 
-        var (inClause, cmd) = BuildInClause(ids, conn);
-        cmd.CommandText = $@"
-            SELECT stat.employeeid,
-                   SUM(stat.amount)      AS total_allowance,
-                   MAX(stat.payrolldate) AS allow_payrolldate
-            FROM employeeallowances stat
-            LEFT JOIN systemcodes s ON stat.code = s.code
-            WHERE stat.employeeid IN ({inClause})
-              AND s.IsRecurring = '1'
-              AND stat.payrolldate = (
-                  SELECT MAX(stat3.payrolldate)
-                  FROM employeeallowances stat3
-                  WHERE stat3.employeeid = stat.employeeid
-              )
-            GROUP BY stat.employeeid";
-
-        using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
+        foreach (var batch in Batch(ids))
         {
-            var id          = reader.GetInt32("employeeid");
-            var total       = ReadDecimal(reader, "total_allowance");
-            var allowDate   = reader.IsDBNull(reader.GetOrdinal("allow_payrolldate")) ? (DateTime?)null : reader.GetDateTime("allow_payrolldate");
-            var statDate    = statMap.TryGetValue(id, out var s) ? s.Date : null;
+            var (inClause, cmd) = BuildInClause(batch, conn);
+            cmd.CommandText = $@"
+                SELECT stat.employeeid,
+                       SUM(stat.amount)      AS total_allowance,
+                       MAX(stat.payrolldate) AS allow_payrolldate
+                FROM employeeallowances stat
+                LEFT JOIN systemcodes s ON stat.code = s.code
+                WHERE stat.employeeid IN ({inClause})
+                  AND s.IsRecurring = '1'
+                  AND stat.payrolldate = (
+                      SELECT MAX(stat3.payrolldate)
+                      FROM employeeallowances stat3
+                      WHERE stat3.employeeid = stat.employeeid
+                  )
+                GROUP BY stat.employeeid";
 
-            if (allowDate.HasValue && statDate.HasValue &&
-                allowDate.Value.Date != statDate.Value.Date)
+            using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
             {
-                mismatches.Add(id);
-                allowMap[id] = 0m;
-            }
-            else
-            {
-                allowMap[id] = total;
+                var id        = reader.GetInt32("employeeid");
+                var total     = ReadDecimal(reader, "total_allowance");
+                var allowDate = reader.IsDBNull(reader.GetOrdinal("allow_payrolldate")) ? (DateTime?)null : reader.GetDateTime("allow_payrolldate");
+                var statDate  = statMap.TryGetValue(id, out var s) ? s.Date : null;
+
+                if (allowDate.HasValue && statDate.HasValue &&
+                    allowDate.Value.Date != statDate.Value.Date)
+                {
+                    mismatches.Add(id);
+                    allowMap[id] = 0m;
+                }
+                else
+                {
+                    allowMap[id] = total;
+                }
             }
         }
         return (allowMap, mismatches);
@@ -252,34 +261,37 @@ public class CrbReportService
         var result = new Dictionary<int, (decimal, decimal)>();
         if (ids.Count == 0) return result;
 
-        var (inClause, cmd) = BuildInClause(ids, conn);
-        cmd.CommandText = $@"
-            SELECT d.employeeid,
-                   SUM(CASE WHEN d.rep_amount > d.installmentamount
-                            THEN d.rep_amount
-                            ELSE d.installmentamount END) AS ded,
-                   SUM(CASE WHEN d.deductiontype = '265'
-                            THEN CASE WHEN d.rep_amount > d.installmentamount
-                                      THEN d.rep_amount
-                                      ELSE d.installmentamount END
-                            ELSE 0 END) AS stanbic
-            FROM deductions d
-            WHERE d.employeeid IN ({inClause})
-              AND (
-                  (d.status = 'takenup'  AND d.isactive = 'Y')
-                  OR (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
-                  OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
-                  OR (d.status = 'reserved' AND d.is_bank_res = 'Y')
-              )
-            GROUP BY d.employeeid";
-
-        using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
+        foreach (var batch in Batch(ids))
         {
-            var id      = reader.GetInt32("employeeid");
-            var ded     = ReadDecimal(reader, "ded");
-            var stanbic = ReadDecimal(reader, "stanbic");
-            result[id] = (ded, stanbic);
+            var (inClause, cmd) = BuildInClause(batch, conn);
+            cmd.CommandText = $@"
+                SELECT d.employeeid,
+                       SUM(CASE WHEN d.rep_amount > d.installmentamount
+                                THEN d.rep_amount
+                                ELSE d.installmentamount END) AS ded,
+                       SUM(CASE WHEN d.deductiontype = '265'
+                                THEN CASE WHEN d.rep_amount > d.installmentamount
+                                          THEN d.rep_amount
+                                          ELSE d.installmentamount END
+                                ELSE 0 END) AS stanbic
+                FROM deductions d
+                WHERE d.employeeid IN ({inClause})
+                  AND (
+                      (d.status = 'takenup'  AND d.isactive = 'Y')
+                      OR (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
+                      OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
+                      OR (d.status = 'reserved' AND d.is_bank_res = 'Y')
+                  )
+                GROUP BY d.employeeid";
+
+            using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                var id      = reader.GetInt32("employeeid");
+                var ded     = ReadDecimal(reader, "ded");
+                var stanbic = ReadDecimal(reader, "stanbic");
+                result[id] = (ded, stanbic);
+            }
         }
         return result;
     }
@@ -432,6 +444,14 @@ public class CrbReportService
             cmd.Parameters.AddWithValue(name, values[i]);
         }
         return (string.Join(",", paramNames), cmd);
+    }
+
+    private const int BatchSize = 1000;
+
+    private static IEnumerable<List<T>> Batch<T>(List<T> source)
+    {
+        for (int i = 0; i < source.Count; i += BatchSize)
+            yield return source.GetRange(i, Math.Min(BatchSize, source.Count - i));
     }
 
     private static decimal ReadDecimal(MySqlDataReader reader, string column)
