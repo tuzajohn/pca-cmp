@@ -2,14 +2,14 @@
     ViewData["Title"] = "Module 1 — HCM CRB Report";
 }
 
-<div class="page-header d-flex align-items-center mb-4">
-    <a asp-controller="Crb" asp-action="Index" class="btn btn-sm btn-outline-secondary me-3">
-        <i class="bi bi-arrow-left"></i>
-    </a>
+<div class="page-header">
     <div>
-        <h1 class="page-title">Module 1 — HCM CRB Report</h1>
-        <p class="text-muted mb-0">Upload HCM file + Stanbic IPPS reference to generate the combined report.</p>
+        <h1 class="page-header-title">Module 1 — HCM CRB Report</h1>
+        <p class="page-header-sub mb-0">Upload HCM file + Stanbic IPPS reference to generate the combined report.</p>
     </div>
+    <a asp-controller="Crb" asp-action="Index" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
 </div>
 
 @* upload form *@
