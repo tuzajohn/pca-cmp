@@ -582,15 +582,15 @@ public class HcmReportService
         }
     }
 
-    // Normalize to a plain integer string with no leading zeros — same logic Python uses.
-    // Handles: "000000000014560", "14560", "14560.0", "14,560" → all become "14560".
+    // Strip commas, parse as decimal, then PadLeft(15).
+    // Handles: "14,560" → "000000000014560", "14560.0" → "000000000014560".
     private static string NormalizeIpps(string raw)
     {
-        var trimmed = raw.Trim().Replace(",", "").Replace(" ", "");
-        if (long.TryParse(trimmed,
+        var clean = raw.Trim().Replace(",", "");
+        if (decimal.TryParse(clean,
                 System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out var n))
-            return n.ToString();
-        return trimmed;
+                System.Globalization.CultureInfo.InvariantCulture, out var d))
+            return ((long)d).ToString().PadLeft(15, '0');
+        return clean.PadLeft(15, '0');
     }
 }

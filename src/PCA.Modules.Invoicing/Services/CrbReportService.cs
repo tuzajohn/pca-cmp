@@ -679,8 +679,11 @@ public class CrbReportService
                 continue;
             }
             var raw = cell.Text?.Trim();
-            if (!string.IsNullOrEmpty(raw) && raw.All(char.IsDigit))
-                numbers.Add(raw);
+            if (string.IsNullOrEmpty(raw)) continue;
+            var clean = raw.Replace(",", "");
+            if (decimal.TryParse(clean, System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+                numbers.Add(((long)parsed).ToString());
         }
         return numbers;
     }
