@@ -255,6 +255,10 @@ public class CrbController : Controller
         _progress.CreateRunWithId(runId);
         var storageRoot = _storageRoot;
 
+        // Capture URL builder while HTTP context is still alive
+        var urlBuilder = (string path, string name) =>
+            Url.Action("DownloadResult", "Crb", new { path, name }) ?? "#";
+
         _ = Task.Run(async () =>
         {
             using var scope  = _scopeFactory.CreateScope();
@@ -272,7 +276,7 @@ public class CrbController : Controller
 
                 try { Directory.Delete(pendingFolder, recursive: true); } catch { /* non-fatal */ }
 
-                var response = BuildCompleteResponse(result);
+                var response = BuildCompleteResponse(result, urlBuilder);
                 _progress.Complete(runId, response);
             }
             catch (Exception ex)
@@ -283,11 +287,11 @@ public class CrbController : Controller
         });
     }
 
-    private object BuildCompleteResponse(HcmRunResult result) => new
+    private static object BuildCompleteResponse(HcmRunResult result, Func<string, string, string> urlBuilder) => new
     {
         status   = "complete",
-        hcmFile  = new { url = Url.Action("DownloadResult", "Crb", new { path = result.HcmFilePath,  name = result.HcmFileName  }), name = result.HcmFileName  },
-        ippsFile = new { url = Url.Action("DownloadResult", "Crb", new { path = result.IppsFilePath, name = result.IppsFileName }), name = result.IppsFileName },
+        hcmFile  = new { url = urlBuilder(result.HcmFilePath,  result.HcmFileName),  name = result.HcmFileName  },
+        ippsFile = new { url = urlBuilder(result.IppsFilePath, result.IppsFileName), name = result.IppsFileName },
         stats    = new
         {
             result.TotalStanbicSubmitted, result.MatchedToHcm, result.PassedToIpps,
