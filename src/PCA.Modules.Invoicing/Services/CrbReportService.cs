@@ -67,8 +67,7 @@ public class CrbReportService
         List<string> rawIppsNumbers,
         string storageRoot,
         Action<string>? progress = null,
-        CancellationToken ct = default,
-        ExternalDbSettings? hcmSettings = null)
+        CancellationToken ct = default)
     {
         void Step(string msg) { progress?.Invoke(msg); _logger.LogInformation("CRB: {Msg}", msg); }
 
@@ -85,7 +84,7 @@ public class CrbReportService
 
         Step($"Module 2 — Matching {totalSubmitted} IPPS numbers to employee records…");
         var (empMap, unmatched) = await Stage1_MatchEmployeesAsync(conn, paddedList, ct);
-        Step($"Module 2 — {empMap.Count} matched in IPPS DB, {unmatched.Count} unmatched");
+        Step($"Module 2 — {empMap.Count} matched, {unmatched.Count} unmatched");
 
         var employeeIds = empMap.Keys.ToList();
 
@@ -98,22 +97,9 @@ public class CrbReportService
         Step("Module 2 — Querying loan deductions…");
         var dedMap = await Stage4_DeductionsAsync(conn, employeeIds, ct);
 
-        // Stage 1b — HCM DB fallback for IPPS numbers not found in IPPS DB
-        List<CrbOutputRow> hcmFallbackRows = new();
-        List<string> trulyUnmatched = unmatched;
-
-        if (hcmSettings != null && unmatched.Count > 0)
-        {
-            Step($"Module 2 — Querying HCM DB for {unmatched.Count} employees not found in IPPS DB…");
-            using var hcmTunnel = await SshTunnelService.OpenAsync(hcmSettings, _logger);
-            (hcmFallbackRows, trulyUnmatched) = await Stage1b_HcmFallbackAsync(
-                hcmTunnel.Connection, unmatched, ct);
-            Step($"Module 2 — HCM DB fallback: {hcmFallbackRows.Count} found, {trulyUnmatched.Count} in neither DB");
-        }
-
         Step("Module 2 — Computing affordability and writing output file…");
         var (outputRows, result) = BuildOutput(
-            paddedList, empMap, statMap, allowMap, mismatches, dedMap, trulyUnmatched, hcmFallbackRows);
+            paddedList, empMap, statMap, allowMap, mismatches, dedMap, unmatched);
 
         string filePath;
         try
@@ -186,105 +172,6 @@ public class CrbReportService
 
         var unmatched = padded.Where(p => !matched.Contains(p)).ToList();
         return (empMap, unmatched);
-    }
-
-    // ── Stage 1b — HCM DB fallback ────────────────────────────────────────────
-    // For IPPS numbers not found in IPPS DB, query HCM DB and return whatever is there.
-
-    private static async Task<(List<CrbOutputRow> found, List<string> notFound)>
-        Stage1b_HcmFallbackAsync(MySqlConnection conn, List<string> ippsNumbers, CancellationToken ct)
-    {
-        var found    = new List<CrbOutputRow>();
-        var notFound = new List<string>(ippsNumbers);
-        if (ippsNumbers.Count == 0) return (found, notFound);
-
-        // Step 1: find employees in HCM DB by employeenumber
-        var empData  = new Dictionary<string, (string? isActive, string? terms)>(StringComparer.OrdinalIgnoreCase);
-        var matchedSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var batch in Batch(ippsNumbers))
-        {
-            var (inClause, cmd) = BuildInClause(batch, conn);
-            cmd.CommandText = $@"
-                SELECT e.employeenumber, e.isactive, e.terms
-                FROM employees e
-                WHERE e.employeenumber IN ({inClause})";
-
-            using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
-            {
-                var num = reader.GetString("employeenumber");
-                empData[num] = (
-                    reader.IsDBNull(reader.GetOrdinal("isactive")) ? null : reader.GetString("isactive"),
-                    reader.IsDBNull(reader.GetOrdinal("terms"))    ? null : reader.GetString("terms"));
-                matchedSet.Add(num);
-            }
-        }
-
-        if (empData.Count == 0)
-            return (found, notFound);
-
-        // Step 2: total deductions from HCM DB for these employees
-        var dedResult = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
-        var foundList = matchedSet.ToList();
-
-        foreach (var batch in Batch(foundList))
-        {
-            var (inClause, cmd) = BuildInClause(batch, conn);
-            cmd.CommandText = $@"
-                SELECT e.employeenumber,
-                       SUM(CASE WHEN d.rep_amount > d.installmentamount
-                                THEN d.rep_amount ELSE d.installmentamount END) AS ded
-                FROM deductions d
-                INNER JOIN employees e ON d.employeeid = e.id
-                WHERE e.employeenumber IN ({inClause})
-                  AND (
-                      (d.status = 'takenup'  AND d.isactive = 'Y')
-                      OR (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
-                      OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
-                      OR (d.status = 'reserved' AND d.is_bank_res = 'Y')
-                  )
-                GROUP BY e.employeenumber";
-
-            using var reader = await cmd.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
-            {
-                var num = reader.GetString("employeenumber");
-                var ded = decimal.TryParse(
-                    reader.GetValue(reader.GetOrdinal("ded"))?.ToString(),
-                    System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0m;
-                dedResult[num] = ded;
-            }
-        }
-
-        // Step 3: build output rows and separate truly unmatched
-        notFound = ippsNumbers.Where(n => !matchedSet.Contains(n)).ToList();
-
-        // Preserve original submission order
-        foreach (var ipps in ippsNumbers)
-        {
-            if (!empData.TryGetValue(ipps, out var emp)) continue;
-            var ded = dedResult.TryGetValue(ipps, out var d) ? d : 0m;
-
-            found.Add(new CrbOutputRow(
-                Ipps:          ipps,
-                EmployeeId:    0,
-                EmpName:       string.Empty,
-                Vote:          string.Empty,
-                VoteName:      string.Empty,
-                Salary:        0m,
-                Terms:         emp.terms,
-                IsActive:      emp.isActive,
-                Stat:          0m,
-                Allow:         0m,
-                Ded:           ded,
-                Stanbic:       0m,
-                Affordability: 0m,
-                Notes:         "HCM DB"));
-        }
-
-        return (found, notFound);
     }
 
     // ── Stage 2 ───────────────────────────────────────────────────────────────
@@ -433,8 +320,7 @@ public class CrbReportService
         Dictionary<int, decimal> allowMap,
         HashSet<int> mismatches,
         Dictionary<int, (decimal Ded, decimal Stanbic)> dedMap,
-        List<string> unmatched,
-        List<CrbOutputRow>? hcmFallbackRows = null)
+        List<string> unmatched)
     {
         var rows         = new List<CrbOutputRow>();
         int withStat     = 0, withAllow = 0, withDed = 0, withStanbic = 0, zeroAfford = 0;
@@ -479,14 +365,11 @@ public class CrbReportService
                 Notes:        notes));
         }
 
-        if (hcmFallbackRows != null)
-            rows.AddRange(hcmFallbackRows);
-
         var stats = new CrbReportResult(
             FilePath:           string.Empty,
             FileName:           string.Empty,
             TotalSubmitted:     paddedList.Count,
-            Matched:            empMap.Count + (hcmFallbackRows?.Count ?? 0),
+            Matched:            empMap.Count,
             Unmatched:          unmatched.Count,
             WithStat:           withStat,
             WithAllow:          withAllow,

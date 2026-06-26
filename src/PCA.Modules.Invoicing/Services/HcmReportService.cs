@@ -202,7 +202,7 @@ public class HcmReportService
 
         // Stage 8 — Run Module 2 for unmatched IPPS
         Step($"Stage 8 — Running Module 2 for {unmatched.Count} unmatched IPPS numbers…");
-        var ippsResult = await _ippsModule.GenerateAsync(unmatched, storageRoot, progress, ct, hcmSettings: _hcmDb);
+        var ippsResult = await _ippsModule.GenerateAsync(unmatched, storageRoot, progress, ct);
 
         _logger.LogInformation(
             "HCM CRB run log:\n  Total Stanbic IPPS submitted:     {Total}\n  Matched to HCM Sheet1:            {Matched}\n  Passed to IPPS module:            {Unmatched}\n  Unknown COSTITEM/VENDOR flagged:  0 (already resolved)\n  Employees with stat > 0:          {Stat}\n  Employees with allow > 0:         {Allow}\n  Employees with ded > 0:           {Ded}\n  Employees with stanbic > 0:       {Stanbic}\n  Employees with affordability = 0: {ZeroAff}",
