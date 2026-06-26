@@ -132,9 +132,7 @@ public class HcmReportService
         using var tunnel = await SshTunnelService.OpenAsync(_hcmDb, _logger);
         var conn = tunnel.Connection;
 
-        Step("Stage 4 — Querying employee records (isactive, terms)…");
-        var (isActiveMap, termsMap) = await QueryEmployeeFieldsAsync(conn, empNumbers, ct);
-
+        // isactive assumed Y for all HCM employees; terms not yet available
         Step("Stage 5 — Querying deductions…");
         var dedMap        = await QueryDedAsync(conn, empNumbers, ct);
         var stanbicDedMap = await QueryStanbicDedAsync(conn, empNumbers, ct);
@@ -166,13 +164,13 @@ public class HcmReportService
 
             outputRows.Add(new CrbOutputRow(
                 Ipps:         NormalizeIpps(r.EmployeeNo),
-                EmployeeId:   int.TryParse(empNo, out var eid) ? eid : 0,
+                EmployeeId:   0L,
                 EmpName:      r.EmployeeName,
                 Vote:         r.VoteCode,
                 VoteName:     r.VoteName,
                 Salary:       salary,
-                Terms:        termsMap.TryGetValue(empNo, out var t) ? t : null,
-                IsActive:     isActiveMap.TryGetValue(empNo, out var ia) ? ia : null,
+                Terms:        null,
+                IsActive:     "Y",
                 Stat:         stat,
                 Allow:        allow,
                 Ded:          ded,
