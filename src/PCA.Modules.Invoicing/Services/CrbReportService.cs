@@ -414,8 +414,11 @@ public class CrbReportService
 
             // Highlight mismatch rows
             if (!string.IsNullOrEmpty(r.Notes))
-                ws.Cells[row, 1, row, headers.Length]
-                    .Style.Fill.BackgroundColor.SetColor(Color.FromArgb(255, 235, 156));
+            {
+                var fill = ws.Cells[row, 1, row, headers.Length].Style.Fill;
+                fill.PatternType = ExcelFillStyle.Solid;
+                fill.BackgroundColor.SetColor(Color.FromArgb(255, 235, 156));
+            }
         }
 
         FinalizeSheet(ws, headers.Length);
