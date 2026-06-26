@@ -445,13 +445,13 @@ public class HcmReportService
             var row = i + 2;
             ws.Cells[row, 1].Value  = r.Ipps;
             ws.Cells[row, 2].Value  = r.Salary;
-            ws.Cells[row, 3].Value  = r.IsActive ?? "0";
+            ws.Cells[row, 3].Value  = r.IsActive ?? string.Empty;
             ws.Cells[row, 4].Value  = r.Stat;
             ws.Cells[row, 5].Value  = r.Allow;
             ws.Cells[row, 6].Value  = r.Ded;
             ws.Cells[row, 7].Value  = r.Stanbic;
             ws.Cells[row, 8].Value  = r.Affordability;
-            ws.Cells[row, 9].Value  = r.Terms ?? "0";
+            ws.Cells[row, 9].Value  = r.Terms ?? string.Empty;
             ws.Cells[row, 10].Value = r.Vote;
 
             foreach (int col in new[] { 2, 4, 5, 6, 7, 8 })

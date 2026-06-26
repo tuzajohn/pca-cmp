@@ -10,7 +10,7 @@ namespace PCA.Modules.Invoicing.Services;
 // ── Records ──────────────────────────────────────────────────────────────────
 
 public record CrbEmployeeRow(
-    int    EmployeeId,
+    long   EmployeeId,
     string Ipps,
     string EmpName,
     string Vote,
@@ -21,7 +21,7 @@ public record CrbEmployeeRow(
 
 public record CrbOutputRow(
     string  Ipps,
-    int     EmployeeId,
+    long    EmployeeId,
     string  EmpName,
     string  Vote,
     string  VoteName,
@@ -127,10 +127,10 @@ public class CrbReportService
 
     // ── Stage 1 ───────────────────────────────────────────────────────────────
 
-    private static async Task<(Dictionary<int, CrbEmployeeRow> empMap, List<string> unmatched)>
+    private static async Task<(Dictionary<long, CrbEmployeeRow> empMap, List<string> unmatched)>
         Stage1_MatchEmployeesAsync(MySqlConnection conn, List<string> padded, CancellationToken ct)
     {
-        var empMap  = new Dictionary<int, CrbEmployeeRow>();
+        var empMap  = new Dictionary<long, CrbEmployeeRow>();
         var matched = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (padded.Count == 0)
@@ -155,7 +155,7 @@ public class CrbReportService
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var id   = ReadInt(reader, "employeeid");
+                var id   = reader.GetInt64(reader.GetOrdinal("employeeid"));
                 var ipps = reader.GetString("ipps");
                 empMap[id] = new CrbEmployeeRow(
                     EmployeeId: id,
@@ -176,10 +176,10 @@ public class CrbReportService
 
     // ── Stage 2 ───────────────────────────────────────────────────────────────
 
-    private static async Task<Dictionary<int, (decimal Total, DateTime? Date)>>
-        Stage2_StatutoryAsync(MySqlConnection conn, List<int> ids, CancellationToken ct)
+    private static async Task<Dictionary<long, (decimal Total, DateTime? Date)>>
+        Stage2_StatutoryAsync(MySqlConnection conn, List<long> ids, CancellationToken ct)
     {
-        var result = new Dictionary<int, (decimal, DateTime?)>();
+        var result = new Dictionary<long, (decimal, DateTime?)>();
         if (ids.Count == 0) return result;
 
         foreach (var batch in Batch(ids))
@@ -203,7 +203,7 @@ public class CrbReportService
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var id    = ReadInt(reader, "employeeid");
+                var id    = reader.GetInt64(reader.GetOrdinal("employeeid"));
                 var total = ReadDecimal(reader, "total_statutory");
                 var date  = reader.IsDBNull(reader.GetOrdinal("stat_payrolldate")) ? (DateTime?)null : reader.GetDateTime("stat_payrolldate");
                 result[id] = (total, date);
@@ -214,15 +214,15 @@ public class CrbReportService
 
     // ── Stage 3 ───────────────────────────────────────────────────────────────
 
-    private static async Task<(Dictionary<int, decimal> allowMap, HashSet<int> mismatches)>
+    private static async Task<(Dictionary<long, decimal> allowMap, HashSet<long> mismatches)>
         Stage3_AllowancesAsync(
             MySqlConnection conn,
-            List<int> ids,
-            Dictionary<int, (decimal Total, DateTime? Date)> statMap,
+            List<long> ids,
+            Dictionary<long, (decimal Total, DateTime? Date)> statMap,
             CancellationToken ct)
     {
-        var allowMap   = new Dictionary<int, decimal>();
-        var mismatches = new HashSet<int>();
+        var allowMap   = new Dictionary<long, decimal>();
+        var mismatches = new HashSet<long>();
         if (ids.Count == 0) return (allowMap, mismatches);
 
         foreach (var batch in Batch(ids))
@@ -248,7 +248,7 @@ public class CrbReportService
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var id        = ReadInt(reader, "employeeid");
+                var id        = reader.GetInt64(reader.GetOrdinal("employeeid"));
                 var total     = ReadDecimal(reader, "total_allowance");
                 var allowDate = reader.IsDBNull(reader.GetOrdinal("allow_payrolldate")) ? (DateTime?)null : reader.GetDateTime("allow_payrolldate");
                 var statDate  = statMap.TryGetValue(id, out var s) ? s.Date : null;
@@ -270,10 +270,10 @@ public class CrbReportService
 
     // ── Stage 4 ───────────────────────────────────────────────────────────────
 
-    private static async Task<Dictionary<int, (decimal Ded, decimal Stanbic)>>
-        Stage4_DeductionsAsync(MySqlConnection conn, List<int> ids, CancellationToken ct)
+    private static async Task<Dictionary<long, (decimal Ded, decimal Stanbic)>>
+        Stage4_DeductionsAsync(MySqlConnection conn, List<long> ids, CancellationToken ct)
     {
-        var result = new Dictionary<int, (decimal, decimal)>();
+        var result = new Dictionary<long, (decimal, decimal)>();
         if (ids.Count == 0) return result;
 
         foreach (var batch in Batch(ids))
@@ -302,7 +302,7 @@ public class CrbReportService
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var id      = ReadInt(reader, "employeeid");
+                var id      = reader.GetInt64(reader.GetOrdinal("employeeid"));
                 var ded     = ReadDecimal(reader, "ded");
                 var stanbic = ReadDecimal(reader, "stanbic");
                 result[id] = (ded, stanbic);
@@ -315,11 +315,11 @@ public class CrbReportService
 
     private static (List<CrbOutputRow> rows, CrbReportResult stats) BuildOutput(
         List<string> paddedList,
-        Dictionary<int, CrbEmployeeRow> empMap,
-        Dictionary<int, (decimal Total, DateTime? Date)> statMap,
-        Dictionary<int, decimal> allowMap,
-        HashSet<int> mismatches,
-        Dictionary<int, (decimal Ded, decimal Stanbic)> dedMap,
+        Dictionary<long, CrbEmployeeRow> empMap,
+        Dictionary<long, (decimal Total, DateTime? Date)> statMap,
+        Dictionary<long, decimal> allowMap,
+        HashSet<long> mismatches,
+        Dictionary<long, (decimal Ded, decimal Stanbic)> dedMap,
         List<string> unmatched)
     {
         var rows         = new List<CrbOutputRow>();
@@ -410,13 +410,13 @@ public class CrbReportService
             var row = i + 2;
             ws.Cells[row, 1].Value  = r.Ipps;
             ws.Cells[row, 2].Value  = r.Salary;
-            ws.Cells[row, 3].Value  = r.IsActive ?? "N";
+            ws.Cells[row, 3].Value  = r.IsActive ?? string.Empty;
             ws.Cells[row, 4].Value  = r.Stat;
             ws.Cells[row, 5].Value  = r.Allow;
             ws.Cells[row, 6].Value  = r.Ded;
             ws.Cells[row, 7].Value  = r.Stanbic;
             ws.Cells[row, 8].Value  = r.Affordability;
-            ws.Cells[row, 9].Value  = r.Terms ?? "0";
+            ws.Cells[row, 9].Value  = r.Terms ?? string.Empty;
             ws.Cells[row, 10].Value = r.Vote;
 
             // Currency format for numeric columns
