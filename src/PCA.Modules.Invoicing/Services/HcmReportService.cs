@@ -11,8 +11,7 @@ namespace PCA.Modules.Invoicing.Services;
 // ── In-memory row from HCM Sheet1 ────────────────────────────────────────────
 
 public record HcmSheetRow(
-    string  EmpNumber,     // EMP_NUMBER  (= IPPS)
-    string  EmployeeNo,    // EMPLOYEE_NO (= internal DB id in HCM)
+    string  EmployeeNo,    // EMPLOYEE_NO (= IPPS number)
     string  EmployeeName,
     string  VoteCode,
     string  VoteName,
@@ -91,13 +90,13 @@ public class HcmReportService
 
         Step($"Stage 1 — Cross-referencing {hcmRows.Count} HCM rows against Stanbic list…");
         var stanbicSet = new HashSet<string>(
-            stanbicIpps.Select(n => n.Trim().PadLeft(15, '0')),
+            stanbicIpps.Select(NormalizeIpps),
             StringComparer.OrdinalIgnoreCase);
 
-        var matched       = hcmRows.Where(r => stanbicSet.Contains(PadIpps(r.EmpNumber))).ToList();
-        var matchedIpps   = new HashSet<string>(matched.Select(r => PadIpps(r.EmpNumber)), StringComparer.OrdinalIgnoreCase);
+        var matched       = hcmRows.Where(r => stanbicSet.Contains(NormalizeIpps(r.EmployeeNo))).ToList();
+        var matchedIpps   = new HashSet<string>(matched.Select(r => NormalizeIpps(r.EmployeeNo)), StringComparer.OrdinalIgnoreCase);
         var unmatched     = stanbicIpps
-            .Where(n => !matchedIpps.Contains(n.Trim().PadLeft(15, '0')))
+            .Where(n => !matchedIpps.Contains(NormalizeIpps(n)))
             .ToList();
 
         Step($"Stage 1 — Cross-reference complete: {matched.GroupBy(r => r.EmployeeNo).Count()} matched, {unmatched.Count} unmatched");
@@ -133,13 +132,11 @@ public class HcmReportService
         using var tunnel = await SshTunnelService.OpenAsync(_hcmDb, _logger);
         var conn = tunnel.Connection;
 
-        Step("Stage 4 — Querying employee records (isactive, terms)…");
-        var (isActiveMap, termsMap) = await QueryEmployeeFieldsAsync(conn, empNumbers, ct);
-
-        Step("Stage 5 — Querying deductions…");
+        Step("Stage 5 — Querying employee fields and deductions…");
+        var empInfoMap    = await QueryEmployeeFieldsAsync(conn, empNumbers, ct);
         var dedMap        = await QueryDedAsync(conn, empNumbers, ct);
         var stanbicDedMap = await QueryStanbicDedAsync(conn, empNumbers, ct);
-        Step($"Stage 5 — Deductions loaded for {dedMap.Count} employees");
+        Step($"Stage 5 — Employee info loaded for {empInfoMap.Count}, deductions for {dedMap.Count} employees");
 
         // Stage 6 — affordability + assemble output
         var outputRows    = new List<CrbOutputRow>();
@@ -152,11 +149,13 @@ public class HcmReportService
             var empNo = r.EmployeeNo;
             if (!seen.Add(empNo)) continue;
 
+            var normalizedKey = NormalizeIpps(empNo);
+            var empInfo  = empInfoMap.TryGetValue(normalizedKey, out var ei) ? ei : null;
             var salary   = salaryMap.TryGetValue(empNo, out var sv) ? sv : 0m;
             var stat     = statMap.TryGetValue(empNo, out var stv)  ? stv : 0m;
             var allow    = allowMap.TryGetValue(empNo, out var av)   ? av  : 0m;
-            var ded      = dedMap.TryGetValue(empNo, out var dv)     ? dv  : 0m;
-            var stanbic  = stanbicDedMap.TryGetValue(empNo, out var sbv) ? sbv : 0m;
+            var ded      = dedMap.TryGetValue(normalizedKey, out var dv)     ? dv  : 0m;
+            var stanbic  = stanbicDedMap.TryGetValue(normalizedKey, out var sbv) ? sbv : 0m;
             var afford   = Math.Max(0m, salary * 0.48m - (stat + ded));
 
             if (stat    > 0) withStat++;
@@ -166,14 +165,14 @@ public class HcmReportService
             if (afford == 0) zeroAfford++;
 
             outputRows.Add(new CrbOutputRow(
-                Ipps:         PadIpps(r.EmpNumber),
-                EmployeeId:   int.TryParse(empNo, out var eid) ? eid : 0,
+                Ipps:         normalizedKey,
+                EmployeeId:   empInfo?.Id ?? 0L,
                 EmpName:      r.EmployeeName,
                 Vote:         r.VoteCode,
                 VoteName:     r.VoteName,
                 Salary:       salary,
-                Terms:        termsMap.TryGetValue(empNo, out var t) ? t : null,
-                IsActive:     isActiveMap.TryGetValue(empNo, out var ia) ? ia : null,
+                Terms:        empInfo?.Terms,
+                IsActive:     empInfo?.IsActive ?? "Y",
                 Stat:         stat,
                 Allow:        allow,
                 Ded:          ded,
@@ -186,7 +185,18 @@ public class HcmReportService
 
         // Stage 7 — write HCM Excel
         Step("Stage 7 — Writing HCM output file…");
-        var hcmFilePath = WriteExcel(outputRows, storageRoot, isHcm: true);
+        string hcmFilePath;
+        try
+        {
+            hcmFilePath = WriteExcel(outputRows, storageRoot, isHcm: true);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"All database queries completed successfully ({outputRows.Count} employees processed) " +
+                $"but the HCM Excel file could not be written: {ex.Message}. " +
+                "Re-running will skip the long DB phase — please retry.", ex);
+        }
         Step("Stage 7 — HCM file written");
 
         // Stage 8 — Run Module 2 for unmatched IPPS
@@ -223,9 +233,9 @@ public class HcmReportService
         var hcmRows     = ParseHcmExcel(hcmFile);
 
         var stanbicSet = new HashSet<string>(
-            stanbicIpps.Select(n => n.Trim().PadLeft(15, '0')),
+            stanbicIpps.Select(NormalizeIpps),
             StringComparer.OrdinalIgnoreCase);
-        var matched = hcmRows.Where(r => stanbicSet.Contains(PadIpps(r.EmpNumber))).ToList();
+        var matched = hcmRows.Where(r => stanbicSet.Contains(NormalizeIpps(r.EmployeeNo))).ToList();
 
         await _mappings.EnsureLoadedAsync();
         var costItems   = matched.Select(r => r.CostItem).Where(v => !string.IsNullOrWhiteSpace(v));
@@ -317,31 +327,40 @@ public class HcmReportService
     }
 
     // ── Stage 6: HCM DB queries ───────────────────────────────────────────────
+    // All queries normalize both sides to 15-char padded via LPAD so that raw
+    // Excel values ("14560") match however the DB stores the employeenumber.
+    // Results are keyed by NormalizeIpps(employeenumber) for consistent lookup.
 
-    private static async Task<(Dictionary<string, string?> isActive, Dictionary<string, string?> terms)>
+    private record EmployeeInfo(long Id, string? IsActive, string? Terms);
+
+    private static async Task<Dictionary<string, EmployeeInfo>>
         QueryEmployeeFieldsAsync(MySqlConnection conn, List<string> empNumbers, CancellationToken ct)
     {
-        var isActive = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        var terms    = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        if (empNumbers.Count == 0) return (isActive, terms);
+        var result = new Dictionary<string, EmployeeInfo>(StringComparer.OrdinalIgnoreCase);
+        if (empNumbers.Count == 0) return result;
 
-        foreach (var batch in Batch(empNumbers))
+        // Normalize to 15-char padded before passing to IN clause
+        var padded = empNumbers.Select(n => NormalizeIpps(n)).Distinct().ToList();
+
+        foreach (var batch in Batch(padded))
         {
             var (inClause, cmd) = BuildInClause(batch, conn);
             cmd.CommandText = $@"
-                SELECT e.employeenumber, e.isactive, e.terms
+                SELECT e.id, e.employeenumber, e.isactive, e.terms
                 FROM employees e
-                WHERE e.employeenumber IN ({inClause})";
+                WHERE LPAD(e.employeenumber, 15, '0') IN ({inClause})";
 
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var num = reader.GetString("employeenumber");
-                isActive[num] = reader.IsDBNull(reader.GetOrdinal("isactive")) ? null : reader.GetString("isactive");
-                terms[num]    = reader.IsDBNull(reader.GetOrdinal("terms"))    ? null : reader.GetString("terms");
+                var key      = NormalizeIpps(reader.GetString("employeenumber"));
+                var id       = reader.GetInt64(reader.GetOrdinal("id"));
+                var isActive = reader.IsDBNull(reader.GetOrdinal("isactive")) ? null : reader.GetString("isactive");
+                var terms    = reader.IsDBNull(reader.GetOrdinal("terms"))    ? null : reader.GetString("terms");
+                result[key]  = new EmployeeInfo(id, isActive, terms);
             }
         }
-        return (isActive, terms);
+        return result;
     }
 
     private static async Task<Dictionary<string, decimal>>
@@ -350,27 +369,29 @@ public class HcmReportService
         var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         if (empNumbers.Count == 0) return result;
 
-        foreach (var batch in Batch(empNumbers))
+        var padded = empNumbers.Select(n => NormalizeIpps(n)).Distinct().ToList();
+
+        foreach (var batch in Batch(padded))
         {
             var (inClause, cmd) = BuildInClause(batch, conn);
             cmd.CommandText = $@"
-                SELECT e.employeenumber,
+                SELECT LPAD(e.employeenumber, 15, '0') AS empkey,
                        SUM(CASE WHEN d.rep_amount > d.installmentamount
                                 THEN d.rep_amount ELSE d.installmentamount END) AS ded
                 FROM deductions d
                 INNER JOIN employees e ON d.employeeid = e.id
-                WHERE e.employeenumber IN ({inClause})
+                WHERE LPAD(e.employeenumber, 15, '0') IN ({inClause})
                   AND (
                       (d.status = 'takenup'  AND d.isactive = 'Y')
                       OR (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
                       OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
                       OR (d.status = 'reserved' AND d.is_bank_res = 'Y')
                   )
-                GROUP BY e.employeenumber";
+                GROUP BY LPAD(e.employeenumber, 15, '0')";
 
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
-                result[reader.GetString("employeenumber")] = ReadDecimal(reader, "ded");
+                result[reader.GetString("empkey")] = ReadDecimal(reader, "ded");
         }
         return result;
     }
@@ -381,26 +402,28 @@ public class HcmReportService
         var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         if (empNumbers.Count == 0) return result;
 
-        foreach (var batch in Batch(empNumbers))
+        var padded = empNumbers.Select(n => NormalizeIpps(n)).Distinct().ToList();
+
+        foreach (var batch in Batch(padded))
         {
             var (inClause, cmd) = BuildInClause(batch, conn);
             cmd.CommandText = $@"
-                SELECT e.employeenumber,
+                SELECT LPAD(e.employeenumber, 15, '0') AS empkey,
                        SUM(CASE WHEN d.rep_amount > d.installmentamount
                                 THEN d.rep_amount ELSE d.installmentamount END) AS stanbic
                 FROM deductions d
                 INNER JOIN employees e ON d.employeeid = e.id
-                WHERE e.employeenumber IN ({inClause})
+                WHERE LPAD(e.employeenumber, 15, '0') IN ({inClause})
                   AND (
                       (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
                       OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
                       OR (d.status = 'reserved' AND d.is_bank_res = 'Y')
                   )
-                GROUP BY e.employeenumber";
+                GROUP BY LPAD(e.employeenumber, 15, '0')";
 
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
-                result[reader.GetString("employeenumber")] = ReadDecimal(reader, "stanbic");
+                result[reader.GetString("empkey")] = ReadDecimal(reader, "stanbic");
         }
         return result;
     }
@@ -435,13 +458,13 @@ public class HcmReportService
             var row = i + 2;
             ws.Cells[row, 1].Value  = r.Ipps;
             ws.Cells[row, 2].Value  = r.Salary;
-            ws.Cells[row, 3].Value  = r.IsActive ?? "0";
+            ws.Cells[row, 3].Value  = r.IsActive ?? string.Empty;
             ws.Cells[row, 4].Value  = r.Stat;
             ws.Cells[row, 5].Value  = r.Allow;
             ws.Cells[row, 6].Value  = r.Ded;
             ws.Cells[row, 7].Value  = r.Stanbic;
             ws.Cells[row, 8].Value  = r.Affordability;
-            ws.Cells[row, 9].Value  = r.Terms ?? "0";
+            ws.Cells[row, 9].Value  = r.Terms ?? string.Empty;
             ws.Cells[row, 10].Value = r.Vote;
 
             foreach (int col in new[] { 2, 4, 5, 6, 7, 8 })
@@ -498,12 +521,20 @@ public class HcmReportService
                     System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0m;
             }
 
-            var empNum = Get("EMP_NUMBER");
-            if (string.IsNullOrWhiteSpace(empNum)) continue;
+            // Read EMPLOYEE_NO (= IPPS) via .Value to avoid scientific notation / thousand separators
+            string employeeNo;
+            if (colIndex.TryGetValue("EMPLOYEE_NO", out var empNoCol))
+            {
+                var cell = ws.Cells[r, empNoCol];
+                employeeNo = cell.Value is double d
+                    ? ((long)Math.Round(d)).ToString()
+                    : cell.Text?.Trim() ?? string.Empty;
+            }
+            else employeeNo = string.Empty;
+            if (string.IsNullOrWhiteSpace(employeeNo)) continue;
 
             rows.Add(new HcmSheetRow(
-                EmpNumber:    empNum,
-                EmployeeNo:   Get("EMPLOYEE_NO"),
+                EmployeeNo:   employeeNo,
                 EmployeeName: Get("EMPLOYEE_NAME"),
                 VoteCode:     Get("VOTE_CODE"),
                 VoteName:     Get("VOTE_NAME"),
@@ -562,6 +593,15 @@ public class HcmReportService
         }
     }
 
-    private static string PadIpps(string raw)
-        => raw.Trim().PadLeft(15, '0');
+    // Strip commas, parse as decimal, then PadLeft(15).
+    // Handles: "14,560" → "000000000014560", "14560.0" → "000000000014560".
+    private static string NormalizeIpps(string raw)
+    {
+        var clean = raw.Trim().Replace(",", "");
+        if (decimal.TryParse(clean,
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var d))
+            return ((long)d).ToString().PadLeft(15, '0');
+        return clean.PadLeft(15, '0');
+    }
 }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using PageSort;
 using PCA.Modules.Identity.Models;
 using PCA.Modules.Invoicing.Models;
 using PCA.Modules.Invoicing.Services;
@@ -121,10 +122,18 @@ public class InvoiceSchedulesController : Controller
     [HttpGet]
     public async Task<IActionResult> RunsData(int id, int page = 1, int pageSize = 20)
     {
-        var result = await _svc.GetRunsPagedAsync(id, page, pageSize);
+        PagedResult<InvoiceRun> result;
+        try
+        {
+            result = await _svc.GetRunsPagedAsync(id, page, pageSize);
+        }
+        catch (Exception ex)
+        {
+            return Json(new { error = ex.Message, items = Array.Empty<object>(), totalCount = 0, currentPage = 1, totalPages = 1 });
+        }
 
         return Json(new {
-            items = result.Collection.Select(r => new {
+            items = (result.Collection ?? Enumerable.Empty<InvoiceRun>()).Select(r => new {
                 runId       = r.Id,
                 triggeredAt = r.TriggeredAt.ToString("dd MMM yyyy HH:mm"),
                 triggeredBy = r.TriggeredBy?.FullName ?? "Scheduler",

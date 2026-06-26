@@ -79,24 +79,29 @@ public class InvoiceDataService
         using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
-            var amountRaw = reader.GetValue(reader.GetOrdinal("installmentamount"));
-            var amount = amountRaw == DBNull.Value
+            // Read by ordinal position to match the SELECT order above exactly:
+            // 0=employeenumber, 1=referencecode, 2=deductiontype, 3=installmentamount, 4=datecreated
+            var empRaw    = reader.IsDBNull(0) ? "" : reader.GetString(0);
+            var refCode   = reader.IsDBNull(1) ? "" : reader.GetString(1);
+            var dedType   = reader.IsDBNull(2) ? "" : reader.GetString(2);
+            var amountRaw = reader.GetValue(3);
+            var amount    = amountRaw == DBNull.Value
                 ? 0m
                 : decimal.TryParse(amountRaw.ToString(), System.Globalization.NumberStyles.Any,
                     System.Globalization.CultureInfo.InvariantCulture, out var parsed)
                     ? parsed : 0m;
+            var dateCreated = reader.IsDBNull(4) ? DateTime.MinValue : reader.GetDateTime(4);
 
-            var empRaw = reader.GetString("employeenumber");
             if (!long.TryParse(empRaw, out var empNumber))
                 _logger.LogWarning("FetchDeductions [{Source}]: could not parse employee number '{Raw}' — skipping row",
                     source, empRaw);
 
             rows.Add(new DeductionRow(
                 EmployeeNumber:    empNumber,
-                ReferenceCode:     reader.GetString("referencecode"),
-                DeductionType:     reader.GetString("deductiontype"),
+                ReferenceCode:     refCode,
+                DeductionType:     dedType,
                 InstallmentAmount: amount,
-                DateCreated:       reader.GetDateTime("datecreated"),
+                DateCreated:       dateCreated,
                 Source:            source));
         }
 
@@ -167,24 +172,32 @@ public class InvoiceDataService
         var refNumbers = ReadHcmRefNumbers(refFilePath);
         _logger.LogInformation("SplitRows: ref file contains {RefCount} IPPS numbers", refNumbers.Count);
 
-        var trueHcm  = hcmRows.Where(r => refNumbers.Contains(r.EmployeeNumber)).ToList();
-        var tempIpps = hcmRows.Where(r => !refNumbers.Contains(r.EmployeeNumber)).ToList();
-        var droppedFromIpps = ippsRows.Count(r => refNumbers.Contains(r.EmployeeNumber));
-        var keptIpps = ippsRows.Where(r => !refNumbers.Contains(r.EmployeeNumber)).ToList();
+        // listA (HCM DB) in ref → HCM sheet
+        var trueHcm    = hcmRows.Where(r =>  refNumbers.Contains(r.EmployeeNumber)).ToList();
+        // listB (IPPS DB) in ref → dropped
+        var droppedIpps = ippsRows.Count(r => refNumbers.Contains(r.EmployeeNumber));
+
+        // listA (HCM DB)  not in ref → listD
+        var listD_hcm  = hcmRows.Where(r =>  !refNumbers.Contains(r.EmployeeNumber)).ToList();
+        // listB (IPPS DB) not in ref → listD
+        var listD_ipps = ippsRows.Where(r => !refNumbers.Contains(r.EmployeeNumber)).ToList();
 
         _logger.LogInformation(
-            "SplitRows: trueHCM={TrueHcm}, tempIPPS={TempIpps}, keptIPPS={KeptIpps}, droppedFromIPPS={Dropped}",
-            trueHcm.Count, tempIpps.Count, keptIpps.Count, droppedFromIpps);
+            "SplitRows: trueHCM={TrueHcm}, droppedIPPS={DroppedIpps}, listD_hcm={DHcm}, listD_ipps={DIpps}",
+            trueHcm.Count, droppedIpps, listD_hcm.Count, listD_ipps.Count);
 
-        var ippsSheet = keptIpps.Concat(tempIpps)
-            .GroupBy(r => r.EmployeeNumber)
-            .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
+        // HCM sheet: one occurrence per employee expected; just sort
+        var hcmSheet = trueHcm
             .OrderBy(r => r.EmployeeNumber)
             .ToList();
 
-        var hcmSheet = trueHcm
+        // IPPS sheet: sort by employee ASC then amount DESC first, then dedup by employee
+        // keeping the first row (= highest amount) per employee number
+        var ippsSheet = listD_hcm.Concat(listD_ipps)
+            .OrderBy(r => r.EmployeeNumber)
+            .ThenByDescending(r => r.InstallmentAmount)
             .GroupBy(r => r.EmployeeNumber)
-            .Select(g => g.OrderByDescending(r => r.InstallmentAmount).First())
+            .Select(g => g.First())
             .OrderBy(r => r.EmployeeNumber)
             .ToList();
 
@@ -206,8 +219,16 @@ public class InvoiceDataService
         int rows = ws.Dimension?.Rows ?? 0;
         for (int r = 1; r <= rows; r++)
         {
-            var raw = ws.Cells[r, 1].Text?.Trim();
-            if (long.TryParse(raw, out var num))
+            var cell = ws.Cells[r, 1];
+            // Numeric cells: EPPlus stores as double; .Text may render as scientific notation
+            if (cell.Value is double d)
+            {
+                result.Add((long)d);
+                continue;
+            }
+            // Text cells: padded strings like "000000000123456"
+            var raw = cell.Text?.Trim();
+            if (!string.IsNullOrEmpty(raw) && long.TryParse(raw, out var num))
                 result.Add(num);
         }
         return result;

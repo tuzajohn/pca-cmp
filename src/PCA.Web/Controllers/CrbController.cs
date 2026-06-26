@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using PCA.Modules.Invoicing.Models;
 using PCA.Modules.Invoicing.Services;
 using PCA.Web.Services;
@@ -15,6 +16,7 @@ public class CrbController : Controller
     private readonly HcmMappingService _mappings;
     private readonly CrbProgressStore  _progress;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<CrbController> _logger;
     private readonly string _storageRoot;
 
     private static readonly JsonSerializerOptions _jsonOpts = new()
@@ -26,6 +28,7 @@ public class CrbController : Controller
         HcmMappingService mappings,
         CrbProgressStore progress,
         IServiceScopeFactory scopeFactory,
+        ILogger<CrbController> logger,
         IConfiguration config,
         IWebHostEnvironment env)
     {
@@ -34,6 +37,7 @@ public class CrbController : Controller
         _mappings     = mappings;
         _progress     = progress;
         _scopeFactory = scopeFactory;
+        _logger       = logger;
         _storageRoot  = config["InvoiceStoragePath"]
             ?? Path.Combine(env.ContentRootPath, "uploads", "documents");
     }
@@ -223,6 +227,7 @@ public class CrbController : Controller
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "CRB IPPS background run {RunId} failed", runId);
                 _progress.Fail(runId, ex.Message);
             }
         });
@@ -250,6 +255,13 @@ public class CrbController : Controller
         _progress.CreateRunWithId(runId);
         var storageRoot = _storageRoot;
 
+        // Pre-resolve all request-context values now; the lambda runs after context is disposed
+        var scheme     = Request.Scheme;
+        var host       = Request.Host.Value;
+        var actionPath = Url.Action("DownloadResult", "Crb") ?? "/Crb/DownloadResult";
+        var urlBuilder = (string path, string name) =>
+            $"{scheme}://{host}{actionPath}?path={Uri.EscapeDataString(path)}&name={Uri.EscapeDataString(name)}";
+
         _ = Task.Run(async () =>
         {
             using var scope  = _scopeFactory.CreateScope();
@@ -267,21 +279,22 @@ public class CrbController : Controller
 
                 try { Directory.Delete(pendingFolder, recursive: true); } catch { /* non-fatal */ }
 
-                var response = BuildCompleteResponse(result);
+                var response = BuildCompleteResponse(result, urlBuilder);
                 _progress.Complete(runId, response);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "CRB HCM background run {RunId} failed", runId);
                 _progress.Fail(runId, ex.Message);
             }
         });
     }
 
-    private object BuildCompleteResponse(HcmRunResult result) => new
+    private static object BuildCompleteResponse(HcmRunResult result, Func<string, string, string> urlBuilder) => new
     {
         status   = "complete",
-        hcmFile  = new { url = Url.Action("DownloadResult", "Crb", new { path = result.HcmFilePath,  name = result.HcmFileName  }), name = result.HcmFileName  },
-        ippsFile = new { url = Url.Action("DownloadResult", "Crb", new { path = result.IppsFilePath, name = result.IppsFileName }), name = result.IppsFileName },
+        hcmFile  = new { url = urlBuilder(result.HcmFilePath,  result.HcmFileName),  name = result.HcmFileName  },
+        ippsFile = new { url = urlBuilder(result.IppsFilePath, result.IppsFileName), name = result.IppsFileName },
         stats    = new
         {
             result.TotalStanbicSubmitted, result.MatchedToHcm, result.PassedToIpps,
