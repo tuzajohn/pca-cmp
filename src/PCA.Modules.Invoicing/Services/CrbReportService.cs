@@ -554,7 +554,14 @@ public class CrbReportService
         int rows = ws.Dimension?.Rows ?? 0;
         for (int r = 1; r <= rows; r++)
         {
-            var raw = ws.Cells[r, 1].Text?.Trim();
+            var cell = ws.Cells[r, 1];
+            // Numeric cells: EPPlus stores as double; .Text may render as scientific notation
+            if (cell.Value is double d)
+            {
+                numbers.Add(((long)d).ToString());
+                continue;
+            }
+            var raw = cell.Text?.Trim();
             if (!string.IsNullOrEmpty(raw) && raw.All(char.IsDigit))
                 numbers.Add(raw);
         }
