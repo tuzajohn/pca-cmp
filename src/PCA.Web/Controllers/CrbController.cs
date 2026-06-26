@@ -255,9 +255,12 @@ public class CrbController : Controller
         _progress.CreateRunWithId(runId);
         var storageRoot = _storageRoot;
 
-        // Capture URL builder while HTTP context is still alive
+        // Pre-resolve all request-context values now; the lambda runs after context is disposed
+        var scheme     = Request.Scheme;
+        var host       = Request.Host.Value;
+        var actionPath = Url.Action("DownloadResult", "Crb") ?? "/Crb/DownloadResult";
         var urlBuilder = (string path, string name) =>
-            Url.Action("DownloadResult", "Crb", new { path, name }) ?? "#";
+            $"{scheme}://{host}{actionPath}?path={Uri.EscapeDataString(path)}&name={Uri.EscapeDataString(name)}";
 
         _ = Task.Run(async () =>
         {
