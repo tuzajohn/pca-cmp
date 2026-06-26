@@ -11,8 +11,7 @@ namespace PCA.Modules.Invoicing.Services;
 // ── In-memory row from HCM Sheet1 ────────────────────────────────────────────
 
 public record HcmSheetRow(
-    string  EmpNumber,     // EMP_NUMBER  (= internal HCM number)
-    string  EmployeeNo,    // EMPLOYEE_NO (= IPPS number — used for Stanbic matching)
+    string  EmployeeNo,    // EMPLOYEE_NO (= IPPS number)
     string  EmployeeName,
     string  VoteCode,
     string  VoteName,
@@ -522,7 +521,6 @@ public class HcmReportService
             if (string.IsNullOrWhiteSpace(employeeNo)) continue;
 
             rows.Add(new HcmSheetRow(
-                EmpNumber:    Get("EMP_NUMBER"),
                 EmployeeNo:   employeeNo,
                 EmployeeName: Get("EMPLOYEE_NAME"),
                 VoteCode:     Get("VOTE_CODE"),
