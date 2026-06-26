@@ -410,7 +410,7 @@ public class CrbReportService
             var row = i + 2;
             ws.Cells[row, 1].Value  = r.Ipps;
             ws.Cells[row, 2].Value  = r.Salary;
-            ws.Cells[row, 3].Value  = r.IsActive ?? "0";
+            ws.Cells[row, 3].Value  = r.IsActive ?? "N";
             ws.Cells[row, 4].Value  = r.Stat;
             ws.Cells[row, 5].Value  = r.Allow;
             ws.Cells[row, 6].Value  = r.Ded;
@@ -422,14 +422,6 @@ public class CrbReportService
             // Currency format for numeric columns
             foreach (int col in new[] { 2, 4, 5, 6, 7, 8 })
                 ws.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
-
-            // Highlight mismatch rows
-            if (!string.IsNullOrEmpty(r.Notes))
-            {
-                var fill = ws.Cells[row, 1, row, headers.Length].Style.Fill;
-                fill.PatternType = ExcelFillStyle.Solid;
-                fill.BackgroundColor.SetColor(Color.FromArgb(255, 235, 156));
-            }
         }
 
         FinalizeSheet(ws, headers.Length);
