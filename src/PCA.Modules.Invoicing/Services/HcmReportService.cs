@@ -91,13 +91,13 @@ public class HcmReportService
 
         Step($"Stage 1 — Cross-referencing {hcmRows.Count} HCM rows against Stanbic list…");
         var stanbicSet = new HashSet<string>(
-            stanbicIpps.Select(n => n.Trim().PadLeft(15, '0')),
+            stanbicIpps.Select(NormalizeIpps),
             StringComparer.OrdinalIgnoreCase);
 
-        var matched       = hcmRows.Where(r => stanbicSet.Contains(PadIpps(r.EmpNumber))).ToList();
-        var matchedIpps   = new HashSet<string>(matched.Select(r => PadIpps(r.EmpNumber)), StringComparer.OrdinalIgnoreCase);
+        var matched       = hcmRows.Where(r => stanbicSet.Contains(NormalizeIpps(r.EmpNumber))).ToList();
+        var matchedIpps   = new HashSet<string>(matched.Select(r => NormalizeIpps(r.EmpNumber)), StringComparer.OrdinalIgnoreCase);
         var unmatched     = stanbicIpps
-            .Where(n => !matchedIpps.Contains(n.Trim().PadLeft(15, '0')))
+            .Where(n => !matchedIpps.Contains(NormalizeIpps(n)))
             .ToList();
 
         Step($"Stage 1 — Cross-reference complete: {matched.GroupBy(r => r.EmployeeNo).Count()} matched, {unmatched.Count} unmatched");
@@ -166,7 +166,7 @@ public class HcmReportService
             if (afford == 0) zeroAfford++;
 
             outputRows.Add(new CrbOutputRow(
-                Ipps:         PadIpps(r.EmpNumber),
+                Ipps:         NormalizeIpps(r.EmpNumber),
                 EmployeeId:   int.TryParse(empNo, out var eid) ? eid : 0,
                 EmpName:      r.EmployeeName,
                 Vote:         r.VoteCode,
@@ -234,9 +234,9 @@ public class HcmReportService
         var hcmRows     = ParseHcmExcel(hcmFile);
 
         var stanbicSet = new HashSet<string>(
-            stanbicIpps.Select(n => n.Trim().PadLeft(15, '0')),
+            stanbicIpps.Select(NormalizeIpps),
             StringComparer.OrdinalIgnoreCase);
-        var matched = hcmRows.Where(r => stanbicSet.Contains(PadIpps(r.EmpNumber))).ToList();
+        var matched = hcmRows.Where(r => stanbicSet.Contains(NormalizeIpps(r.EmpNumber))).ToList();
 
         await _mappings.EnsureLoadedAsync();
         var costItems   = matched.Select(r => r.CostItem).Where(v => !string.IsNullOrWhiteSpace(v));
@@ -509,7 +509,16 @@ public class HcmReportService
                     System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0m;
             }
 
-            var empNum = Get("EMP_NUMBER");
+            // Read EMP_NUMBER via .Value to avoid scientific notation or thousand-separator formatting
+            string empNum;
+            if (colIndex.TryGetValue("EMP_NUMBER", out var empCol))
+            {
+                var cell = ws.Cells[r, empCol];
+                empNum = cell.Value is double d
+                    ? ((long)Math.Round(d)).ToString()
+                    : cell.Text?.Trim() ?? string.Empty;
+            }
+            else empNum = string.Empty;
             if (string.IsNullOrWhiteSpace(empNum)) continue;
 
             rows.Add(new HcmSheetRow(
@@ -573,6 +582,15 @@ public class HcmReportService
         }
     }
 
-    private static string PadIpps(string raw)
-        => raw.Trim().PadLeft(15, '0');
+    // Normalize to a plain integer string with no leading zeros — same logic Python uses.
+    // Handles: "000000000014560", "14560", "14560.0", "14,560" → all become "14560".
+    private static string NormalizeIpps(string raw)
+    {
+        var trimmed = raw.Trim().Replace(",", "").Replace(" ", "");
+        if (long.TryParse(trimmed,
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var n))
+            return n.ToString();
+        return trimmed;
+    }
 }
