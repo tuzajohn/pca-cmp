@@ -11,8 +11,8 @@ namespace PCA.Modules.Invoicing.Services;
 // ── In-memory row from HCM Sheet1 ────────────────────────────────────────────
 
 public record HcmSheetRow(
-    string  EmpNumber,     // EMP_NUMBER  (= IPPS)
-    string  EmployeeNo,    // EMPLOYEE_NO (= internal DB id in HCM)
+    string  EmpNumber,     // EMP_NUMBER  (= internal HCM number)
+    string  EmployeeNo,    // EMPLOYEE_NO (= IPPS number — used for Stanbic matching)
     string  EmployeeName,
     string  VoteCode,
     string  VoteName,
@@ -94,8 +94,8 @@ public class HcmReportService
             stanbicIpps.Select(NormalizeIpps),
             StringComparer.OrdinalIgnoreCase);
 
-        var matched       = hcmRows.Where(r => stanbicSet.Contains(NormalizeIpps(r.EmpNumber))).ToList();
-        var matchedIpps   = new HashSet<string>(matched.Select(r => NormalizeIpps(r.EmpNumber)), StringComparer.OrdinalIgnoreCase);
+        var matched       = hcmRows.Where(r => stanbicSet.Contains(NormalizeIpps(r.EmployeeNo))).ToList();
+        var matchedIpps   = new HashSet<string>(matched.Select(r => NormalizeIpps(r.EmployeeNo)), StringComparer.OrdinalIgnoreCase);
         var unmatched     = stanbicIpps
             .Where(n => !matchedIpps.Contains(NormalizeIpps(n)))
             .ToList();
@@ -166,7 +166,7 @@ public class HcmReportService
             if (afford == 0) zeroAfford++;
 
             outputRows.Add(new CrbOutputRow(
-                Ipps:         NormalizeIpps(r.EmpNumber),
+                Ipps:         NormalizeIpps(r.EmployeeNo),
                 EmployeeId:   int.TryParse(empNo, out var eid) ? eid : 0,
                 EmpName:      r.EmployeeName,
                 Vote:         r.VoteCode,
@@ -236,7 +236,7 @@ public class HcmReportService
         var stanbicSet = new HashSet<string>(
             stanbicIpps.Select(NormalizeIpps),
             StringComparer.OrdinalIgnoreCase);
-        var matched = hcmRows.Where(r => stanbicSet.Contains(NormalizeIpps(r.EmpNumber))).ToList();
+        var matched = hcmRows.Where(r => stanbicSet.Contains(NormalizeIpps(r.EmployeeNo))).ToList();
 
         await _mappings.EnsureLoadedAsync();
         var costItems   = matched.Select(r => r.CostItem).Where(v => !string.IsNullOrWhiteSpace(v));
@@ -509,21 +509,21 @@ public class HcmReportService
                     System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0m;
             }
 
-            // Read EMP_NUMBER via .Value to avoid scientific notation or thousand-separator formatting
-            string empNum;
-            if (colIndex.TryGetValue("EMP_NUMBER", out var empCol))
+            // Read EMPLOYEE_NO (= IPPS) via .Value to avoid scientific notation / thousand separators
+            string employeeNo;
+            if (colIndex.TryGetValue("EMPLOYEE_NO", out var empNoCol))
             {
-                var cell = ws.Cells[r, empCol];
-                empNum = cell.Value is double d
+                var cell = ws.Cells[r, empNoCol];
+                employeeNo = cell.Value is double d
                     ? ((long)Math.Round(d)).ToString()
                     : cell.Text?.Trim() ?? string.Empty;
             }
-            else empNum = string.Empty;
-            if (string.IsNullOrWhiteSpace(empNum)) continue;
+            else employeeNo = string.Empty;
+            if (string.IsNullOrWhiteSpace(employeeNo)) continue;
 
             rows.Add(new HcmSheetRow(
-                EmpNumber:    empNum,
-                EmployeeNo:   Get("EMPLOYEE_NO"),
+                EmpNumber:    Get("EMP_NUMBER"),
+                EmployeeNo:   employeeNo,
                 EmployeeName: Get("EMPLOYEE_NAME"),
                 VoteCode:     Get("VOTE_CODE"),
                 VoteName:     Get("VOTE_NAME"),
