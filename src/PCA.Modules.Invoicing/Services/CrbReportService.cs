@@ -101,7 +101,18 @@ public class CrbReportService
         var (outputRows, result) = BuildOutput(
             paddedList, empMap, statMap, allowMap, mismatches, dedMap, unmatched);
 
-        var filePath = WriteExcel(outputRows, unmatched, storageRoot);
+        string filePath;
+        try
+        {
+            filePath = WriteExcel(outputRows, unmatched, storageRoot);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"All database queries completed successfully ({result.Matched} matched, {result.Unmatched} unmatched) " +
+                $"but the Excel file could not be written: {ex.Message}. " +
+                "Re-running will skip the long DB phase — please retry.", ex);
+        }
         var fileName = Path.GetFileName(filePath);
 
         _logger.LogInformation("CRB: complete — {FilePath}", filePath);

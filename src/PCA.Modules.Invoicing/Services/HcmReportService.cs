@@ -186,7 +186,18 @@ public class HcmReportService
 
         // Stage 7 — write HCM Excel
         Step("Stage 7 — Writing HCM output file…");
-        var hcmFilePath = WriteExcel(outputRows, storageRoot, isHcm: true);
+        string hcmFilePath;
+        try
+        {
+            hcmFilePath = WriteExcel(outputRows, storageRoot, isHcm: true);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"All database queries completed successfully ({outputRows.Count} employees processed) " +
+                $"but the HCM Excel file could not be written: {ex.Message}. " +
+                "Re-running will skip the long DB phase — please retry.", ex);
+        }
         Step("Stage 7 — HCM file written");
 
         // Stage 8 — Run Module 2 for unmatched IPPS
