@@ -203,7 +203,7 @@ public class CrbReportService
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var id    = reader.GetInt64(reader.GetOrdinal("employeeid"));
+                var id    = ReadLong(reader, "employeeid");
                 var total = ReadDecimal(reader, "total_statutory");
                 var date  = reader.IsDBNull(reader.GetOrdinal("stat_payrolldate")) ? (DateTime?)null : reader.GetDateTime("stat_payrolldate");
                 result[id] = (total, date);
@@ -248,7 +248,7 @@ public class CrbReportService
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var id        = reader.GetInt64(reader.GetOrdinal("employeeid"));
+                var id        = ReadLong(reader, "employeeid");
                 var total     = ReadDecimal(reader, "total_allowance");
                 var allowDate = reader.IsDBNull(reader.GetOrdinal("allow_payrolldate")) ? (DateTime?)null : reader.GetDateTime("allow_payrolldate");
                 var statDate  = statMap.TryGetValue(id, out var s) ? s.Date : null;
@@ -302,7 +302,7 @@ public class CrbReportService
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var id      = reader.GetInt64(reader.GetOrdinal("employeeid"));
+                var id      = ReadLong(reader, "employeeid");
                 var ded     = ReadDecimal(reader, "ded");
                 var stanbic = ReadDecimal(reader, "stanbic");
                 result[id] = (ded, stanbic);
@@ -478,6 +478,14 @@ public class CrbReportService
         if (reader.IsDBNull(ordinal)) return 0;
         var raw = reader.GetValue(ordinal)?.ToString();
         return int.TryParse(raw, out var v) ? v : 0;
+    }
+
+    private static long ReadLong(MySqlDataReader reader, string column)
+    {
+        var ordinal = reader.GetOrdinal(column);
+        if (reader.IsDBNull(ordinal)) return 0;
+        var raw = reader.GetValue(ordinal)?.ToString();
+        return long.TryParse(raw, out var v) ? v : 0;
     }
 
     private static decimal ReadDecimal(MySqlDataReader reader, string column)
