@@ -445,10 +445,10 @@ public class HcmReportService
         var ws = pkg.Workbook.Worksheets.Add("CRB Deductions");
 
         string[] headers =
-        {
+        [
             "IPPSNO", "SALARY", "ISACTIVE", "STAT", "ALLOW",
-            "DEDS", "STANBIC", "AFFORDABILITY", "PROBATION", "VOTE"
-        };
+            "DEDS", "STANBIC", "AFFORDABILITY", "PROBATION", "VOTE", "VOTENAME"
+        ];
 
         WriteHeaders(ws, headers);
 
@@ -466,9 +466,10 @@ public class HcmReportService
             ws.Cells[row, 8].Value  = r.Affordability;
             ws.Cells[row, 9].Value  = r.Terms ?? string.Empty;
             ws.Cells[row, 10].Value = r.Vote;
+            ws.Cells[row, 11].Value = r.VoteName;
 
-            foreach (int col in new[] { 2, 4, 5, 6, 7, 8 })
-                ws.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
+            //foreach (int col in new[] { 2, 4, 5, 6, 7, 8 })
+            //    ws.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
         }
 
         if (ws.Dimension != null)
