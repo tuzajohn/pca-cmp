@@ -25,6 +25,13 @@
                             <input type="file" class="form-control" id="ippsFile" accept=".txt,.csv,.xlsx,.xls" required>
                             <div class="form-text">One IPPS number per row or comma-separated. Padded to 15 digits automatically.</div>
                         </div>
+                        <div class="mb-4 form-check">
+                            <input type="checkbox" class="form-check-input" id="includeOtherReservations">
+                            <label class="form-check-label" for="includeOtherReservations">
+                                Include non-Stanbic reservations column
+                            </label>
+                            <div class="form-text">Active reservations (not Stanbic) created within the last 2 months.</div>
+                        </div>
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-play-fill me-1"></i>Generate IPPS Report
                         </button>
@@ -81,6 +88,7 @@
 
         const fd = new FormData();
         fd.append('ippsFile', file);
+        fd.append('includeOtherReservations', document.getElementById('includeOtherReservations').checked);
 
         let data;
         try {
@@ -184,6 +192,8 @@
             ['With stanbic > 0',  s.withStanbic],
             ['Affordability = 0', s.zeroAfford],
         ];
+        if (s.withOtherRes !== undefined && s.withOtherRes !== null)
+            rows.push(['With other reservations > 0', s.withOtherRes]);
         document.getElementById('run-log').innerHTML =
             '<tbody>' + rows.map(([l, v]) =>
                 `<tr><td class="text-muted ps-3">${l}</td><td class="fw-semibold text-end pe-3">${v ?? 0}</td></tr>`

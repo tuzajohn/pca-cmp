@@ -42,7 +42,8 @@ public record HcmRunResult(
     int WithAllow,
     int WithDed,
     int WithStanbic,
-    int ZeroAfford);
+    int ZeroAfford,
+    int? WithOtherRes = null);
 
 // ── Service ───────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,7 @@ public class HcmReportService
         IFormFile stanbicFile,
         string storageRoot,
         Action<string>? progress = null,
+        bool includeOtherReservations = false,
         CancellationToken ct = default)
     {
         void Step(string msg) { progress?.Invoke(msg); _logger.LogInformation("HCM: {Msg}", msg); }
@@ -136,11 +138,14 @@ public class HcmReportService
         var empInfoMap    = await QueryEmployeeFieldsAsync(conn, empNumbers, ct);
         var dedMap        = await QueryDedAsync(conn, empNumbers, ct);
         var stanbicDedMap = await QueryStanbicDedAsync(conn, empNumbers, ct);
+        var otherResMap   = includeOtherReservations
+            ? await QueryOtherReservationsAsync(conn, empNumbers, ct)
+            : new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         Step($"Stage 5 — Employee info loaded for {empInfoMap.Count}, deductions for {dedMap.Count} employees");
 
         // Stage 6 — affordability + assemble output
         var outputRows    = new List<CrbOutputRow>();
-        int withStat = 0, withAllow = 0, withDed = 0, withStanbic = 0, zeroAfford = 0;
+        int withStat = 0, withAllow = 0, withDed = 0, withStanbic = 0, zeroAfford = 0, withOtherRes = 0;
 
         // Use matched list to preserve order; take first row per employee for bio data
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -156,6 +161,7 @@ public class HcmReportService
             var allow    = allowMap.TryGetValue(empNo, out var av)   ? av  : 0m;
             var ded      = dedMap.TryGetValue(normalizedKey, out var dv)     ? dv  : 0m;
             var stanbic  = stanbicDedMap.TryGetValue(normalizedKey, out var sbv) ? sbv : 0m;
+            var otherRes = otherResMap.TryGetValue(normalizedKey, out var orv) ? orv : 0m;
             var afford   = Math.Max(0m, salary * 0.48m - (stat + ded));
 
             if (stat    > 0) withStat++;
@@ -163,6 +169,7 @@ public class HcmReportService
             if (ded     > 0) withDed++;
             if (stanbic > 0) withStanbic++;
             if (afford == 0) zeroAfford++;
+            if (includeOtherReservations && otherRes > 0) withOtherRes++;
 
             outputRows.Add(new CrbOutputRow(
                 Ipps:         normalizedKey,
@@ -178,7 +185,8 @@ public class HcmReportService
                 Ded:          ded,
                 Stanbic:      stanbic,
                 Affordability: afford,
-                Notes:        string.Empty));
+                Notes:        string.Empty,
+                OtherReservations: includeOtherReservations ? otherRes : null));
         }
 
         Step($"Stage 6 — Affordability computed for {outputRows.Count} employees");
@@ -188,7 +196,7 @@ public class HcmReportService
         string hcmFilePath;
         try
         {
-            hcmFilePath = WriteExcel(outputRows, storageRoot, isHcm: true);
+            hcmFilePath = WriteExcel(outputRows, storageRoot, isHcm: true, includeOtherReservations);
         }
         catch (Exception ex)
         {
@@ -201,12 +209,12 @@ public class HcmReportService
 
         // Stage 8 — Run Module 2 for unmatched IPPS
         Step($"Stage 8 — Running Module 2 for {unmatched.Count} unmatched IPPS numbers…");
-        var ippsResult = await _ippsModule.GenerateAsync(unmatched, storageRoot, progress, ct);
+        var ippsResult = await _ippsModule.GenerateAsync(unmatched, storageRoot, progress, includeOtherReservations, ct);
 
         _logger.LogInformation(
-            "HCM CRB run log:\n  Total Stanbic IPPS submitted:     {Total}\n  Matched to HCM Sheet1:            {Matched}\n  Passed to IPPS module:            {Unmatched}\n  Unknown COSTITEM/VENDOR flagged:  0 (already resolved)\n  Employees with stat > 0:          {Stat}\n  Employees with allow > 0:         {Allow}\n  Employees with ded > 0:           {Ded}\n  Employees with stanbic > 0:       {Stanbic}\n  Employees with affordability = 0: {ZeroAff}",
+            "HCM CRB run log:\n  Total Stanbic IPPS submitted:     {Total}\n  Matched to HCM Sheet1:            {Matched}\n  Passed to IPPS module:            {Unmatched}\n  Unknown COSTITEM/VENDOR flagged:  0 (already resolved)\n  Employees with stat > 0:          {Stat}\n  Employees with allow > 0:         {Allow}\n  Employees with ded > 0:           {Ded}\n  Employees with stanbic > 0:       {Stanbic}\n  Employees with affordability = 0: {ZeroAff}\n  Employees with other_res > 0:     {OtherRes}",
             stanbicIpps.Count, matched.GroupBy(r => r.EmployeeNo).Count(),
-            unmatched.Count, withStat, withAllow, withDed, withStanbic, zeroAfford);
+            unmatched.Count, withStat, withAllow, withDed, withStanbic, zeroAfford, withOtherRes);
 
         return new HcmRunResult(
             HcmFilePath:          hcmFilePath,
@@ -221,7 +229,8 @@ public class HcmReportService
             WithAllow:            withAllow,
             WithDed:              withDed,
             WithStanbic:          withStanbic,
-            ZeroAfford:           zeroAfford);
+            ZeroAfford:           zeroAfford,
+            WithOtherRes:         includeOtherReservations ? withOtherRes : null);
     }
 
     // ── Check unknowns before processing (called from controller pre-flight) ──
@@ -428,9 +437,44 @@ public class HcmReportService
         return result;
     }
 
+    private static async Task<Dictionary<string, decimal>>
+        QueryOtherReservationsAsync(MySqlConnection conn, List<string> empNumbers, CancellationToken ct)
+    {
+        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        if (empNumbers.Count == 0) return result;
+
+        var padded = empNumbers.Select(n => NormalizeIpps(n)).Distinct().ToList();
+
+        foreach (var batch in Batch(padded))
+        {
+            var (inClause, cmd) = BuildInClause(batch, conn);
+            cmd.CommandText = $@"
+                SELECT LPAD(e.employeenumber, 15, '0') AS empkey,
+                       SUM(CASE WHEN d.rep_amount > d.installmentamount
+                                THEN d.rep_amount ELSE d.installmentamount END) AS other_res
+                FROM deductions d
+                INNER JOIN employees e ON d.employeeid = e.id
+                WHERE LPAD(e.employeenumber, 15, '0') IN ({inClause})
+                  AND d.deductiontype <> '265'
+                  AND d.datecreated >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
+                  AND (
+                      (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
+                      OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
+                      OR (d.status = 'reserved' AND d.is_bank_res = 'Y')
+                  )
+                GROUP BY LPAD(e.employeenumber, 15, '0')";
+
+            using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+                result[reader.GetString("empkey")] = ReadDecimal(reader, "other_res");
+        }
+        return result;
+    }
+
     // ── Stage 8: Excel output ─────────────────────────────────────────────────
 
-    private static string WriteExcel(List<CrbOutputRow> rows, string storageRoot, bool isHcm)
+    private static string WriteExcel(
+        List<CrbOutputRow> rows, string storageRoot, bool isHcm, bool includeOtherReservations)
     {
         ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
@@ -444,13 +488,14 @@ public class HcmReportService
         using var pkg = new ExcelPackage();
         var ws = pkg.Workbook.Worksheets.Add("CRB Deductions");
 
-        string[] headers =
-        [
+        var headers = new List<string>
+        {
             "IPPSNO", "SALARY", "ISACTIVE", "STAT", "ALLOW",
             "DEDS", "STANBIC", "AFFORDABILITY", "PROBATION", "VOTE", "VOTENAME"
-        ];
+        };
+        if (includeOtherReservations) headers.Add("OTHER_RES");
 
-        WriteHeaders(ws, headers);
+        WriteHeaders(ws, headers.ToArray());
 
         for (int i = 0; i < rows.Count; i++)
         {
@@ -467,6 +512,8 @@ public class HcmReportService
             ws.Cells[row, 9].Value  = r.Terms ?? string.Empty;
             ws.Cells[row, 10].Value = r.Vote;
             ws.Cells[row, 11].Value = r.VoteName;
+            if (includeOtherReservations)
+                ws.Cells[row, 12].Value = r.OtherReservations ?? 0m;
 
             //foreach (int col in new[] { 2, 4, 5, 6, 7, 8 })
             //    ws.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
@@ -476,7 +523,7 @@ public class HcmReportService
         {
             ws.Cells[ws.Dimension.Address].AutoFitColumns();
             ws.View.FreezePanes(2, 1);
-            ws.Cells[1, 1, 1, headers.Length].AutoFilter = true;
+            ws.Cells[1, 1, 1, headers.Count].AutoFilter = true;
         }
 
         pkg.SaveAs(new FileInfo(filePath));

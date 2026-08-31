@@ -33,7 +33,8 @@ public record CrbOutputRow(
     decimal Ded,
     decimal Stanbic,
     decimal Affordability,
-    string  Notes);
+    string  Notes,
+    decimal? OtherReservations = null);
 
 public record CrbReportResult(
     string FilePath,
@@ -46,7 +47,8 @@ public record CrbReportResult(
     int    AllowDateMismatches,
     int    WithDed,
     int    WithStanbic,
-    int    ZeroAfford);
+    int    ZeroAfford,
+    int?   WithOtherRes = null);
 
 // ── Service ───────────────────────────────────────────────────────────────────
 
@@ -67,6 +69,7 @@ public class CrbReportService
         List<string> rawIppsNumbers,
         string storageRoot,
         Action<string>? progress = null,
+        bool includeOtherReservations = false,
         CancellationToken ct = default)
     {
         void Step(string msg) { progress?.Invoke(msg); _logger.LogInformation("CRB: {Msg}", msg); }
@@ -99,12 +102,12 @@ public class CrbReportService
 
         Step("Module 2 — Computing affordability and writing output file…");
         var (outputRows, result) = BuildOutput(
-            paddedList, empMap, statMap, allowMap, mismatches, dedMap, unmatched);
+            paddedList, empMap, statMap, allowMap, mismatches, dedMap, unmatched, includeOtherReservations);
 
         string filePath;
         try
         {
-            filePath = WriteExcel(outputRows, unmatched, storageRoot);
+            filePath = WriteExcel(outputRows, unmatched, storageRoot, includeOtherReservations);
         }
         catch (Exception ex)
         {
@@ -117,10 +120,10 @@ public class CrbReportService
 
         _logger.LogInformation("CRB: complete — {FilePath}", filePath);
         _logger.LogInformation(
-            "CRB run log:\n  Total IPPS submitted:       {Total}\n  Matched employees:          {Matched}\n  Unmatched IPPS:             {Unmatched}\n  Employees with stat > 0:    {Stat}\n  Employees with allow > 0:   {Allow}\n  Allowance date mismatches:  {Mis}\n  Employees with ded > 0:     {Ded}\n  Employees with stanbic > 0: {Stanbic}\n  Employees with afford = 0:  {ZeroAff}",
+            "CRB run log:\n  Total IPPS submitted:       {Total}\n  Matched employees:          {Matched}\n  Unmatched IPPS:             {Unmatched}\n  Employees with stat > 0:    {Stat}\n  Employees with allow > 0:   {Allow}\n  Allowance date mismatches:  {Mis}\n  Employees with ded > 0:     {Ded}\n  Employees with stanbic > 0: {Stanbic}\n  Employees with afford = 0:  {ZeroAff}\n  Employees with other_res > 0: {OtherRes}",
             totalSubmitted, result.Matched, result.Unmatched,
             result.WithStat, result.WithAllow, result.AllowDateMismatches,
-            result.WithDed, result.WithStanbic, result.ZeroAfford);
+            result.WithDed, result.WithStanbic, result.ZeroAfford, result.WithOtherRes);
 
         return result with { FilePath = filePath, FileName = fileName };
     }
@@ -270,10 +273,10 @@ public class CrbReportService
 
     // ── Stage 4 ───────────────────────────────────────────────────────────────
 
-    private static async Task<Dictionary<long, (decimal Ded, decimal Stanbic)>>
+    private static async Task<Dictionary<long, (decimal Ded, decimal Stanbic, decimal OtherRes)>>
         Stage4_DeductionsAsync(MySqlConnection conn, List<long> ids, CancellationToken ct)
     {
-        var result = new Dictionary<long, (decimal, decimal)>();
+        var result = new Dictionary<long, (decimal, decimal, decimal)>();
         if (ids.Count == 0) return result;
 
         foreach (var batch in Batch(ids))
@@ -288,7 +291,14 @@ public class CrbReportService
                                 THEN CASE WHEN d.rep_amount > d.installmentamount
                                           THEN d.rep_amount
                                           ELSE d.installmentamount END
-                                ELSE 0 END) AS stanbic
+                                ELSE 0 END) AS stanbic,
+                       SUM(CASE WHEN d.status = 'reserved'
+                                 AND d.deductiontype <> '265'
+                                 AND d.datecreated >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
+                                THEN CASE WHEN d.rep_amount > d.installmentamount
+                                          THEN d.rep_amount
+                                          ELSE d.installmentamount END
+                                ELSE 0 END) AS other_res
                 FROM deductions d
                 WHERE d.employeeid IN ({inClause})
                   AND (
@@ -302,10 +312,11 @@ public class CrbReportService
             using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
             {
-                var id      = ReadLong(reader, "employeeid");
-                var ded     = ReadDecimal(reader, "ded");
-                var stanbic = ReadDecimal(reader, "stanbic");
-                result[id] = (ded, stanbic);
+                var id       = ReadLong(reader, "employeeid");
+                var ded      = ReadDecimal(reader, "ded");
+                var stanbic  = ReadDecimal(reader, "stanbic");
+                var otherRes = ReadDecimal(reader, "other_res");
+                result[id] = (ded, stanbic, otherRes);
             }
         }
         return result;
@@ -319,11 +330,12 @@ public class CrbReportService
         Dictionary<long, (decimal Total, DateTime? Date)> statMap,
         Dictionary<long, decimal> allowMap,
         HashSet<long> mismatches,
-        Dictionary<long, (decimal Ded, decimal Stanbic)> dedMap,
-        List<string> unmatched)
+        Dictionary<long, (decimal Ded, decimal Stanbic, decimal OtherRes)> dedMap,
+        List<string> unmatched,
+        bool includeOtherReservations)
     {
         var rows         = new List<CrbOutputRow>();
-        int withStat     = 0, withAllow = 0, withDed = 0, withStanbic = 0, zeroAfford = 0;
+        int withStat     = 0, withAllow = 0, withDed = 0, withStanbic = 0, zeroAfford = 0, withOtherRes = 0;
 
         // Iterate in original submission order
         var ippsToEmp = new Dictionary<string, CrbEmployeeRow>(StringComparer.OrdinalIgnoreCase);
@@ -338,6 +350,7 @@ public class CrbReportService
             var allow    = allowMap.TryGetValue(id, out var av) ? av       : 0m;
             var ded      = dedMap.TryGetValue(id,  out var dv) ? dv.Ded    : 0m;
             var stanbic  = dedMap.TryGetValue(id,  out dv)     ? dv.Stanbic: 0m;
+            var otherRes = dedMap.TryGetValue(id,  out dv)     ? dv.OtherRes : 0m;
 
             var afford   = Math.Max(0m, emp.Salary * 0.48m - (stat + ded));
             var notes    = mismatches.Contains(id) ? "allowance_date_mismatch" : string.Empty;
@@ -347,6 +360,7 @@ public class CrbReportService
             if (ded      > 0) withDed++;
             if (stanbic  > 0) withStanbic++;
             if (afford  == 0) zeroAfford++;
+            if (otherRes > 0) withOtherRes++;
 
             rows.Add(new CrbOutputRow(
                 Ipps:         emp.Ipps,
@@ -362,7 +376,8 @@ public class CrbReportService
                 Ded:          ded,
                 Stanbic:      stanbic,
                 Affordability: afford,
-                Notes:        notes));
+                Notes:        notes,
+                OtherReservations: includeOtherReservations ? otherRes : null));
         }
 
         var stats = new CrbReportResult(
@@ -376,14 +391,16 @@ public class CrbReportService
             AllowDateMismatches: mismatches.Count,
             WithDed:            withDed,
             WithStanbic:        withStanbic,
-            ZeroAfford:         zeroAfford);
+            ZeroAfford:         zeroAfford,
+            WithOtherRes:       includeOtherReservations ? withOtherRes : null);
 
         return (rows, stats);
     }
 
     // ── Stage 6 — Excel ───────────────────────────────────────────────────────
 
-    private static string WriteExcel(List<CrbOutputRow> rows, List<string> unmatched, string storageRoot)
+    private static string WriteExcel(
+        List<CrbOutputRow> rows, List<string> unmatched, string storageRoot, bool includeOtherReservations)
     {
         ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
@@ -397,12 +414,15 @@ public class CrbReportService
 
         // Main sheet
         var ws = pkg.Workbook.Worksheets.Add("CRB Deductions");
-        string[] headers =
+        var headers = new List<string>
         {
             "IPPSNO", "SALARY", "ISACTIVE", "STAT", "ALLOW",
             "DEDS", "STANBIC", "AFFORDABILITY", "PROBATION", "VOTE"
         };
-        WriteHeaders(ws, headers);
+        if (includeOtherReservations) headers.Add("OTHER_RES");
+        WriteHeaders(ws, headers.ToArray());
+
+        var numericCols = new List<int> { 2, 4, 5, 6, 7, 8 };
 
         for (int i = 0; i < rows.Count; i++)
         {
@@ -418,13 +438,17 @@ public class CrbReportService
             ws.Cells[row, 8].Value  = r.Affordability;
             ws.Cells[row, 9].Value  = r.Terms ?? string.Empty;
             ws.Cells[row, 10].Value = r.Vote;
+            if (includeOtherReservations)
+                ws.Cells[row, 11].Value = r.OtherReservations ?? 0m;
 
             // Currency format for numeric columns
-            foreach (int col in new[] { 2, 4, 5, 6, 7, 8 })
+            foreach (int col in numericCols)
                 ws.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
+            if (includeOtherReservations)
+                ws.Cells[row, 11].Style.Numberformat.Format = "#,##0.00";
         }
 
-        FinalizeSheet(ws, headers.Length);
+        FinalizeSheet(ws, headers.Count);
 
         // Unmatched sheet
         if (unmatched.Count > 0)
