@@ -423,6 +423,7 @@ public class HcmReportService
                 FROM deductions d
                 INNER JOIN employees e ON d.employeeid = e.id
                 WHERE LPAD(e.employeenumber, 15, '0') IN ({inClause})
+                  AND d.deductiontype = '265'
                   AND (
                       (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
                       OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
