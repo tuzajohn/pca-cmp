@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PCA.Modules.Invoicing.Models;
+using System.Text.RegularExpressions;
 
 namespace PCA.Modules.Invoicing.Services;
 
@@ -82,10 +83,18 @@ public class HcmMappingService
 
     public async Task SaveMappingsAsync(List<HcmMapping> mappings)
     {
+        // Match against the same normalized cache used for classification lookups
+        // (rather than an exact DB string match) so a whitespace variant of a raw
+        // value updates the existing mapping instead of silently creating a
+        // duplicate that the classification lookup will never find.
+        await EnsureLoadedAsync();
+
         foreach (var m in mappings)
         {
-            var existing = await _db.HcmMappings.FirstOrDefaultAsync(
-                x => x.RawValue == m.RawValue && x.SourceColumn == m.SourceColumn);
+            HcmMapping? existing = null;
+            if (_cache.TryGetValue(CacheKey(m.SourceColumn, m.RawValue), out var cached))
+                existing = await _db.HcmMappings.FindAsync(cached.Id);
+
             if (existing != null)
             {
                 existing.Classification = m.Classification;
@@ -94,6 +103,7 @@ public class HcmMappingService
             }
             else
             {
+                m.RawValue  = Normalize(m.RawValue);
                 m.CreatedAt = DateTime.UtcNow;
                 m.UpdatedAt = DateTime.UtcNow;
                 _db.HcmMappings.Add(m);
@@ -121,5 +131,11 @@ public class HcmMappingService
             .ToListAsync();
 
     private static string CacheKey(string sourceColumn, string rawValue)
-        => $"{sourceColumn.ToUpperInvariant()}|{rawValue}";
+        => $"{sourceColumn.ToUpperInvariant()}|{Normalize(rawValue)}";
+
+    // Collapses stray/irregular whitespace (double spaces, tabs, non-breaking
+    // spaces) so cosmetic spacing differences between HCM export rows don't
+    // produce distinct identities for what is otherwise the same raw value.
+    internal static string Normalize(string? rawValue)
+        => Regex.Replace((rawValue ?? string.Empty).Trim(), @"\s+", " ");
 }

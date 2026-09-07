@@ -587,9 +587,9 @@ public class HcmReportService
                 EmployeeName: Get("EMPLOYEE_NAME"),
                 VoteCode:     Get("VOTE_CODE"),
                 VoteName:     Get("VOTE_NAME"),
-                CostItem:     Get("COSTITEM"),
+                CostItem:     HcmMappingService.Normalize(Get("COSTITEM")),
                 CostItemAmt:  GetAmt("COSTITEM_AMT"),
-                VendorName:   Get("VENDOR_NAME"),
+                VendorName:   HcmMappingService.Normalize(Get("VENDOR_NAME")),
                 VendorAmount: GetAmt("VENDOR_AMOUNT")));
         }
         return rows;
