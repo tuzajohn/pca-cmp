@@ -37,6 +37,9 @@ internal sealed class DbLogger : ILogger
     public bool IsEnabled(LogLevel logLevel)
     {
         if (logLevel < LogLevel.Warning) return false;
+        // Never log EF Core's own failures to the DB: a failing AppLogs insert would
+        // log another error, which would insert again, forever.
+        if (_categoryName.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal)) return false;
         if (NoisyPrefixes.Any(p => _categoryName.StartsWith(p, StringComparison.Ordinal)))
             return logLevel >= LogLevel.Error;
         return true;
