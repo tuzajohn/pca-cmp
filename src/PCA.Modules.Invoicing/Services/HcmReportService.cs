@@ -1,3 +1,6 @@
+using CsvHelper;
+using CsvHelper.Configuration;
+using CsvHelper.Delegates;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using MySqlConnector;
@@ -5,6 +8,7 @@ using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using PCA.Modules.Invoicing.Models;
 using System.Drawing;
+using System.Globalization;
 
 namespace PCA.Modules.Invoicing.Services;
 
@@ -19,6 +23,14 @@ public record HcmSheetRow(
     decimal CostItemAmt,
     string  VendorName,
     decimal VendorAmount);
+
+// ── HCM file read result ──────────────────────────────────────────────────────
+
+public record HcmParseResult(
+    List<HcmSheetRow> Rows,   // only rows whose EMPLOYEE_NO is on the Stanbic list
+    int TotalRows,            // every data row in the file
+    int UnparsedAmounts,      // non-blank amounts on kept rows that weren't numbers (counted as 0)
+    int RaggedRows);          // CSV rows whose column count differs from the header
 
 // ── Result returned when unknowns need classification ─────────────────────────
 
@@ -86,16 +98,19 @@ public class HcmReportService
         // Stage 1 — parse + cross-reference
         Step("Stage 1 — Parsing Stanbic IPPS file…");
         var stanbicIpps = CrbReportService.ParseIppsFile(stanbicFile);
-
-        Step($"Stage 1 — Parsing HCM Excel file ({stanbicIpps.Count} Stanbic IPPS numbers loaded)…");
-        var hcmRows = ParseHcmExcel(hcmFile);
-
-        Step($"Stage 1 — Cross-referencing {hcmRows.Count} HCM rows against Stanbic list…");
-        var stanbicSet = new HashSet<string>(
+        var stanbicSet  = new HashSet<string>(
             stanbicIpps.Select(NormalizeIpps),
             StringComparer.OrdinalIgnoreCase);
 
-        var matched       = hcmRows.Where(r => stanbicSet.Contains(NormalizeIpps(r.EmployeeNo))).ToList();
+        Step($"Stage 1 — Reading HCM file and cross-referencing against {stanbicIpps.Count} Stanbic IPPS numbers…");
+        var hcm     = ParseHcmFile(hcmFile, stanbicSet);
+        var matched = hcm.Rows;
+        Step($"Stage 1 — Read {hcm.TotalRows} HCM rows, {matched.Count} belong to Stanbic employees");
+        if (hcm.RaggedRows > 0)
+            Step($"Stage 1 — Warning: {hcm.RaggedRows} HCM rows had a different number of columns from the header — check the file for stray quotes or delimiters");
+        if (hcm.UnparsedAmounts > 0)
+            Step($"Stage 1 — Warning: {hcm.UnparsedAmounts} COSTITEM_AMT/VENDOR_AMOUNT values on Stanbic rows were not numbers and were counted as 0");
+
         var matchedIpps   = new HashSet<string>(matched.Select(r => NormalizeIpps(r.EmployeeNo)), StringComparer.OrdinalIgnoreCase);
         var unmatched     = stanbicIpps
             .Where(n => !matchedIpps.Contains(NormalizeIpps(n)))
@@ -239,12 +254,10 @@ public class HcmReportService
         IFormFile hcmFile, IFormFile stanbicFile)
     {
         var stanbicIpps = CrbReportService.ParseIppsFile(stanbicFile);
-        var hcmRows     = ParseHcmExcel(hcmFile);
-
-        var stanbicSet = new HashSet<string>(
+        var stanbicSet  = new HashSet<string>(
             stanbicIpps.Select(NormalizeIpps),
             StringComparer.OrdinalIgnoreCase);
-        var matched = hcmRows.Where(r => stanbicSet.Contains(NormalizeIpps(r.EmployeeNo))).ToList();
+        var matched = ParseHcmFile(hcmFile, stanbicSet).Rows;
 
         await _mappings.EnsureLoadedAsync();
         var costItems   = matched.Select(r => r.CostItem).Where(v => !string.IsNullOrWhiteSpace(v));
@@ -531,68 +544,151 @@ public class HcmReportService
         return filePath;
     }
 
-    // ── HCM Excel parser ──────────────────────────────────────────────────────
+    // ── HCM source parser ─────────────────────────────────────────────────────
+    // The HCM export outgrew Excel's 1,048,576-row limit and now arrives as a
+    // CSV/TSV; .xlsx is still accepted. Only rows for Stanbic employees are kept,
+    // so a multi-million-row file is streamed rather than held in memory.
 
-    public static List<HcmSheetRow> ParseHcmExcel(IFormFile file)
+    private static readonly string[] RequiredHcmColumns =
+    {
+        "EMPLOYEE_NO", "EMPLOYEE_NAME", "VOTE_CODE", "VOTE_NAME",
+        "COSTITEM", "COSTITEM_AMT", "VENDOR_NAME", "VENDOR_AMOUNT"
+    };
+
+    public static HcmParseResult ParseHcmFile(IFormFile file, IReadOnlySet<string> keepIpps)
+    {
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        return ext is ".xlsx" or ".xls"
+            ? ParseHcmExcel(file, keepIpps)
+            : ParseHcmDelimited(file, keepIpps);
+    }
+
+    private static HcmParseResult ParseHcmDelimited(IFormFile file, IReadOnlySet<string> keepIpps)
+    {
+        var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+        {
+            DetectDelimiter = true,
+            GetDelimiter    = DetectHeaderDelimiter,
+            BadDataFound    = null   // stray quote inside a field: keep the text as-is
+        };
+        // StreamReader strips a UTF-8/UTF-16 BOM, which would otherwise end up in the first header
+        using var parser = new CsvParser(new StreamReader(file.OpenReadStream()), config);
+
+        if (!parser.Read()) throw new InvalidOperationException("The HCM file is empty.");
+        var headerCount = parser.Count;
+        var colIndex    = BuildHcmColumnIndex(
+            Enumerable.Range(0, headerCount).Select(i => parser[i]), firstIndex: 0);
+
+        Func<string, string> get = name =>
+        {
+            var idx = colIndex[name];
+            return idx < parser.Count ? parser[idx].Trim() : string.Empty;
+        };
+
+        var collector = new HcmRowCollector(keepIpps);
+        int ragged    = 0;
+        while (parser.Read())
+        {
+            if (parser.Count != headerCount) ragged++;
+            collector.Add(get("EMPLOYEE_NO"), get, get);
+        }
+        return collector.ToResult(ragged);
+    }
+
+    // Decide from the header line alone: data rows can carry commas (names,
+    // formatted amounts) that would skew a count across the whole buffer.
+    private static string DetectHeaderDelimiter(GetDelimiterArgs args)
+    {
+        var text   = args.Text;
+        var end    = text.IndexOfAny(new[] { '\r', '\n' });
+        var header = end >= 0 ? text[..end] : text;
+        return new[] { "\t", ",", ";", "|" }.MaxBy(d => header.Split(d).Length)!;
+    }
+
+    private static HcmParseResult ParseHcmExcel(IFormFile file, IReadOnlySet<string> keepIpps)
     {
         ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-        var rows = new List<HcmSheetRow>();
         using var stream = file.OpenReadStream();
         using var pkg    = new ExcelPackage(stream);
 
         var ws = pkg.Workbook.Worksheets.FirstOrDefault();
-        if (ws?.Dimension == null) return rows;
+        if (ws?.Dimension == null) throw new InvalidOperationException("The HCM file is empty.");
 
-        // Build column index from header row
-        var colIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        for (int c = 1; c <= ws.Dimension.Columns; c++)
-        {
-            var header = ws.Cells[1, c].Text?.Trim().ToUpperInvariant();
-            if (!string.IsNullOrEmpty(header))
-                colIndex[header] = c;
-        }
+        var colIndex = BuildHcmColumnIndex(
+            Enumerable.Range(1, ws.Dimension.Columns).Select(c => ws.Cells[1, c].Text), firstIndex: 1);
 
-        string Col(string name) => colIndex.TryGetValue(name, out var idx)
-            ? ws.Cells[2, idx].Text : string.Empty; // placeholder — fixed below
-
+        var collector = new HcmRowCollector(keepIpps);
         for (int r = 2; r <= ws.Dimension.Rows; r++)
         {
-            string Get(string name) => colIndex.TryGetValue(name, out var idx)
-                ? ws.Cells[r, idx].Text?.Trim() ?? string.Empty : string.Empty;
-
-            decimal GetAmt(string name)
-            {
-                if (!colIndex.TryGetValue(name, out var idx)) return 0m;
-                var raw = ws.Cells[r, idx].Value;
-                if (raw == null) return 0m;
-                return decimal.TryParse(raw.ToString(),
-                    System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0m;
-            }
+            string Get(string name) => ws.Cells[r, colIndex[name]].Text?.Trim() ?? string.Empty;
+            string GetAmt(string name) =>
+                Convert.ToString(ws.Cells[r, colIndex[name]].Value, CultureInfo.InvariantCulture) ?? string.Empty;
 
             // Read EMPLOYEE_NO (= IPPS) via .Value to avoid scientific notation / thousand separators
-            string employeeNo;
-            if (colIndex.TryGetValue("EMPLOYEE_NO", out var empNoCol))
-            {
-                var cell = ws.Cells[r, empNoCol];
-                employeeNo = cell.Value is double d
-                    ? ((long)Math.Round(d)).ToString()
-                    : cell.Text?.Trim() ?? string.Empty;
-            }
-            else employeeNo = string.Empty;
-            if (string.IsNullOrWhiteSpace(employeeNo)) continue;
+            var cell       = ws.Cells[r, colIndex["EMPLOYEE_NO"]];
+            var employeeNo = cell.Value is double d
+                ? ((long)Math.Round(d)).ToString()
+                : cell.Text?.Trim() ?? string.Empty;
 
-            rows.Add(new HcmSheetRow(
-                EmployeeNo:   employeeNo,
-                EmployeeName: Get("EMPLOYEE_NAME"),
-                VoteCode:     Get("VOTE_CODE"),
-                VoteName:     Get("VOTE_NAME"),
-                CostItem:     HcmMappingService.Normalize(Get("COSTITEM")),
-                CostItemAmt:  GetAmt("COSTITEM_AMT"),
-                VendorName:   HcmMappingService.Normalize(Get("VENDOR_NAME")),
-                VendorAmount: GetAmt("VENDOR_AMOUNT")));
+            collector.Add(employeeNo, Get, GetAmt);
         }
-        return rows;
+        return collector.ToResult();
+    }
+
+    // Header name → column position. A missing column throws: before, a missing
+    // EMPLOYEE_NO skipped every row and sent all Stanbic numbers to Module 2 silently.
+    private static Dictionary<string, int> BuildHcmColumnIndex(IEnumerable<string?> headers, int firstIndex)
+    {
+        var colIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var c = firstIndex;
+        foreach (var h in headers)
+        {
+            var header = h?.Trim().ToUpperInvariant();
+            if (!string.IsNullOrEmpty(header))
+                colIndex[header] = c;
+            c++;
+        }
+
+        var missing = RequiredHcmColumns.Where(name => !colIndex.ContainsKey(name)).ToList();
+        if (missing.Count > 0)
+            throw new InvalidOperationException(
+                $"The HCM file is missing required column(s): {string.Join(", ", missing)}.");
+        return colIndex;
+    }
+
+    // Shared by both readers: counts every data row, builds only the Stanbic ones.
+    private sealed class HcmRowCollector(IReadOnlySet<string> keepIpps)
+    {
+        private readonly List<HcmSheetRow> _rows = new();
+        private int _totalRows, _unparsedAmounts;
+
+        public void Add(string employeeNo, Func<string, string> text, Func<string, string> amount)
+        {
+            if (string.IsNullOrWhiteSpace(employeeNo)) return;
+            _totalRows++;
+            if (!keepIpps.Contains(NormalizeIpps(employeeNo))) return;
+
+            _rows.Add(new HcmSheetRow(
+                EmployeeNo:   employeeNo,
+                EmployeeName: text("EMPLOYEE_NAME"),
+                VoteCode:     text("VOTE_CODE"),
+                VoteName:     text("VOTE_NAME"),
+                CostItem:     HcmMappingService.Normalize(text("COSTITEM")),
+                CostItemAmt:  ParseAmount(amount("COSTITEM_AMT")),
+                VendorName:   HcmMappingService.Normalize(text("VENDOR_NAME")),
+                VendorAmount: ParseAmount(amount("VENDOR_AMOUNT"))));
+        }
+
+        private decimal ParseAmount(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return 0m;
+            if (decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var v)) return v;
+            _unparsedAmounts++;
+            return 0m;
+        }
+
+        public HcmParseResult ToResult(int raggedRows = 0)
+            => new(_rows, _totalRows, _unparsedAmounts, raggedRows);
     }
 
     // ── Shared helpers ────────────────────────────────────────────────────────
