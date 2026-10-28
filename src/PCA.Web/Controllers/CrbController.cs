@@ -126,6 +126,11 @@ public class CrbController : Controller
         await SaveToFile(hcmFile,     Path.Combine(pending, "hcm.xlsx"));
         await SaveToFile(stanbicFile, Path.Combine(pending, "stanbic.xlsx"));
 
+        // Options must survive the classify pause — persist alongside the pending files
+        await System.IO.File.WriteAllTextAsync(
+            Path.Combine(pending, "options.json"),
+            JsonSerializer.Serialize(new { form.IncludeOtherReservations }), ct);
+
         if (unknowns.Count > 0)
             return Json(new
             {
@@ -135,7 +140,7 @@ public class CrbController : Controller
             });
 
         // No unknowns — kick off background run and return stream runId
-        StartHcmBackground(runId, pending);
+        StartHcmBackground(runId, pending, form.IncludeOtherReservations);
         return Json(new { status = "running", runId });
     }
 
@@ -168,7 +173,8 @@ public class CrbController : Controller
         if (!System.IO.File.Exists(hcmPath) || !System.IO.File.Exists(stanbicPath))
             return Json(new { status = "error", message = "Pending run files not found. Please re-upload." });
 
-        StartHcmBackground(req.RunId, pending);
+        var includeOtherReservations = await ReadIncludeOtherReservationsOption(pending);
+        StartHcmBackground(req.RunId, pending, includeOtherReservations);
         return Json(new { status = "running", runId = req.RunId });
     }
 
@@ -206,7 +212,8 @@ public class CrbController : Controller
             {
                 var result = await ippsSvc.GenerateAsync(
                     numbers, storageRoot,
-                    msg => _progress.Report(runId, msg));
+                    msg => _progress.Report(runId, msg),
+                    form.IncludeOtherReservations);
 
                 var response = new
                 {
@@ -220,7 +227,7 @@ public class CrbController : Controller
                     {
                         result.TotalSubmitted, result.Matched, result.Unmatched,
                         result.WithStat, result.WithAllow, result.WithDed,
-                        result.WithStanbic, result.ZeroAfford
+                        result.WithStanbic, result.ZeroAfford, result.WithOtherRes
                     }
                 };
                 _progress.Complete(runId, response);
@@ -250,7 +257,20 @@ public class CrbController : Controller
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private void StartHcmBackground(string runId, string pendingFolder)
+    private async Task<bool> ReadIncludeOtherReservationsOption(string pendingFolder)
+    {
+        var optionsPath = Path.Combine(pendingFolder, "options.json");
+        if (!System.IO.File.Exists(optionsPath)) return false;
+        try
+        {
+            var json = await System.IO.File.ReadAllTextAsync(optionsPath);
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("IncludeOtherReservations", out var v) && v.GetBoolean();
+        }
+        catch { return false; }
+    }
+
+    private void StartHcmBackground(string runId, string pendingFolder, bool includeOtherReservations)
     {
         _progress.CreateRunWithId(runId);
         var storageRoot = _storageRoot;
@@ -275,7 +295,8 @@ public class CrbController : Controller
                     new PhysicalFormFile(hcmStream, "hcm.xlsx"),
                     new PhysicalFormFile(stanbicStream, "stanbic.xlsx"),
                     storageRoot,
-                    msg => _progress.Report(runId, msg));
+                    msg => _progress.Report(runId, msg),
+                    includeOtherReservations);
 
                 try { Directory.Delete(pendingFolder, recursive: true); } catch { /* non-fatal */ }
 
@@ -298,7 +319,8 @@ public class CrbController : Controller
         stats    = new
         {
             result.TotalStanbicSubmitted, result.MatchedToHcm, result.PassedToIpps,
-            result.WithStat, result.WithAllow, result.WithDed, result.WithStanbic, result.ZeroAfford
+            result.WithStat, result.WithAllow, result.WithDed, result.WithStanbic, result.ZeroAfford,
+            result.WithOtherRes
         }
     };
 
@@ -318,11 +340,13 @@ public class HcmUploadForm
 {
     public IFormFile? HcmFile     { get; set; }
     public IFormFile? StanbicFile { get; set; }
+    public bool IncludeOtherReservations { get; set; }
 }
 
 public class IppsUploadForm
 {
     public IFormFile? IppsFile { get; set; }
+    public bool IncludeOtherReservations { get; set; }
 }
 
 // ── Request model for SaveMappings ────────────────────────────────────────────

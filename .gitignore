@@ -94,3 +94,6 @@ Thumbs.db
 coverage/
 TestResults/
 *.trx
+"src/PCA.Web/uploads/" 
+
+src/PCA.Web/uploads/
