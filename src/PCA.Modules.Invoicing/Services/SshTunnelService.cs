@@ -59,7 +59,7 @@ public static class SshTunnelService
         var authMethod = new PrivateKeyAuthenticationMethod(cfg.SshUsername, keyFile);
         var sshConn = new ConnectionInfo(cfg.SshHost, cfg.SshPort, cfg.SshUsername, authMethod);
 
-        var ssh = new SshClient(sshConn);
+        var ssh = new SshClient(sshConn) { KeepAliveInterval = TimeSpan.FromSeconds(15) };
         ssh.Connect();
         logger?.LogInformation("SSH tunnel: connected to {SshHost}", cfg.SshHost);
 

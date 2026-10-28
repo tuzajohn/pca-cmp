@@ -423,6 +423,7 @@ public class HcmReportService
                 FROM deductions d
                 INNER JOIN employees e ON d.employeeid = e.id
                 WHERE LPAD(e.employeenumber, 15, '0') IN ({inClause})
+                  AND d.deductiontype = '265'
                   AND (
                       (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
                       OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
@@ -586,9 +587,9 @@ public class HcmReportService
                 EmployeeName: Get("EMPLOYEE_NAME"),
                 VoteCode:     Get("VOTE_CODE"),
                 VoteName:     Get("VOTE_NAME"),
-                CostItem:     Get("COSTITEM"),
+                CostItem:     HcmMappingService.Normalize(Get("COSTITEM")),
                 CostItemAmt:  GetAmt("COSTITEM_AMT"),
-                VendorName:   Get("VENDOR_NAME"),
+                VendorName:   HcmMappingService.Normalize(Get("VENDOR_NAME")),
                 VendorAmount: GetAmt("VENDOR_AMOUNT")));
         }
         return rows;

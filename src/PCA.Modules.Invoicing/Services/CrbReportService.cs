@@ -423,6 +423,7 @@ public class CrbReportService
         WriteHeaders(ws, headers.ToArray());
 
         var numericCols = new List<int> { 2, 4, 5, 6, 7, 8 };
+        const int otherResCol = 12;
 
         for (int i = 0; i < rows.Count; i++)
         {
@@ -440,13 +441,13 @@ public class CrbReportService
             ws.Cells[row, 10].Value = r.Vote;
             ws.Cells[row, 11].Value = r.VoteName;
             if (includeOtherReservations)
-                ws.Cells[row, 11].Value = r.OtherReservations ?? 0m;
+                ws.Cells[row, otherResCol].Value = r.OtherReservations ?? 0m;
 
             // Currency format for numeric columns
-            //foreach (int col in numericCols)
-            //    ws.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
-            //if (includeOtherReservations)
-            //    ws.Cells[row, 11].Style.Numberformat.Format = "#,##0.00";
+            foreach (int col in numericCols)
+                ws.Cells[row, col].Style.Numberformat.Format = "#,##0.00";
+            if (includeOtherReservations)
+                ws.Cells[row, otherResCol].Style.Numberformat.Format = "#,##0.00";
         }
 
         FinalizeSheet(ws, headers.Count);
