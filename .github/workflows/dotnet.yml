@@ -34,9 +34,12 @@ jobs:
 
       - name: Deploy to server
         run: |
+          # uploads/ holds runtime files (invoices, CRB output, documents, attachments)
+          # that are not in ./publish — without the exclude, --delete wipes them on every deploy
           sudo rsync -a --delete \
             --exclude='appsettings.Staging.json' \
             --exclude='appsettings.Production.json' \
+            --exclude='/uploads/' \
             ./publish/ /var/www/pcuganda-admin/
 
       - name: Set permissions
