@@ -123,13 +123,17 @@ public class CrbController : Controller
         var runId   = Guid.NewGuid().ToString("N")[..12];
         var pending = PendingFolder(runId);
         Directory.CreateDirectory(pending);
-        await SaveToFile(hcmFile,     Path.Combine(pending, "hcm.xlsx"));
-        await SaveToFile(stanbicFile, Path.Combine(pending, "stanbic.xlsx"));
+        var options = new PendingRunOptions(
+            form.IncludeOtherReservations,
+            PendingFileName("hcm", hcmFile),
+            PendingFileName("stanbic", stanbicFile));
+        await SaveToFile(hcmFile,     Path.Combine(pending, options.HcmFileName));
+        await SaveToFile(stanbicFile, Path.Combine(pending, options.StanbicFileName));
 
         // Options must survive the classify pause — persist alongside the pending files
         await System.IO.File.WriteAllTextAsync(
             Path.Combine(pending, "options.json"),
-            JsonSerializer.Serialize(new { form.IncludeOtherReservations }), ct);
+            JsonSerializer.Serialize(options), ct);
 
         if (unknowns.Count > 0)
             return Json(new
@@ -140,7 +144,7 @@ public class CrbController : Controller
             });
 
         // No unknowns — kick off background run and return stream runId
-        StartHcmBackground(runId, pending, form.IncludeOtherReservations);
+        StartHcmBackground(runId, pending, options);
         return Json(new { status = "running", runId });
     }
 
@@ -167,14 +171,14 @@ public class CrbController : Controller
         { return Json(new { status = "error", message = $"Could not save mappings: {ex.Message}" }); }
 
         var pending     = PendingFolder(req.RunId);
-        var hcmPath     = Path.Combine(pending, "hcm.xlsx");
-        var stanbicPath = Path.Combine(pending, "stanbic.xlsx");
+        var options     = await ReadPendingOptions(pending);
+        var hcmPath     = Path.Combine(pending, options.HcmFileName);
+        var stanbicPath = Path.Combine(pending, options.StanbicFileName);
 
         if (!System.IO.File.Exists(hcmPath) || !System.IO.File.Exists(stanbicPath))
             return Json(new { status = "error", message = "Pending run files not found. Please re-upload." });
 
-        var includeOtherReservations = await ReadIncludeOtherReservationsOption(pending);
-        StartHcmBackground(req.RunId, pending, includeOtherReservations);
+        StartHcmBackground(req.RunId, pending, options);
         return Json(new { status = "running", runId = req.RunId });
     }
 
@@ -257,20 +261,24 @@ public class CrbController : Controller
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private async Task<bool> ReadIncludeOtherReservationsOption(string pendingFolder)
+    private async Task<PendingRunOptions> ReadPendingOptions(string pendingFolder)
     {
         var optionsPath = Path.Combine(pendingFolder, "options.json");
-        if (!System.IO.File.Exists(optionsPath)) return false;
+        if (!System.IO.File.Exists(optionsPath)) return new PendingRunOptions(false);
         try
         {
             var json = await System.IO.File.ReadAllTextAsync(optionsPath);
-            using var doc = JsonDocument.Parse(json);
-            return doc.RootElement.TryGetProperty("IncludeOtherReservations", out var v) && v.GetBoolean();
+            return JsonSerializer.Deserialize<PendingRunOptions>(json) ?? new PendingRunOptions(false);
         }
-        catch { return false; }
+        catch { return new PendingRunOptions(false); }
     }
 
-    private void StartHcmBackground(string runId, string pendingFolder, bool includeOtherReservations)
+    // Parsers pick Excel vs CSV by extension, so the saved copy must keep that
+    // distinction — and only that, so the uploaded name never reaches the path.
+    private static string PendingFileName(string prefix, IFormFile file)
+        => prefix + (Path.GetExtension(file.FileName).ToLowerInvariant() is ".xlsx" or ".xls" ? ".xlsx" : ".csv");
+
+    private void StartHcmBackground(string runId, string pendingFolder, PendingRunOptions options)
     {
         _progress.CreateRunWithId(runId);
         var storageRoot = _storageRoot;
@@ -288,15 +296,15 @@ public class CrbController : Controller
             var hcmSvc = scope.ServiceProvider.GetRequiredService<HcmReportService>();
             try
             {
-                using var hcmStream     = System.IO.File.OpenRead(Path.Combine(pendingFolder, "hcm.xlsx"));
-                using var stanbicStream = System.IO.File.OpenRead(Path.Combine(pendingFolder, "stanbic.xlsx"));
+                using var hcmStream     = System.IO.File.OpenRead(Path.Combine(pendingFolder, options.HcmFileName));
+                using var stanbicStream = System.IO.File.OpenRead(Path.Combine(pendingFolder, options.StanbicFileName));
 
                 var result = await hcmSvc.RunAsync(
-                    new PhysicalFormFile(hcmStream, "hcm.xlsx"),
-                    new PhysicalFormFile(stanbicStream, "stanbic.xlsx"),
+                    new PhysicalFormFile(hcmStream, options.HcmFileName),
+                    new PhysicalFormFile(stanbicStream, options.StanbicFileName),
                     storageRoot,
                     msg => _progress.Report(runId, msg),
-                    includeOtherReservations);
+                    options.IncludeOtherReservations);
 
                 try { Directory.Delete(pendingFolder, recursive: true); } catch { /* non-fatal */ }
 
@@ -348,6 +356,14 @@ public class IppsUploadForm
     public IFormFile? IppsFile { get; set; }
     public bool IncludeOtherReservations { get; set; }
 }
+
+// ── Persisted with a pending HCM run (options.json) ───────────────────────────
+// File name defaults cover runs paused for classification before names were stored.
+
+internal sealed record PendingRunOptions(
+    bool   IncludeOtherReservations,
+    string HcmFileName     = "hcm.xlsx",
+    string StanbicFileName = "stanbic.xlsx");
 
 // ── Request model for SaveMappings ────────────────────────────────────────────
 
