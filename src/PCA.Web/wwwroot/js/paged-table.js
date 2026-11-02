@@ -234,7 +234,9 @@ const PagedTable = (() => {
 
             let result;
             try {
-                const resp = await fetch(`${url}?${params}`);
+                // url may already carry a query string (e.g. RunsData?id=5); a second '?'
+                // would turn the id into "5?page=1", which binds as 0 and returns nothing
+                const resp = await fetch(`${url}${url.includes('?') ? '&' : '?'}${params}`);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 result = await resp.json();
             } catch {
