@@ -301,6 +301,7 @@ public class CrbReportService
                                 ELSE 0 END) AS other_res
                 FROM deductions d
                 WHERE d.employeeid IN ({inClause})
+                  AND COALESCE(d.isactive, '') <> 'N'   -- inactive deductions never count, whatever their status
                   AND (
                       (d.status = 'takenup'  AND d.isactive = 'Y')
                       OR (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')

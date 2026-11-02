@@ -403,6 +403,7 @@ public class HcmReportService
                 FROM deductions d
                 INNER JOIN employees e ON d.employeeid = e.id
                 WHERE LPAD(e.employeenumber, 15, '0') IN ({inClause})
+                  AND COALESCE(d.isactive, '') <> 'N'   -- inactive deductions never count, whatever their status
                   AND (
                       (d.status = 'takenup'  AND d.isactive = 'Y')
                       OR (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
@@ -437,6 +438,7 @@ public class HcmReportService
                 INNER JOIN employees e ON d.employeeid = e.id
                 WHERE LPAD(e.employeenumber, 15, '0') IN ({inClause})
                   AND d.deductiontype = '265'
+                  AND COALESCE(d.isactive, '') <> 'N'   -- inactive deductions never count, whatever their status
                   AND (
                       (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
                       OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
@@ -471,6 +473,7 @@ public class HcmReportService
                 WHERE LPAD(e.employeenumber, 15, '0') IN ({inClause})
                   AND d.deductiontype <> '265'
                   AND d.datecreated >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
+                  AND COALESCE(d.isactive, '') <> 'N'   -- inactive deductions never count, whatever their status
                   AND (
                       (d.status = 'reserved' AND d.rep_status = 'Pending_approval' AND d.isactive = 'Y')
                       OR (d.status = 'reserved' AND (d.rep_status = '0' OR d.rep_status IS NULL OR d.rep_status = ''))
