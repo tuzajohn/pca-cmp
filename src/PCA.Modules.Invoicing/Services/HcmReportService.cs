@@ -552,9 +552,10 @@ public class HcmReportService
     // CSV/TSV; .xlsx is still accepted. Only rows for Stanbic employees are kept,
     // so a multi-million-row file is streamed rather than held in memory.
 
+    // EMPLOYEE_NAME is read when present but optional: names never reach the output.
     private static readonly string[] RequiredHcmColumns =
     {
-        "EMPLOYEE_NO", "EMPLOYEE_NAME", "VOTE_CODE", "VOTE_NAME",
+        "EMPLOYEE_NO", "VOTE_CODE", "VOTE_NAME",
         "COSTITEM", "COSTITEM_AMT", "VENDOR_NAME", "VENDOR_AMOUNT"
     };
 
@@ -583,10 +584,7 @@ public class HcmReportService
             Enumerable.Range(0, headerCount).Select(i => parser[i]), firstIndex: 0);
 
         Func<string, string> get = name =>
-        {
-            var idx = colIndex[name];
-            return idx < parser.Count ? parser[idx].Trim() : string.Empty;
-        };
+            colIndex.TryGetValue(name, out var idx) && idx < parser.Count ? parser[idx].Trim() : string.Empty;
 
         var collector = new HcmRowCollector(keepIpps);
         int ragged    = 0;
@@ -623,7 +621,8 @@ public class HcmReportService
         var collector = new HcmRowCollector(keepIpps);
         for (int r = 2; r <= ws.Dimension.Rows; r++)
         {
-            string Get(string name) => ws.Cells[r, colIndex[name]].Text?.Trim() ?? string.Empty;
+            string Get(string name) => colIndex.TryGetValue(name, out var idx)
+                ? ws.Cells[r, idx].Text?.Trim() ?? string.Empty : string.Empty;
             string GetAmt(string name) =>
                 Convert.ToString(ws.Cells[r, colIndex[name]].Value, CultureInfo.InvariantCulture) ?? string.Empty;
 
