@@ -103,7 +103,7 @@ public class HcmReportService
 
         if (useApiSalary && !_salaryApi.IsConfigured)
             throw new InvalidOperationException(
-                "Salary from the HCM API was requested, but Invoicing:HcmApi:Url and Token are not configured.");
+                "Salary from the HCM API was requested, but Invoicing:HcmApi:Url is empty.");
 
         // Stage 1 — parse + cross-reference
         Step("Stage 1 — Parsing Stanbic IPPS file…");

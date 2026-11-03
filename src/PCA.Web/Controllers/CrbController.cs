@@ -114,7 +114,7 @@ public class CrbController : Controller
             return Json(new { status = "error", message = "Both files are required." });
         if (form.UseApiSalary && !_hcmSvc.IsSalaryApiConfigured)
             return Json(new { status = "error", message =
-                "Salary from the HCM API is not available: Invoicing:HcmApi:Url and Token are not configured on the server." });
+                "Salary from the HCM API is not available: Invoicing:HcmApi:Url is empty on the server." });
 
         // Pre-flight: check for unknown mappings (quick, synchronous)
         List<(string RawValue, string SourceColumn)> unknowns;

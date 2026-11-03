@@ -9,15 +9,15 @@ namespace PCA.Modules.Invoicing.Services;
 
 public class HcmApiSettings
 {
-    public string Url { get; set; } = string.Empty;
-    public string Token { get; set; } = string.Empty;
+    public string Url { get; set; } = "https://api.pcuganda.com/pdms/prod/validate_hcm_employee";
+    public string Token { get; set; } = string.Empty;   // optional: sent as Bearer only when set
     public int MaxConcurrency { get; set; } = 8;
     public int TimeoutSeconds { get; set; } = 30;
 }
 
 /// <summary>
 /// Reads gross_salary from the HCM validate_hcm_employee API
-/// (multipart POST: nin, empNumber, transactionType; Bearer token).
+/// (multipart POST: nin, empNumber, transactionType; Bearer token when configured).
 /// </summary>
 public class HcmSalaryApiClient
 {
@@ -35,8 +35,7 @@ public class HcmSalaryApiClient
         _logger   = logger;
     }
 
-    public bool IsConfigured =>
-        !string.IsNullOrWhiteSpace(_settings.Url) && !string.IsNullOrWhiteSpace(_settings.Token);
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(_settings.Url);
 
     /// <summary>
     /// Looks up each 15-digit employee number. Employees the API could not answer for
@@ -88,7 +87,8 @@ public class HcmSalaryApiClient
                         { FormField("0"), "transactionType" }
                     }
                 };
-                req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.Token);
+                if (!string.IsNullOrWhiteSpace(_settings.Token))
+                    req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.Token);
 
                 using var resp = await _http.SendAsync(req, ct);
                 if (IsTransient(resp.StatusCode) && attempt < MaxAttempts)
