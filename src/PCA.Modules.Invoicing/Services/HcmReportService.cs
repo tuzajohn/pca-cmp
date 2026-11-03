@@ -64,19 +64,24 @@ public class HcmReportService
     private readonly ExternalDbSettings _hcmDb;
     private readonly HcmMappingService  _mappings;
     private readonly CrbReportService   _ippsModule;
+    private readonly HcmSalaryApiClient _salaryApi;
     private readonly ILogger<HcmReportService> _logger;
 
     public HcmReportService(
         ExternalDbSettings hcmDbSettings,
         HcmMappingService mappings,
         CrbReportService ippsModule,
+        HcmSalaryApiClient salaryApi,
         ILogger<HcmReportService> logger)
     {
         _hcmDb      = hcmDbSettings;
         _mappings   = mappings;
         _ippsModule = ippsModule;
+        _salaryApi  = salaryApi;
         _logger     = logger;
     }
+
+    public bool IsSalaryApiConfigured => _salaryApi.IsConfigured;
 
     // ── Entry point ───────────────────────────────────────────────────────────
 
@@ -91,9 +96,14 @@ public class HcmReportService
         string storageRoot,
         Action<string>? progress = null,
         bool includeOtherReservations = false,
+        bool useApiSalary = false,
         CancellationToken ct = default)
     {
         void Step(string msg) { progress?.Invoke(msg); _logger.LogInformation("HCM: {Msg}", msg); }
+
+        if (useApiSalary && !_salaryApi.IsConfigured)
+            throw new InvalidOperationException(
+                "Salary from the HCM API was requested, but Invoicing:HcmApi:Url and Token are not configured.");
 
         // Stage 1 — parse + cross-reference
         Step("Stage 1 — Parsing Stanbic IPPS file…");
@@ -143,6 +153,22 @@ public class HcmReportService
 
         Step($"Stage 3 — Computed salary/stat/allow for {salaryMap.Count} employees");
 
+        // Optional: SALARY = gross_salary from the HCM API; stat/allow stay from the file.
+        // Employees the API can't answer for keep the file's basic salary.
+        Dictionary<string, decimal>? apiSalaryMap = null;
+        if (useApiSalary)
+        {
+            var apiKeys = empRows.Keys.Select(NormalizeIpps).Distinct().ToList();
+            Step($"Stage 3 — Fetching gross salary from the HCM API for {apiKeys.Count} employees…");
+            apiSalaryMap = await _salaryApi.GetGrossSalariesAsync(apiKeys, (done, total) =>
+            {
+                if (done % 1000 == 0 && done < total) Step($"Stage 3 — HCM API: {done} of {total} employees…");
+            }, ct);
+            Step($"Stage 3 — HCM API gave gross salary for {apiSalaryMap.Count} of {apiKeys.Count} employees " +
+                 $"({apiSalaryMap.Values.Count(v => v == 0)} returned 0.00); " +
+                 $"{apiKeys.Count - apiSalaryMap.Count} keep the HCM file's basic salary");
+        }
+
         // Stage 4 — query HCM DB
         Step("Stage 4 — Opening HCM database connection…");
         var empNumbers = empRows.Keys.ToList();
@@ -171,7 +197,8 @@ public class HcmReportService
 
             var normalizedKey = NormalizeIpps(empNo);
             var empInfo  = empInfoMap.TryGetValue(normalizedKey, out var ei) ? ei : null;
-            var salary   = salaryMap.TryGetValue(empNo, out var sv) ? sv : 0m;
+            var salary   = apiSalaryMap != null && apiSalaryMap.TryGetValue(normalizedKey, out var apiv) ? apiv
+                         : salaryMap.TryGetValue(empNo, out var sv) ? sv : 0m;
             var stat     = statMap.TryGetValue(empNo, out var stv)  ? stv : 0m;
             var allow    = allowMap.TryGetValue(empNo, out var av)   ? av  : 0m;
             var ded      = dedMap.TryGetValue(normalizedKey, out var dv)     ? dv  : 0m;

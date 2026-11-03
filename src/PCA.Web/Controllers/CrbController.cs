@@ -112,6 +112,9 @@ public class CrbController : Controller
         var stanbicFile = form.StanbicFile;
         if (hcmFile == null || stanbicFile == null)
             return Json(new { status = "error", message = "Both files are required." });
+        if (form.UseApiSalary && !_hcmSvc.IsSalaryApiConfigured)
+            return Json(new { status = "error", message =
+                "Salary from the HCM API is not available: Invoicing:HcmApi:Url and Token are not configured on the server." });
 
         // Pre-flight: check for unknown mappings (quick, synchronous)
         List<(string RawValue, string SourceColumn)> unknowns;
@@ -126,7 +129,8 @@ public class CrbController : Controller
         var options = new PendingRunOptions(
             form.IncludeOtherReservations,
             PendingFileName("hcm", hcmFile),
-            PendingFileName("stanbic", stanbicFile));
+            PendingFileName("stanbic", stanbicFile),
+            form.UseApiSalary);
         await SaveToFile(hcmFile,     Path.Combine(pending, options.HcmFileName));
         await SaveToFile(stanbicFile, Path.Combine(pending, options.StanbicFileName));
 
@@ -304,7 +308,8 @@ public class CrbController : Controller
                     new PhysicalFormFile(stanbicStream, options.StanbicFileName),
                     storageRoot,
                     msg => _progress.Report(runId, msg),
-                    options.IncludeOtherReservations);
+                    options.IncludeOtherReservations,
+                    options.UseApiSalary);
 
                 try { Directory.Delete(pendingFolder, recursive: true); } catch { /* non-fatal */ }
 
@@ -349,6 +354,7 @@ public class HcmUploadForm
     public IFormFile? HcmFile     { get; set; }
     public IFormFile? StanbicFile { get; set; }
     public bool IncludeOtherReservations { get; set; }
+    public bool UseApiSalary { get; set; }
 }
 
 public class IppsUploadForm
@@ -363,7 +369,8 @@ public class IppsUploadForm
 internal sealed record PendingRunOptions(
     bool   IncludeOtherReservations,
     string HcmFileName     = "hcm.xlsx",
-    string StanbicFileName = "stanbic.xlsx");
+    string StanbicFileName = "stanbic.xlsx",
+    bool   UseApiSalary    = false);
 
 // ── Request model for SaveMappings ────────────────────────────────────────────
 

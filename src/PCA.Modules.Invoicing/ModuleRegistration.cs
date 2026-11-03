@@ -15,6 +15,12 @@ public class ModuleRegistration
                    ?? new ExternalDbSettings();
         var hcm  = config.GetSection("Invoicing:HcmDb").Get<ExternalDbSettings>()
                    ?? new ExternalDbSettings();
+        var hcmApi = config.GetSection("Invoicing:HcmApi").Get<HcmApiSettings>()
+                     ?? new HcmApiSettings();
+
+        services.AddSingleton(hcmApi);
+        services.AddHttpClient<HcmSalaryApiClient>(c =>
+            c.Timeout = TimeSpan.FromSeconds(Math.Max(1, hcmApi.TimeoutSeconds)));
 
         services.AddSingleton(sp => new InvoiceDataService(
             ipps, hcm,
@@ -30,6 +36,7 @@ public class ModuleRegistration
             hcm,
             sp.GetRequiredService<HcmMappingService>(),
             sp.GetRequiredService<CrbReportService>(),
+            sp.GetRequiredService<HcmSalaryApiClient>(),
             sp.GetRequiredService<ILogger<HcmReportService>>()));
     }
 }
