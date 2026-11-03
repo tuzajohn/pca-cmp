@@ -112,7 +112,7 @@ public class CrbController : Controller
         var stanbicFile = form.StanbicFile;
         if (hcmFile == null || stanbicFile == null)
             return Json(new { status = "error", message = "Both files are required." });
-        if (form.UseApiSalary && !_hcmSvc.IsSalaryApiConfigured)
+        if (form.SalarySource == SalarySource.GrossFromApi && !_hcmSvc.IsSalaryApiConfigured)
             return Json(new { status = "error", message =
                 "Salary from the HCM API is not available: Invoicing:HcmApi:Url is empty on the server." });
 
@@ -130,7 +130,7 @@ public class CrbController : Controller
             form.IncludeOtherReservations,
             PendingFileName("hcm", hcmFile),
             PendingFileName("stanbic", stanbicFile),
-            form.UseApiSalary);
+            form.SalarySource);
         await SaveToFile(hcmFile,     Path.Combine(pending, options.HcmFileName));
         await SaveToFile(stanbicFile, Path.Combine(pending, options.StanbicFileName));
 
@@ -309,7 +309,7 @@ public class CrbController : Controller
                     storageRoot,
                     msg => _progress.Report(runId, msg),
                     options.IncludeOtherReservations,
-                    options.UseApiSalary);
+                    options.SalarySource);
 
                 try { Directory.Delete(pendingFolder, recursive: true); } catch { /* non-fatal */ }
 
@@ -354,7 +354,7 @@ public class HcmUploadForm
     public IFormFile? HcmFile     { get; set; }
     public IFormFile? StanbicFile { get; set; }
     public bool IncludeOtherReservations { get; set; }
-    public bool UseApiSalary { get; set; }
+    public SalarySource SalarySource { get; set; }
 }
 
 public class IppsUploadForm
@@ -370,7 +370,7 @@ internal sealed record PendingRunOptions(
     bool   IncludeOtherReservations,
     string HcmFileName     = "hcm.xlsx",
     string StanbicFileName = "stanbic.xlsx",
-    bool   UseApiSalary    = false);
+    SalarySource SalarySource = SalarySource.BasicFromFile);
 
 // ── Request model for SaveMappings ────────────────────────────────────────────
 

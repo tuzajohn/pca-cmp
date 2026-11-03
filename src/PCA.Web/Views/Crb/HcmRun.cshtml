@@ -39,12 +39,14 @@
                             </label>
                             <div class="form-text">Active reservations (not Stanbic) created within the last 2 months. Applies to both output files.</div>
                         </div>
-                        <div class="mb-4 form-check">
-                            <input type="checkbox" class="form-check-input" id="useApiSalary">
-                            <label class="form-check-label" for="useApiSalary">
-                                Take SALARY from the HCM API (gross salary)
-                            </label>
-                            <div class="form-text">Looks up each matched employee's <code>gross_salary</code> in the HCM API; STAT and ALLOW still come from the file. Employees the API can't return keep the file's basic salary. Adds time: one API call per employee.</div>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold" for="salarySource">SALARY source</label>
+                            <select class="form-select" id="salarySource">
+                                <option value="BasicFromFile" selected>Basic salary from the HCM file (COSTITEM)</option>
+                                <option value="GrossFromFile">Gross pay from the HCM file (PAY_GROSS_SALARY)</option>
+                                <option value="GrossFromApi">Gross salary from the HCM API (slow: one call per employee)</option>
+                            </select>
+                            <div class="form-text">STAT and ALLOW always come from the file. Employees with no figure from the chosen source keep the file's basic salary.</div>
                         </div>
                         <button type="submit" class="btn btn-primary" id="btn-upload">
                             <i class="bi bi-play-fill me-1"></i>Process &amp; Generate
@@ -161,7 +163,7 @@
         fd.append('hcmFile', hcmFile);
         fd.append('stanbicFile', stanbicFile);
         fd.append('includeOtherReservations', document.getElementById('includeOtherReservations').checked);
-        fd.append('useApiSalary', document.getElementById('useApiSalary').checked);
+        fd.append('salarySource', document.getElementById('salarySource').value);
 
         let data;
         try {

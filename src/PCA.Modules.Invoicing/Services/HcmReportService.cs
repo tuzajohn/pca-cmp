@@ -22,7 +22,17 @@ public record HcmSheetRow(
     string  CostItem,
     decimal CostItemAmt,
     string  VendorName,
-    decimal VendorAmount);
+    decimal VendorAmount,
+    decimal GrossPay = 0m);   // PAY_GROSS_SALARY (0 when the column is absent)
+
+// ── Where CRB_HCM takes SALARY from ───────────────────────────────────────────
+
+public enum SalarySource
+{
+    BasicFromFile,   // COSTITEM classified BASIC_SALARY (default)
+    GrossFromFile,   // PAY_GROSS_SALARY column
+    GrossFromApi     // HCM API gross_salary (one call per employee)
+}
 
 // ── HCM file read result ──────────────────────────────────────────────────────
 
@@ -30,7 +40,8 @@ public record HcmParseResult(
     List<HcmSheetRow> Rows,   // only rows whose EMPLOYEE_NO is on the Stanbic list
     int TotalRows,            // every data row in the file
     int UnparsedAmounts,      // non-blank amounts on kept rows that weren't numbers (counted as 0)
-    int RaggedRows);          // CSV rows whose column count differs from the header
+    int RaggedRows,           // CSV rows whose column count differs from the header
+    bool HasGrossPay);        // file has a PAY_GROSS_SALARY column
 
 // ── Result returned when unknowns need classification ─────────────────────────
 
@@ -96,12 +107,12 @@ public class HcmReportService
         string storageRoot,
         Action<string>? progress = null,
         bool includeOtherReservations = false,
-        bool useApiSalary = false,
+        SalarySource salarySource = SalarySource.BasicFromFile,
         CancellationToken ct = default)
     {
         void Step(string msg) { progress?.Invoke(msg); _logger.LogInformation("HCM: {Msg}", msg); }
 
-        if (useApiSalary && !_salaryApi.IsConfigured)
+        if (salarySource == SalarySource.GrossFromApi && !_salaryApi.IsConfigured)
             throw new InvalidOperationException(
                 "Salary from the HCM API was requested, but Invoicing:HcmApi:Url is empty.");
 
@@ -119,7 +130,10 @@ public class HcmReportService
         if (hcm.RaggedRows > 0)
             Step($"Stage 1 — Warning: {hcm.RaggedRows} HCM rows had a different number of columns from the header — check the file for stray quotes or delimiters");
         if (hcm.UnparsedAmounts > 0)
-            Step($"Stage 1 — Warning: {hcm.UnparsedAmounts} COSTITEM_AMT/VENDOR_AMOUNT values on Stanbic rows were not numbers and were counted as 0");
+            Step($"Stage 1 — Warning: {hcm.UnparsedAmounts} amount values (COSTITEM_AMT/VENDOR_AMOUNT/PAY_GROSS_SALARY) on Stanbic rows were not numbers and were counted as 0");
+        if (salarySource == SalarySource.GrossFromFile && !hcm.HasGrossPay)
+            throw new InvalidOperationException(
+                "Gross pay was chosen as the SALARY source, but the HCM file has no PAY_GROSS_SALARY column.");
 
         var matchedIpps   = new HashSet<string>(matched.Select(r => NormalizeIpps(r.EmployeeNo)), StringComparer.OrdinalIgnoreCase);
         var unmatched     = stanbicIpps
@@ -153,20 +167,29 @@ public class HcmReportService
 
         Step($"Stage 3 — Computed salary/stat/allow for {salaryMap.Count} employees");
 
-        // Optional: SALARY = gross_salary from the HCM API; stat/allow stay from the file.
-        // Employees the API can't answer for keep the file's basic salary.
-        Dictionary<string, decimal>? apiSalaryMap = null;
-        if (useApiSalary)
+        // SALARY from a gross source when chosen (keyed by normalized IPPS); stat/allow
+        // always stay from the file. Employees the source has no figure for keep basic.
+        Dictionary<string, decimal>? grossSalaryMap = null;
+        if (salarySource == SalarySource.GrossFromFile)
+        {
+            var (gross, conflicting) = ComputeGrossPay(empRows);
+            grossSalaryMap = gross;
+            Step($"Stage 3 — Using PAY_GROSS_SALARY for {gross.Count} of {empRows.Count} employees; " +
+                 $"{empRows.Count - gross.Count} have none and keep the HCM file's basic salary");
+            if (conflicting > 0)
+                Step($"Stage 3 — Warning: {conflicting} employees have more than one different PAY_GROSS_SALARY in the file; the first non-zero value was used");
+        }
+        else if (salarySource == SalarySource.GrossFromApi)
         {
             var apiKeys = empRows.Keys.Select(NormalizeIpps).Distinct().ToList();
             Step($"Stage 3 — Fetching gross salary from the HCM API for {apiKeys.Count} employees…");
-            apiSalaryMap = await _salaryApi.GetGrossSalariesAsync(apiKeys, (done, total) =>
+            grossSalaryMap = await _salaryApi.GetGrossSalariesAsync(apiKeys, (done, total) =>
             {
                 if (done % 1000 == 0 && done < total) Step($"Stage 3 — HCM API: {done} of {total} employees…");
             }, ct);
-            Step($"Stage 3 — HCM API gave gross salary for {apiSalaryMap.Count} of {apiKeys.Count} employees " +
-                 $"({apiSalaryMap.Values.Count(v => v == 0)} returned 0.00); " +
-                 $"{apiKeys.Count - apiSalaryMap.Count} keep the HCM file's basic salary");
+            Step($"Stage 3 — HCM API gave gross salary for {grossSalaryMap.Count} of {apiKeys.Count} employees " +
+                 $"({grossSalaryMap.Values.Count(v => v == 0)} returned 0.00); " +
+                 $"{apiKeys.Count - grossSalaryMap.Count} keep the HCM file's basic salary");
         }
 
         // Stage 4 — query HCM DB
@@ -197,7 +220,7 @@ public class HcmReportService
 
             var normalizedKey = NormalizeIpps(empNo);
             var empInfo  = empInfoMap.TryGetValue(normalizedKey, out var ei) ? ei : null;
-            var salary   = apiSalaryMap != null && apiSalaryMap.TryGetValue(normalizedKey, out var apiv) ? apiv
+            var salary   = grossSalaryMap != null && grossSalaryMap.TryGetValue(normalizedKey, out var gv) ? gv
                          : salaryMap.TryGetValue(empNo, out var sv) ? sv : 0m;
             var stat     = statMap.TryGetValue(empNo, out var stv)  ? stv : 0m;
             var allow    = allowMap.TryGetValue(empNo, out var av)   ? av  : 0m;
@@ -339,6 +362,24 @@ public class HcmReportService
         foreach (var e in entries.Where(e => e.Classification == HcmMapping.Classifications.BasicSalary))
             result.TryAdd(e.EmpNo, e.Amount);
         return result;
+    }
+
+    // Gross-pay SALARY source: first non-zero PAY_GROSS_SALARY per employee in file
+    // order (the column repeats on each of an employee's rows), keyed by normalized
+    // IPPS. Also counts employees whose rows disagree on the value.
+    private static (Dictionary<string, decimal> Gross, int Conflicting) ComputeGrossPay(
+        Dictionary<string, List<HcmSheetRow>> empRows)
+    {
+        var gross = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        int conflicting = 0;
+        foreach (var (empNo, rows) in empRows)
+        {
+            var values = rows.Select(r => r.GrossPay).Where(v => v > 0).ToList();
+            if (values.Count == 0) continue;
+            gross[NormalizeIpps(empNo)] = values[0];
+            if (values.Distinct().Count() > 1) conflicting++;
+        }
+        return (gross, conflicting);
     }
 
     // ── Stage 4: stat ─────────────────────────────────────────────────────────
@@ -620,7 +661,7 @@ public class HcmReportService
             if (parser.Count != headerCount) ragged++;
             collector.Add(get("EMPLOYEE_NO"), get, get);
         }
-        return collector.ToResult(ragged);
+        return collector.ToResult(colIndex.ContainsKey("PAY_GROSS_SALARY"), ragged);
     }
 
     // Decide from the header line alone: data rows can carry commas (names,
@@ -650,8 +691,8 @@ public class HcmReportService
         {
             string Get(string name) => colIndex.TryGetValue(name, out var idx)
                 ? ws.Cells[r, idx].Text?.Trim() ?? string.Empty : string.Empty;
-            string GetAmt(string name) =>
-                Convert.ToString(ws.Cells[r, colIndex[name]].Value, CultureInfo.InvariantCulture) ?? string.Empty;
+            string GetAmt(string name) => colIndex.TryGetValue(name, out var idx)
+                ? Convert.ToString(ws.Cells[r, idx].Value, CultureInfo.InvariantCulture) ?? string.Empty : string.Empty;
 
             // Read EMPLOYEE_NO (= IPPS) via .Value to avoid scientific notation / thousand separators
             var cell       = ws.Cells[r, colIndex["EMPLOYEE_NO"]];
@@ -661,7 +702,7 @@ public class HcmReportService
 
             collector.Add(employeeNo, Get, GetAmt);
         }
-        return collector.ToResult();
+        return collector.ToResult(colIndex.ContainsKey("PAY_GROSS_SALARY"));
     }
 
     // Header name → column position. A missing column throws: before, a missing
@@ -705,7 +746,8 @@ public class HcmReportService
                 CostItem:     HcmMappingService.Normalize(text("COSTITEM")),
                 CostItemAmt:  ParseAmount(amount("COSTITEM_AMT")),
                 VendorName:   HcmMappingService.Normalize(text("VENDOR_NAME")),
-                VendorAmount: ParseAmount(amount("VENDOR_AMOUNT"))));
+                VendorAmount: ParseAmount(amount("VENDOR_AMOUNT")),
+                GrossPay:     ParseAmount(amount("PAY_GROSS_SALARY"))));
         }
 
         private decimal ParseAmount(string raw)
@@ -716,8 +758,8 @@ public class HcmReportService
             return 0m;
         }
 
-        public HcmParseResult ToResult(int raggedRows = 0)
-            => new(_rows, _totalRows, _unparsedAmounts, raggedRows);
+        public HcmParseResult ToResult(bool hasGrossPay, int raggedRows = 0)
+            => new(_rows, _totalRows, _unparsedAmounts, raggedRows, hasGrossPay);
     }
 
     // ── Shared helpers ────────────────────────────────────────────────────────
